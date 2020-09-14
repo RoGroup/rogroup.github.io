@@ -1,74 +1,86 @@
-<!DOCTYPE html>
-<html lang="en">
 <head>
-	<title>Fresh &bull; Soon</title>
+	<title>Fresh • Soon</title>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<link rel="stylesheet" type="text/css" href="vendor/bootstrap/css/bootstrap.min.css">
-	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.1/css/all.css">
-	<link rel="stylesheet" type="text/css" href="vendor/animate/animate.css">
-	<link rel="stylesheet" type="text/css" href="vendor/select2/select2.min.css">
-	<link rel="stylesheet" type="text/css" href="css/util.css">
-	<link rel="stylesheet" type="text/css" href="css/main.css">
-</head>
-<body>
-	<audio id="audio">
-      <source src="https://stream.zeno.fm/7mynz7a2czzuv">
-    </audio>
-	
-	<div class="bg-g1 size1 flex-w flex-col-c-sb p-l-15 p-r-15 p-b-30">
-		<div class="flex-w flex-c cd100 wsize1 bor1">
-			
-		</div>
+   <style>
+     @import url('https://fonts.googleapis.com/css2?family=Encode+Sans+Semi+Expanded:wght@100;200;300;400;500;600;700;800;900&family=Raleway:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
 
+* {
+  font-family: 'Encode Sans Semi Expanded', 'Roboto', sans-serif;
+  box-sizing: border-box;
+  transition: 0.3s ease-out !important;
+}
 
-		<div class="flex-col-c w-full p-t-50 p-b-80">
-			<h3 class="l1-txt1 txt-center p-b-10">
-				Fresh
-			</h3>
-			
-				
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  display: table;
+  background-image: url(https://i.imgur.com/QISFe2l.png);
+  background-size: cover;
+  background-position: center top;
+    font-family: 'Encode Sans Semi Expanded', sans-serif;
+}
 
-			<p id="dj" class="txt-center l1-txt2 p-b-43 wsize2">
-			    Version One, Coming Soon
-			</p>
-						
-<br>
-<br>
-			
-			<i style="display: visible;" class="fas fa-play play1" onclick="play()"></i>
-    <i style="display: none;" onclick="pause()" class="fas fa-pause pause1"></i>
-				
-		</div>
+div.container {
+  position: relative;
+  z-index: 9999;
+  text-align: center;
+  vertical-align: middle;
+  display: table-cell;
+}
 
-		<span class="s1-txt2 txt-center">
-			<a href="https://discord.gg/wDBKx7h" target="_blank">Join our Discord</a>
-		</span>
+body:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  opacity: 0.83;
+}
 
-	</div>
+div.container > * {
+   font-family: 'Encode Sans Semi Expanded', sans-serif;
+  color: #FFFFFF;
+}
 
+div.container > h1 {
+  font-size: 50px;
+}
 
+footer {
+  position: absolute;
+  bottom: 5px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  z-index: 9999999;
+}
 
-	
+footer > * {
+   font-family: 'Encode Sans Semi Expanded', sans-serif;
+  color: #FFFFFF;
+  text-decoration: none;
+}
 
-<!--===============================================================================================-->	
-	<script src="vendor/jquery/jquery-3.2.1.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/bootstrap/js/popper.js"></script>
-	<script src="vendor/bootstrap/js/bootstrap.min.js"></script>
-<!--===============================================================================================-->
-	<script src="vendor/select2/select2.min.js"></script>
-<!--===============================================================================================-->
+footer {
+   font-family: 'Encode Sans Semi Expanded', sans-serif;
+  color: #FFFFFF;
+  font-size: 17px;
+}
 
-<!--===============================================================================================-->
-	<script src="vendor/tilt/tilt.jquery.min.js"></script>
-	<script >
-		$('.js-tilt').tilt({
-			scale: 1.1
-		})
-	</script>
-<!--===============================================================================================-->
-	<script src="js/main.js"></script>
-	
-</body>
-</html>
+footer > a:hover {
+  color: #bdc3c7;
+}
+   </style>
+  </head>
+<div class="container">
+  <h1>FRESH</h1>
+  <br>
+  <audio controls="" volume="0.5"><source src="https://stream.zeno.fm/7mynz7a2czzuv"></audio>
+</div>
+<footer>
+  <a href="https://www.instagram.com/freshradiopw/" target="_blank"> Join our Discord </a>
+</footer>
