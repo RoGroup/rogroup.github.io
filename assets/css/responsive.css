@@ -1,0 +1,6 @@
+@media (max-width: 768px) { /* md */
+  .nav-link {
+    margin: 0 4px;
+    padding: 6px 4px;
+  }
+}

@@ -1,0 +1,51 @@
+<div>
+	<h3>Timetable</h3>
+	<div class="slot-navigation">
+		<a href="#" class="previous-day"><i class="fa fa-fw fa-chevron-left"></i> Previous day</a>
+		<p class="slot-time"></p>
+		<a href="#" class="next-day">Next day <i class="fa fa-fw fa-chevron-right"></i></a>
+	</div>
+	<div class="slot-container"></div>
+</div>
+<script>
+	showTime = moment().unix();
+
+	$('.previous-day').on('click', (e) => {
+		e.preventDefault();
+		showTime = moment.unix(showTime).subtract(1, 'day').unix();
+		fetchSlots(showTime);
+	}) 
+
+	$('.next-day').on('click', (e) => {
+		e.preventDefault();
+		showTime = moment.unix(showTime).add(1, 'day').unix();
+		fetchSlots(showTime);
+	}) 
+
+	fetchSlots = (time) => {
+		$('.slot-time').text(moment.unix(time).format('DD MMM YYYY'))
+		fetch(`https://app.radiopanel.co/api/v1/slots?afterDate=${moment.unix(time).startOf('day').unix()}&beforeDate=${moment.unix(time).endOf('day').unix()}`, {
+			headers: authHeaders,
+		})
+			.then((result) => result.json())
+			.then(({ _embedded }) => {
+				$('.slot-container').html(null);
+				_embedded.forEach((slot) => {
+					$('.slot-container').append(`
+						<div class="slot">
+							<img src="${slot.user.avatar  || "https://i.imgur.com/YnNkoXe.png"}" alt="" class="slot-image">
+							<div class="slot-info">
+								<p class="slot-title">
+									${slot.title}
+									<span class="slot-time">${moment.unix(slot.start).format('HH:mm')}-${moment.unix(slot.end).format('HH:mm')}</span>
+								</p>
+								<p class="slot-user">Presented by ${slot.user.firstName} ${slot.user.lastName}</p>
+							</div>
+						</div>
+					`)
+				})
+			});
+	};
+
+	fetchSlots(showTime)
+</script>
