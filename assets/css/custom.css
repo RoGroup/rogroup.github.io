@@ -280,7 +280,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: white;
+  background: black;
   z-index: -1;
 }
 
@@ -302,6 +302,9 @@ html, body {
   overflow: hidden;
   padding: 1.2rem 2.5rem;
   box-sizing: border-box;
+  border: 0px solid #000000;
+  box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, 0.05), 0 2.5px 12px #0e1115;
+  -webkit-box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, 0.05),0 2.5px 12px #0e1115;
 }
 
 .member-avatar {
