@@ -506,6 +506,12 @@ p {
   z-index: 100;
 }
 
+.footer {
+  border: 0px solid #000000;
+  box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, 0.05), 0 2.5px 12px #0e1115;
+  -webkit-box-shadow: inset 0 0 0 2.5px rgba(255, 255, 255, 0.05),0 2.5px 12px #0e1115; 
+}
+
 @media (max-width: 600px) {
   .volume, .request-song {
     display: none;
