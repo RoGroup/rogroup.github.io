@@ -11,7 +11,7 @@ $('.play-button').on('click', (e) => {
 
   if (!playing) {
     $('.play-button i').removeClass('fa-play').addClass('fa-pause');
-    audio = new Audio(`https://stream.zeno.fm/7mynz7a2czzuv?cacheBuster=${Math.ceil(Math.random() * 40000)}`);
+    audio = new Audio(`https://stream.zeno.fm/fcc97kxfcd0uv?cacheBuster=${Math.ceil(Math.random() * 40000)}`);
     audio.volume = volume;
     playing = true;
     audio.play();
