@@ -6,6 +6,16 @@
   transition: 0.3s ease-out !important;
 }
 
+@font-face {
+    font-family: 'Code';
+    src: url('Code-Bold.woff2') format('woff2'),
+        url('Code-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+
 html, body {
   position: relative;
   overflow-x: hidden;
