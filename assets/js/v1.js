@@ -66,7 +66,7 @@ const fetchSlotData = () => {
     $('.presenter-live .presenter-image').attr('src', result.user.avatar || "https://freshradio.pw/images/FRESH%20NEW.png");
   })
   .catch(() => {
-    $('.dj-name').text('AutoDJ');
+    $('.dj-name').text('Fresh Stream');
     $('.dj-art').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
     $('.dj-background img').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
 
