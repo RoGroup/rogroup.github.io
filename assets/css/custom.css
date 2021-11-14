@@ -123,6 +123,12 @@ html, body {
   text-transform: uppercase;
   font-weight: 600;
 }
+  
+.navbar-fresh {
+  font-family: 'Code';
+  text-transform: uppercase;
+  font-weight: 600;
+}
 
 .navbar-nav {
   flex-direction: unset !important;
