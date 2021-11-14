@@ -46,8 +46,8 @@ const fetchSongData = () => {
   .then(({ song }) => {
     $('.song-name').text(song.title);
     $('.song-artist').text(song.artist);
-    $('.song-art:not(.dj-art)').attr('src', song.graphic.medium || "https://i.imgur.com/YnNkoXe.png")
-    $('.song-background img').attr('src', song.graphic.medium || "https://i.imgur.com/YnNkoXe.png")
+    $('.song-art:not(.dj-art)').attr('src', song.graphic.medium || "https://freshradio.pw/images/FRESH%20NEW.png")
+    $('.song-background img').attr('src', song.graphic.medium || "https://freshradio.pw/images/FRESH%20NEW.png")
   });
 };
 
@@ -59,20 +59,20 @@ const fetchSlotData = () => {
   .then((result) => {
     $('.dj-name').text(`${result.user.firstName} ${result.user.lastName}`);
     $('.dj-art').attr('src', result.user.avatar);
-    $('.dj-background img').attr('src', result.user.avatar || "https://i.imgur.com/YnNkoXe.png");
+    $('.dj-background img').attr('src', result.user.avatar || "https://freshradio.pw/images/FRESH%20NEW.png");
 
     $('.presenter-live .presenter-name').text(`${result.user.firstName} ${result.user.lastName}`);
     $('.presenter-live .presenter-time').text(`${moment.unix(result.start).format('HH:mm')}-${moment.unix(result.end).format('HH:mm')}`);
-    $('.presenter-live .presenter-image').attr('src', result.user.avatar || "https://i.imgur.com/YnNkoXe.png");
+    $('.presenter-live .presenter-image').attr('src', result.user.avatar || "https://freshradio.pw/images/FRESH%20NEW.png");
   })
   .catch(() => {
     $('.dj-name').text('AutoDJ');
-    $('.dj-art').attr('src', 'https://i.imgur.com/YnNkoXe.png');
-    $('.dj-background img').attr('src', 'https://i.imgur.com/YnNkoXe.png');
+    $('.dj-art').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
+    $('.dj-background img').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
 
-    $('.presenter-live .presenter-name').text('AutoDJ');
+    $('.presenter-live .presenter-name').text('Fresh Stream');
     $('.presenter-live .presenter-time').text("");
-    $('.presenter-live .presenter-image').attr('src', 'https://i.imgur.com/YnNkoXe.png');
+    $('.presenter-live .presenter-image').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
   });
 
 	fetch('https://api.radiopanel.co/api/v1/slots/next', {
@@ -82,12 +82,12 @@ const fetchSlotData = () => {
   .then((result) => {
     $('.presenter-next .presenter-name').text(`${result.user.firstName} ${result.user.lastName}`);
     $('.presenter-next .presenter-time').text(`${moment.unix(result.start).format('HH:mm')}-${moment.unix(result.end).format('HH:mm')}`);
-    $('.presenter-next .presenter-image').attr('src', result.user.avatar || "https://i.imgur.com/YnNkoXe.png");
+    $('.presenter-next .presenter-image').attr('src', result.user.avatar || "https://freshradio.pw/images/FRESH%20NEW.png");
   })
   .catch(() => {
-    $('.presenter-next .presenter-name').text('AutoDJ');
+    $('.presenter-next .presenter-name').text('Fresh Stream');
     $('.presenter-next .presenter-time').text("");
-    $('.presenter-next .presenter-image').attr('src', 'https://i.imgur.com/YnNkoXe.png');
+    $('.presenter-next .presenter-image').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
   });
 
 	fetch('https://api.radiopanel.co/api/v1/slots/later', {
@@ -97,12 +97,12 @@ const fetchSlotData = () => {
   .then((result) => {
     $('.presenter-later .presenter-name').text(`${result.user.firstName} ${result.user.lastName}`);
     $('.presenter-later .presenter-time').text(`${moment.unix(result.start).format('HH:mm')}-${moment.unix(result.end).format('HH:mm')}`);
-    $('.presenter-later .presenter-image').attr('src', result.user.avatar || "https://i.imgur.com/YnNkoXe.png");
+    $('.presenter-later .presenter-image').attr('src', result.user.avatar || "https://freshradio.pw/images/FRESH%20NEW.png");
   })
   .catch(() => {
-    $('.presenter-later .presenter-name').text('AutoDJ');
+    $('.presenter-later .presenter-name').text('Fresh Stream');
     $('.presenter-later .presenter-time').text("");
-    $('.presenter-later .presenter-image').attr('src', 'https://i.imgur.com/YnNkoXe.png');
+    $('.presenter-later .presenter-image').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
   });
 
   fetch('https://app.radiopanel.co/api/v1/song-history?pagesize=3', {
@@ -114,7 +114,7 @@ const fetchSlotData = () => {
       _embedded.forEach((songPlay) => {
         $('.song-history-container').append(`
           <div class="song-history-item">
-            <img src="${(songPlay.song.graphic && songPlay.song.graphic.large) || "https://i.imgur.com/YnNkoXe.png"}" alt="" class="song-history-item-image">
+            <img src="${(songPlay.song.graphic && songPlay.song.graphic.large) || "https://freshradio.pw/images/FRESH%20NEW.png"}" alt="" class="song-history-item-image">
             <div class="song-history-item-info">
               <p class="song-history-item-subtitle">Played ${moment(songPlay.createdAt).fromNow()}</p>
               <p class="song-history-item-name">${songPlay.song.artist} - ${songPlay.song.title}</p>
