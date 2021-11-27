@@ -1,131 +1,67 @@
-class Snowflake {
-  constructor() {
-    this.x = 0;
-    this.y = 0;
-    this.vx = 0;
-    this.vy = 0;
-    this.radius = 0;
-    this.alpha = 0;
-
-    this.reset();
-  }
-
-  reset() {
-    this.x = this.randBetween(0, window.innerWidth);
-    this.y = this.randBetween(0, -window.innerHeight);
-    this.vx = this.randBetween(-3, 3);
-    this.vy = this.randBetween(2, 5);
-    this.radius = this.randBetween(1, 4);
-    this.alpha = this.randBetween(0.1, 0.9);
-  }
-
-  randBetween(min, max) {
-    return min + Math.random() * (max - min);
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-
-    if (this.y + this.radius > window.innerHeight) {
-      this.reset();
+var audioPlayer = new Audio(radioStreamLink),
+  isPlaying = !1,
+  isVolOpen = !1,
+  ctx = new AudioContext(),
+  audioSrc = ctx.createMediaElementSource(audioPlayer),
+  analyser = ctx.createAnalyser();
+audioSrc.connect(analyser), audioSrc.connect(ctx.destination);
+var frequencyData = new Uint8Array(analyser.frequencyBinCount),
+  volumeSlider = document.getElementById("volslider");
+function playPauseClick() {
+  isPlaying ? (pause(), (isPlaying = !1)) : (play(), (isPlaying = !0));
+}
+function play() {
+  (document.getElementById("playpause").innerHTML =
+    '<i class="fa fa-pause-circle"></i>'),
+    (audioPlayer = new Audio(
+      radioStreamLink + "?t=" + Math.floor(Date.now() / 1e3)
+    )),
+    (ctx = new AudioContext()),
+    (audioSrc = ctx.createMediaElementSource(audioPlayer)),
+    (analyser = ctx.createAnalyser()),
+    audioSrc.connect(analyser),
+    audioSrc.connect(ctx.destination),
+    (frequencyData = new Uint8Array(analyser.frequencyBinCount)),
+    (audioPlayer.crossOrigin = "anonymous"),
+    audioPlayer.play();
+}
+function pause() {
+  (document.getElementById("playpause").innerHTML =
+    '<i class="fa fa-play-circle"></i>'),
+    audioPlayer.pause();
+}
+function updateStats() {
+  $.get(
+    "" +
+      new Date().getTime(),
+    a => {
+      let {
+        now_playing: np,
+        live: { streamer_name: dj, is_live: live },
+        listeners: { unique: listeners }
+      } = a;
+      let { song } = np;
+      $("#dj").html(live ? "DJ " + dj : "Gravity Stream");
+      $("#djmessage").html("Broken rn");
+      $("#listeners").html(`${listeners} listeners`);
+      console.log(`${song.title} - ${song.artist}`);
+      $("#song").html(`${song.title}`);
+      $("#artist").html(`${song.artist}`);
     }
-  }
+  );
 }
 
-class Snow {
-  constructor() {
-    this.canvas = document.createElement("canvas");
-    this.ctx = this.canvas.getContext("2d");
+updateStats();
 
-    document.body.appendChild(this.canvas);
 
-    window.addEventListener("resize", () => this.onResize());
-    this.onResize();
-    this.updateBound = this.update.bind(this);
-    requestAnimationFrame(this.updateBound);
 
-    this.createSnowflakes();
-  }
+setInterval(updateStats, 5 * 1000);
 
-  onResize() {
-    this.width = window.innerWidth;
-    this.height = window.innerHeight;
-    this.canvas.width = this.width;
-    this.canvas.height = this.height;
-  }
+(audioPlayer.crossOrigin = "anonymous"),
+  (volumeSlider.oninput = function() {
+    audioPlayer.volume = this.value / 100;
+  }),
+  updateStats(),
 
-  createSnowflakes() {
-    const flakes = window.innerWidth / 4;
 
-    this.snowflakes = [];
-
-    for (let s = 0; s < flakes; s++) {
-      this.snowflakes.push(new Snowflake());
-    }
-  }
-
-  update() {
-    this.ctx.clearRect(0, 0, this.width, this.height);
-
-    for (let flake of this.snowflakes) {
-      flake.update();
-
-      this.ctx.save();
-      this.ctx.fillStyle = "#FFF";
-      this.ctx.beginPath();
-      this.ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
-      this.ctx.closePath();
-      this.ctx.globalAlpha = flake.alpha;
-      this.ctx.fill();
-      this.ctx.restore();
-    }
-    requestAnimationFrame(this.updateBound);
-  }
-}
-
-new Snow();
-
-////////////////////////////////////////////////////////////
-// Simple CountDown Clock
-
-const d = document.getElementById("d");
-const h = document.getElementById("h");
-const m = document.getElementById("m");
-const s = document.getElementById("s");
-
-function getTrueNumber(num) {
-  return num < 10 ? "0" + num : num;
-}
-
-function calculateRemainingTime() {
-  const comingYear = new Date().getFullYear() + 1;
-  const comingDate = new Date(`Nov 1, 2020 10:00:00`);
-
-  const now = new Date();
-  const remainingTime = comingDate.getTime() - now.getTime();
-  const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const mins = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
-  const secs = Math.floor((remainingTime % (1000 * 60)) / 1000);
-
-  d.innerHTML = getTrueNumber(days);
-  h.innerHTML = getTrueNumber(hours);
-  m.innerHTML = getTrueNumber(mins);
-  s.innerHTML = getTrueNumber(secs);
-
-  return remainingTime;
-}
-
-function initCountdown() {
-  const interval = setInterval(() => {
-    const remainingTimeInMs = calculateRemainingTime();
-
-    if (remainingTimeInMs <= 1000) {
-      clearInterval(interval);
-      initCountdown();
-    }
-  }, 1000);
-}
-
-initCountdown();
+  renderFrame();
