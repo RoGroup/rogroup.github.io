@@ -20,6 +20,8 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background-repeat: no-repeat;
+
 }
 
 .topbar {
@@ -109,6 +111,8 @@ header {
   position: relative;
   -webkit-transition: .5s ease-in-out;
   transition: .5s ease-in-out;
+    background-repeat: no-repeat;
+
 }
 
 .player-wrap {
