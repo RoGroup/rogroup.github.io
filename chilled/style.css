@@ -1,0 +1,510 @@
+@font-face {
+    font-family: 'Code';
+    src: url('https://freshradio.pw/assets/css/Code-Bold.woff2') format('woff2'),
+        url('https://freshradio.pw/assets/css/Code-Bold.woff') format('woff');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
+
+
+* {
+  margin: 0;
+  padding: 0;
+  font-family: 'Titillium Web', sans-serif;
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-size: cover;
+    background-repeat: no-repeat;
+
+}
+
+.topbar {
+  height: 52px;
+  background: #cacaca;
+  -webkit-box-shadow: 0px 4px rgba(0, 0, 0, 0.1);
+          box-shadow: 0px 4px rgba(0, 0, 0, 0.1);
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr;
+      grid-template-columns: 1fr;
+  -ms-flex-line-pack: center;
+      align-content: center;
+}
+
+.topbar div:nth-child(2) {
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-pack: end;
+      -ms-flex-pack: end;
+          justify-content: flex-end;
+}
+
+
+marquee {
+  display: none;
+}
+
+.logo {
+  width: 70%;
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  -webkit-transform: translateX(-50%);
+          transform: translateX(-50%);
+}
+
+@media (max-width: 700px) {
+  .logo {
+    width: 80%;
+  }
+}
+
+@media (max-width: 650px) {
+  .logo {
+    width: 85%;
+  }
+}
+
+@media (max-width: 600px) {
+  .logo {
+    width: 90%;
+  }
+}
+
+@media (max-width: 550px) {
+  .logo {
+    width: 95%;
+  }
+}
+
+.__root {
+  height: 100%;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+}
+
+.__root i {
+  font-size: 10rem;
+  cursor: pointer;
+  -webkit-animation: playbtn 5s infinite;
+          animation: playbtn 5s infinite;
+}
+
+header {
+  height: 100%;
+  background: url("https://freshradio.pw/images/CHRISTMAS%20BG.png");
+  background: url("https://freshradio.pw/images/CHRISTMAS%20BG.png");
+  position: relative;
+  -webkit-transition: .5s ease-in-out;
+  transition: .5s ease-in-out;
+   background-size: cover;
+background-repeat: no-repeat;
+}
+
+.player-wrap {
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr;
+      grid-template-columns: 1fr;
+  -ms-grid-rows: 1fr 80px;
+      grid-template-rows: 1fr 80px;
+  height: 100%;
+  position: relative;
+  z-index: 99;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+}
+
+.player-wrap .song {
+  color: white;
+  -ms-grid-column-align: center;
+      justify-self: center;
+  -ms-grid-row-align: center;
+      align-self: center;
+  display: -ms-grid;
+  display: grid;
+  -ms-grid-columns: 1fr;
+      grid-template-columns: 1fr;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+}
+
+.player-wrap .song .Art {
+  width: 150px !important;
+  height: 150px !important;
+  margin-bottom: 2rem !important;
+  background-size: cover !important;
+  background-position: center;
+  border-radius: 100%;
+  justify-self: center;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-box-pack: center;
+      -ms-flex-pack: center;
+          justify-content: center;
+  -webkit-transition: .5s ease-in-out;
+  transition: .5s ease-in-out;
+  -webkit-box-shadow: -1.5px 1px 10px rgba(255, 255, 255, 0.74);
+          box-shadow: -1.5px 1px 10px rgba(255, 255, 255, 0.74);
+}
+
+.player-wrap .song .Art i {
+  margin-bottom: -2.25px;
+  font-size: 2rem;
+  opacity: .3;
+  -webkit-transition: opacity .1s ease-out;
+  transition: opacity .1s ease-out;
+  cursor: pointer;
+}
+
+.player-wrap .song .Art i:hover {
+  opacity: 1;
+}
+
+.player-wrap .song .Title {
+  font-weight: bold;
+  -ms-grid-column-align: center;
+      justify-self: center;
+  font-size: 2.7rem;
+  text-align: center;
+  color: white;
+  text-decoration: none;
+  -webkit-animation: title 15s linear infinite;
+          animation: title 15s linear infinite;
+  overflow: hidden;
+  height: 64px;
+}
+
+.player-wrap .song .Artist {
+  -ms-grid-column-align: center;
+      justify-self: center;
+  font-size: 1.3rem;
+  text-align: center;
+  overflow: hidden;
+  height: 31px;
+  white-space: normal;
+  margin-top: -8px;
+  margin-bottom: 8px;
+}
+
+.player-wrap .song .Listeners {
+  -ms-grid-column-align: center;
+      justify-self: center;
+  font-size: .9rem;
+  text-align: center;
+  overflow: hidden;
+  height: 18px;
+  color: white;
+  white-space: normal;
+}
+
+@media (max-width: 550px) {
+  .player-wrap .song .Title {
+    font-size: 1.8rem;
+    height: 40px;
+  }
+  .player-wrap .song .Artist {
+    font-size: 1rem;
+    margin: 0;
+  }
+  .player-wrap .song .Listeners {
+    margin-top: -5px;
+    font-size: .8rem;
+  }
+}
+
+.player-wrap .player {
+  justify-self: center;
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -ms-flex-pack: distribute;
+      justify-content: space-around;
+  width: 270px;
+}
+
+#playpause i {
+  font-size: 32px;
+  color: #f0f0f067;
+  -webkit-transition: color .12s ease-in;
+  transition: color .12s ease-in;
+  cursor: pointer;
+}
+
+#playpause i:hover {
+  color: #f0f0f0bd;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 200px;
+  height: 15px;
+  background: #f0f0f067;
+  border-radius:15px;
+  outline: none;
+  border: none;
+  -webkit-transition: .2s;
+  -webkit-transition: opacity .2s;
+  transition: opacity .2s;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  border-radius: 15px;
+  height: 15px;
+  border: none;
+  background: white;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  -moz-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border: none;
+  background: white;
+  cursor: pointer;
+}
+
+@-webkit-keyframes playbtn {
+  0% {
+    -webkit-transform: scale(1);
+            transform: scale(1);
+  }
+  50% {
+    -webkit-transform: scale(1.05);
+            transform: scale(1.05);
+  }
+  100% {
+    -webkit-transform: scale(1);
+            transform: scale(1);
+  }
+}
+
+@keyframes playbtn {
+  0% {
+    -webkit-transform: scale(1);
+            transform: scale(1);
+  }
+  50% {
+    -webkit-transform: scale(1.05);
+            transform: scale(1.05);
+  }
+  100% {
+    -webkit-transform: scale(1);
+            transform: scale(1);
+  }
+}
+
+
+
+.btn-secondary {
+  background: black;
+  font-weight: bold;
+  text-transform: uppercase;
+  border-radius: 5px;
+  font-size: .9rem;
+  padding: 8px 18px;
+}
+
+.help-button {
+  font-size: 2.5rem;
+  color: white;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  cursor: pointer;
+  -webkit-animation: help 5s infinite linear;
+          animation: help 5s infinite linear;
+}
+
+@-webkit-keyframes help {
+  0% {
+    text-shadow: none;
+  }
+  50% {
+    text-shadow: none;
+  }
+  80% {
+    text-shadow: 0 0px 12px rgba(255, 217, 0, 0.897);
+  }
+  100% {
+    text-shadow: none;
+  }
+}
+
+@keyframes help {
+  0% {
+    text-shadow: none;
+  }
+  50% {
+    text-shadow: none;
+  }
+  80% {
+    text-shadow: 0 0px 12px rgba(255, 217, 0, 0.897);
+  }
+  100% {
+    text-shadow: none;
+  }
+}
+
+h1 {
+  color: white;
+  text-align: center;
+}
+
+h2 {
+  color: white;
+  text-align: center;
+  position:fixed;
+   left:0px;
+   bottom:0px;
+   height:30px;
+   width:100%;
+}
+
+p {
+  top: 50%;
+  color: white;
+  text-align: center;
+  padding: 200px 0;
+  font-size: 120%;
+}
+
+a:link {
+  color: white;
+  background-color: transparent;
+  text-decoration: none;
+}
+
+a:visited {
+  color: white;
+  background-color: transparent;
+  text-decoration: none;
+}
+
+.nav {
+  z-index: 1;
+  height: 50px;
+  width: 100%;
+  background-color: transparent;
+  position: absolute;
+}
+
+.nav > .nav-header {
+  display: inline;
+}
+
+.nav > .nav-header > .nav-title {
+    font-family: 'Code' !important;
+  text-transform: uppercase;
+  font-weight: 600;
+  display: inline-block;
+  font-size: 22px;
+  color: #fff;
+  padding: 10px 10px 10px 10px;
+}
+
+.nav > .nav-btn {
+  display: none;
+}
+
+.nav > .nav-links {
+  display: inline;
+  float: right;
+  font-size: 18px;
+}
+
+.nav > .nav-links > a {
+  display: inline-block;
+  padding: 13px 10px 13px 10px;
+  text-decoration: none;
+  color: #efefef;
+}
+
+.nav > .nav-links > a:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.nav > #nav-check {
+  display: none;
+}
+
+@media (max-width:600px) {
+  .nav > .nav-btn {
+    display: inline-block;
+    position: absolute;
+    right: 0px;
+    top: 0px;
+  }
+  .nav > .nav-btn > label {
+    display: inline-block;
+    width: 50px;
+    height: 50px;
+    padding: 13px;
+  }
+  .nav > .nav-btn > label:hover,.nav  #nav-check:checked ~ .nav-btn > label {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+  .nav > .nav-btn > label > span {
+    display: block;
+    width: 25px;
+    height: 10px;
+    border-top: 2px solid #eee;
+  }
+  .nav > .nav-links {
+    position: absolute;
+    display: block;
+    width: 100%;
+    background-color: #333;
+    height: 0px;
+    transition: all 0.3s ease-in;
+    overflow-y: hidden;
+    top: 50px;
+    left: 0px;
+  }
+  .nav > .nav-links > a {
+    display: block;
+    width: 100%;
+  }
+  .nav > #nav-check:not(:checked) ~ .nav-links {
+    height: 0px;
+  }
+  .nav > #nav-check:checked ~ .nav-links {
+    height: calc(100vh - 50px);
+    overflow-y: auto;
+  }
+}
