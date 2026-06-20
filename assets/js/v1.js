@@ -67,8 +67,8 @@ const fetchSlotData = () => {
   })
   .catch(() => {
     $('.dj-name').text('Fresh Stream');
-    $('.dj-art').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
-    $('.dj-background img').attr('src', 'https://freshradio.pw/images/FRESH%20NEW.png');
+    $('.dj-art').attr('src', 'https://rogroup.github.io/images/FRESH%20NEW.png');
+    $('.dj-background img').attr('src', 'https://rogroup.github.io/images/FRESH%20NEW.png');
 
     $('.presenter-live .presenter-name').text('Fresh Stream');
     $('.presenter-live .presenter-time').text("");
