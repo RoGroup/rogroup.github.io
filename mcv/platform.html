@@ -147,6 +147,21 @@ main {
   font-size: 12px; font-weight: 800; letter-spacing: .35px;
   margin-right: 6px;
 }
+/* Carriage positioning instruction remains visible on the actual service row,
+   independently of the rotating alert ticker and stopping-pattern marquee. */
+.carriage-notice {
+  margin: 7px 0 3px calc(100px + 1.5rem);
+  padding: 7px 11px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+  border-left: 5px solid var(--blue); border-radius: 4px;
+  background: var(--amber); color: var(--navy);
+  font-size: 15px; font-weight: 600; line-height: 1.4;
+}
+.carriage-notice-label {
+  font-size: 12px; font-weight: 900; letter-spacing: 0.75px;
+  text-transform: uppercase;
+}
+.carriage-notice-copy strong { font-weight: 900; }
 /* Northern contrast-safe combinations: white/dark green, navy/yellow, white/red. */
 .dep-status {
   display: inline-block;
@@ -173,7 +188,7 @@ footer {
    passengers must chase or a 30-second empty gap before each announcement. */
 .ticker-content { flex: 1; min-width: 0; color: #ffffff; font-weight: 600; }
 .ticker-text { display: block; line-height: 1.35; white-space: normal; overflow-wrap: break-word; }
-.ticker-label.alert-warning { background: var(--amber); color: var(--navy); border-left-color: #ffffff; }
+.ticker-label.alert-warning, .ticker-label.alert-boarding { background: var(--amber); color: var(--navy); border-left-color: #ffffff; }
 .ticker-label.alert-cancelled { background: var(--red); color: #ffffff; border-left-color: #ffffff; }
 .ticker-label.alert-unavailable { background: #ffffff; color: var(--navy); border-left-color: var(--amber); }
 </style>
@@ -317,6 +332,27 @@ function displayStationName(name, crs = '') {
   return rawName || code;
 }
 
+// Local display rule supplied by station staff; never apply it to other destinations.
+// Check the current station operating notice before putting these instructions on a live screen.
+// Matching CRS codes are a backup in case the API varies the displayed name.
+function frontCarriagesNotice(destinationName, destinationCrs = '') {
+  const name = String(destinationName ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
+  const code = String(destinationCrs ?? '').trim().toUpperCase();
+  if (name === 'CLITHEROE' || code === 'CLH') {
+    return {
+      stops: 'LANGHO, WHALLEY & CLITHEROE',
+      rowText: 'For LANGHO, WHALLEY & CLITHEROE, travel in the FRONT 2 CARRIAGES ONLY.'
+    };
+  }
+  if (name === 'HEADBOLT LANE' || code === 'HBL') {
+    return {
+      stops: 'UPHOLLAND, RAINFORD & HEADBOLT LANE',
+      rowText: 'For UPHOLLAND, RAINFORD & HEADBOLT LANE, travel in the FRONT 2 CARRIAGES ONLY.'
+    };
+  }
+  return null;
+}
+
 // Prefer Traini's stable status codes; status_text is for the passenger-facing text.
 function parseServices(data) {
   const entries = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
@@ -361,6 +397,10 @@ function parseServices(data) {
         s.destination?.crs || s.destination_crs
       ),
       operator: s.operator || 'National Rail',
+      frontCarriages: frontCarriagesNotice(
+        s.destination?.name || s.destination_name || '',
+        s.destination?.crs || s.destination_crs || ''
+      ),
       status, statusClass, isDelayed, isDeparted,
       platform: s.platform_withheld === true ? '' : String(s.platform ?? '').trim(),
       stops,
@@ -429,6 +469,11 @@ function renderBoard(services) {
         <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
         <div class="dep-plat">${escapeHTML(dep.platform || 'TBC')}</div>
       </div>
+      ${dep.frontCarriages && dep.statusClass !== 'cancelled' ? `
+        <div class="carriage-notice" role="note">
+          <span class="carriage-notice-label">BOARDING INFORMATION</span>
+          <span class="carriage-notice-copy">${escapeHTML(dep.frontCarriages.rowText)}</span>
+        </div>` : ''}
       ${dep.lateReason ? `<div class="service-reason"><span class="label">DELAY REASON:</span>${escapeHTML(dep.lateReason)}</div>` : ''}
       <div class="service-stops">
         <span class="label">Calling at:</span>
@@ -513,10 +558,16 @@ function buildServiceAlerts(services) {
       items.push({ type: 'warning', priority: 1, scheduledMs: train.scheduledMs,
         text: platformChange.message });
     }
+    if (train.frontCarriages) {
+      items.push({
+        type: 'boarding', priority: 2, scheduledMs: train.scheduledMs,
+        text: `${train.time} to ${train.destination}: ${train.frontCarriages.rowText}`
+      });
+    }
     if (train.isDelayed) {
       const status = /^expected\s/i.test(train.status) ? `now expected ${train.status.replace(/^expected\s*/i,'')}` : 'delayed';
       items.push({
-        type: 'warning', priority: 2, scheduledMs: train.scheduledMs,
+        type: 'warning', priority: 3, scheduledMs: train.scheduledMs,
         text: `${train.time} to ${train.destination} is ${status}.${train.lateReason ? ' Reason: ' + train.lateReason : ''}`
       });
     }
@@ -536,8 +587,10 @@ function showActiveAlert() {
   tickerText.textContent = alert.text;
   tickerLabel.textContent = alert.type === 'cancelled' ? 'CANCELLATION' :
     alert.type === 'warning' ? 'SERVICE ALERT' :
+    alert.type === 'boarding' ? 'BOARDING INFO' :
     alert.type === 'unavailable' ? 'SERVICE UPDATE' : 'SERVICE UPDATE';
   tickerLabel.classList.toggle('alert-warning', alert.type === 'warning');
+  tickerLabel.classList.toggle('alert-boarding', alert.type === 'boarding');
   tickerLabel.classList.toggle('alert-cancelled', alert.type === 'cancelled');
   tickerLabel.classList.toggle('alert-unavailable', alert.type === 'unavailable');
 }
