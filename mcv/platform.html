@@ -285,7 +285,7 @@ let alertFingerprint = '';
 const departedTrainIds = new Map();
 let stopViewports = [];
 const stopStates = new Map();
-let lastDelayedKeys = new Set();
+let lastOverdueDelayedKeys = new Set();
 // The main board uses a clock-driven pager rather than a tiny per-frame crawl.
 // Unlike requestAnimationFrame-based incremental scrolling, it advances in
 // clearly visible steps on Safari and resumes following live-data rerenders.
@@ -411,17 +411,24 @@ function parseServices(data) {
   });
 }
 
-// Pick the next twelve outstanding services chronologically, THEN pin delayed ones
-// above on-time services. Late trains from earlier still appear if Traini lists them.
+// A reported delay only gains top-of-board priority AFTER booked departure time.
+// Until then the service retains its normal chronological place in the next twelve.
+function isOverdueDelayedService(service, nowMs = Date.now()) {
+  return service.isDelayed && Number.isFinite(service.scheduledMs) && service.scheduledMs < nowMs;
+}
+
 function selectDepartures() {
+  const nowMs = Date.now();
   return latestServices.filter(s =>
     !s.isDeparted && !s.notForDisplay &&
     (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass)) &&
     (!s.trainId || !departedTrainIds.has(s.trainId))
   )
+  // Choose which services to show from their BOOKED times, not delay estimates.
   .sort((a, b) => a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key))
   .slice(0, CONFIG.maxDepartures)
-  .sort((a, b) => Number(b.isDelayed) - Number(a.isDelayed) ||
+  // Only an overdue delayed train rises to the top. Preserve booked order otherwise.
+  .sort((a, b) => Number(isOverdueDelayedService(b, nowMs)) - Number(isOverdueDelayedService(a, nowMs)) ||
     a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key));
 }
 
@@ -447,13 +454,13 @@ function renderBoard(services) {
 
   if (!services.length) {
     emptyMessage('No upcoming departures are currently listed.');
-    lastDelayedKeys.clear();
+    lastOverdueDelayedKeys.clear();
     return;
   }
 
-  const delayedKeys = new Set(services.filter(s => s.isDelayed).map(s => s.key));
-  const newlyDelayed = [...delayedKeys].some(key => !lastDelayedKeys.has(key));
-  lastDelayedKeys = delayedKeys;
+  const overdueKeys = new Set(services.filter(s => isOverdueDelayedService(s)).map(s => s.key));
+  const newlyOverdue = [...overdueKeys].some(key => !lastOverdueDelayedKeys.has(key));
+  lastOverdueDelayedKeys = overdueKeys;
   const currentKeys = new Set();
   boardRows.replaceChildren();
   for (const dep of services) {
@@ -487,8 +494,8 @@ function renderBoard(services) {
   stopViewports = [...boardRows.querySelectorAll('.stops-viewport')];
   for (const key of stopStates.keys()) if (!currentKeys.has(key)) stopStates.delete(key);
 
-  if (newlyDelayed) {
-    // A newly reported delay is important enough to show at once.
+  if (newlyOverdue) {
+    // Only a train which has passed its booked time jumps to the top.
     boardRows.scrollTop = 0;
     verticalMode = 'hold';
     verticalTransition = null;
@@ -511,6 +518,16 @@ function updateDisplayedServices() {
     renderBoard(selectDepartures());
     updateServiceAlerts();
   }
+}
+
+// Check the booked-time boundary every second, independently of the 30s API
+// refresh. Re-render exactly once when a reported delay becomes overdue.
+function promoteNewlyOverdueServices() {
+  if (!boardIsAvailable) return;
+  const currentlyShown = selectDepartures();
+  const crossedBookedTime = currentlyShown.some(s =>
+    isOverdueDelayedService(s) && !lastOverdueDelayedKeys.has(s.key));
+  if (crossedBookedTime) updateDisplayedServices();
 }
 
 // Keep everything on the passenger screen specific to a currently advertised
@@ -776,6 +793,7 @@ fetchDepartures();
 fetchDepartureActivity();
 fetchCancellationReasons();
 setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
+setInterval(promoteNewlyOverdueServices, 1000);
 setInterval(fetchDepartureActivity, CONFIG.activityIntervalMs);
 setInterval(fetchCancellationReasons, CONFIG.cancellationsRefreshMs);
 setInterval(rotateServiceAlert, CONFIG.alertRotationMs);
