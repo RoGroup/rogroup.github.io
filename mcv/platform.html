@@ -170,7 +170,7 @@ footer {
       <div class="station-info">
         <h1>Manchester Victoria</h1>
         <div class="platform-indicator">
-          <span class="subtitle">NEXT 12 DEPARTURES &middot; PLATFORMS 1–6</span>
+          <span class="subtitle">NEXT 12 DEPARTURES &middot; ALL PLATFORMS</span>
         </div>
       </div>
     </div>
@@ -213,7 +213,6 @@ footer {
 // actual-departure activity checks run every 10 seconds in between.
 const CONFIG = {
   maxDepartures: 12,
-  allowedPlatforms: ['1', '2', '3', '4', '5', '6'],
   refreshIntervalMs: 30000,
   activityIntervalMs: 10000,
   departuresUrl: 'https://api.traini.ac/api/departures/MCV?limit=70',
@@ -348,8 +347,7 @@ function selectDepartures() {
   return latestServices.filter(s =>
     !s.isDeparted && !s.notForDisplay &&
     (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass)) &&
-    (!s.trainId || !departedTrainIds.has(s.trainId)) &&
-    (!s.platform || CONFIG.allowedPlatforms.includes(s.platform))
+    (!s.trainId || !departedTrainIds.has(s.trainId))
   )
   .sort((a, b) => a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key))
   .slice(0, CONFIG.maxDepartures)
