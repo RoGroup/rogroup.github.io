@@ -96,10 +96,10 @@
 <script>
  'use strict';
 const $=id=>document.getElementById(id);
-const screenNames={'platform.html':'Main departures','platform12.html':'Platforms 1 & 2','platform45.html':'Platforms 4 & 5','staff.html':'Staff dashboard','assist.html':'Mobile Passenger Assist','assist-desktop.html':'Desktop Passenger Assist'};
+const screenNames={'platform.html':'Main departures','platform12.html':'Platforms 1 & 2','platform45.html':'Platforms 4 & 5','staff.html':'Staff dashboard','assist.html':'Mobile Passenger Assist','assist-desktop.html':'Desktop Passenger Assist','accessibility.html':'Accessibility & Passenger Assistance','disruption.html':'Alternative Journey Assistant'};
 for(let i=1;i<=6;i++){screenNames[`platform${i}.html`]=`Platform ${i}`;screenNames[`nexttrain${i}.html`]=`Next train · Platform ${i}`;}
 const passenger=['platform.html',...[1,2,3,4,5,6].map(n=>`platform${n}.html`),'platform12.html','platform45.html',...[1,2,3,4,5,6].map(n=>`nexttrain${n}.html`)];
-const staff=['staff.html','assist.html','assist-desktop.html'];
+const staff=['staff.html','assist.html','assist-desktop.html','accessibility.html','disruption.html'];
 const PRIORITY={urgent:0,warning:1,info:2};
 let notices=[],noticesLoaded=false,noticesError='',services=[],lastFeed=0,feedError='',tab='all',unsaved=false;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
