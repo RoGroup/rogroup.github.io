@@ -169,9 +169,13 @@ footer {
   background: var(--navy); color: #fff; border-left: 4px solid var(--blue); font-weight: 800; font-size: 12px;
   padding: 4px 10px; border-radius: 3px; letter-spacing: 1px; white-space: nowrap;
 }
-.ticker-content { flex: 1; overflow: hidden; white-space: nowrap; color: #ffffff; font-weight: 600; }
-.ticker-text { display: inline-block; padding-left: 100%; animation: ticker 30s linear infinite; }
-@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+/* Rotate one verified, relevant service alert at a time: no crawling text that
+   passengers must chase or a 30-second empty gap before each announcement. */
+.ticker-content { flex: 1; min-width: 0; color: #ffffff; font-weight: 600; }
+.ticker-text { display: block; line-height: 1.35; white-space: normal; overflow-wrap: break-word; }
+.ticker-label.alert-warning { background: var(--amber); color: var(--navy); border-left-color: #ffffff; }
+.ticker-label.alert-cancelled { background: var(--red); color: #ffffff; border-left-color: #ffffff; }
+.ticker-label.alert-unavailable { background: #ffffff; color: var(--navy); border-left-color: var(--amber); }
 </style>
 </head>
 <body>
@@ -211,10 +215,10 @@ footer {
   </main>
 
   <footer>
-    <div class="ticker-label">SERVICE UPDATE</div>
+    <div class="ticker-label" id="ticker-label">SERVICE UPDATE</div>
     <div class="ticker-content">
       <div class="ticker-text" id="ticker-text">
-        Welcome to Manchester Victoria. Please check platform screens for gate changes and listen for station announcements.
+        Please listen for station announcements and check your platform before boarding.
       </div>
     </div>
   </footer>
@@ -229,7 +233,11 @@ const CONFIG = {
   refreshIntervalMs: 30000,
   activityIntervalMs: 10000,
   departuresUrl: 'https://api.traini.ac/api/departures/MCV?limit=70',
-  activityUrl: 'https://api.traini.ac/api/stations/MCV/activity?limit=100'
+  activityUrl: 'https://api.traini.ac/api/stations/MCV/activity?limit=100',
+  cancellationsUrl: 'https://api.traini.ac/api/cancellations?limit=100',
+  cancellationsRefreshMs: 120000,
+  alertRotationMs: 14000,
+  platformChangeMemoryMs: 5 * 60 * 1000
 };
 
 const MOTION = {
@@ -246,10 +254,19 @@ const MOTION = {
 
 const boardRows = document.getElementById('board-rows');
 const tickerText = document.getElementById('ticker-text');
+const tickerLabel = document.getElementById('ticker-label');
 let latestServices = [];
 let boardIsAvailable = false;
 let departuresBusy = false;
 let activityBusy = false;
+let cancellationsBusy = false;
+let cancellationReasons = new Map();
+let previousPlatforms = new Map();
+let platformChangeAlerts = new Map();
+let seenFirstDepartureFeed = false;
+let alertQueue = [];
+let activeAlertIndex = 0;
+let alertFingerprint = '';
 const departedTrainIds = new Map();
 let stopViewports = [];
 const stopStates = new Map();
@@ -354,7 +371,7 @@ function parseServices(data) {
   });
 }
 
-// Pick the next ten outstanding services chronologically, THEN pin delayed ones
+// Pick the next twelve outstanding services chronologically, THEN pin delayed ones
 // above on-time services. Late trains from earlier still appear if Traini lists them.
 function selectDepartures() {
   return latestServices.filter(s =>
@@ -445,7 +462,128 @@ function renderBoard(services) {
 }
 
 function updateDisplayedServices() {
-  if (boardIsAvailable) renderBoard(selectDepartures());
+  if (boardIsAvailable) {
+    renderBoard(selectDepartures());
+    updateServiceAlerts();
+  }
+}
+
+// Keep everything on the passenger screen specific to a currently advertised
+// Manchester Victoria service. This avoids showing unrelated national issues.
+function recordPlatformChanges(services) {
+  const now = Date.now();
+  const next = new Map();
+  for (const service of services) {
+    const platform = String(service.platform || '').trim().toUpperCase();
+    const before = previousPlatforms.get(service.key);
+    // An initial platform allocation is not a change of an advertised platform.
+    if (seenFirstDepartureFeed && before && platform && before !== platform) {
+      platformChangeAlerts.set(service.key, {
+        reportedAt: now,
+        message: `${service.time} to ${service.destination}: platform changed from ${before} to ${platform}.`
+      });
+    }
+    next.set(service.key, platform);
+  }
+  previousPlatforms = next;
+  seenFirstDepartureFeed = true;
+  for (const [key, change] of platformChangeAlerts) {
+    if (now - change.reportedAt > CONFIG.platformChangeMemoryMs || !next.has(key)) {
+      platformChangeAlerts.delete(key);
+    }
+  }
+}
+
+function buildServiceAlerts(services) {
+  const items = [];
+  const now = Date.now();
+  for (const train of services) {
+    if (train.statusClass === 'cancelled') {
+      // Only join cancellation reasons on the exact train_id; the national feed
+      // doesn't contain enough route detail to safely guess any other match.
+      const reason = train.trainId ? cancellationReasons.get(train.trainId) : '';
+      items.push({
+        type: 'cancelled', priority: 0, scheduledMs: train.scheduledMs,
+        text: `${train.time} to ${train.destination} is CANCELLED.${reason ? ' Reason: ' + reason : ' Please check station information for alternatives.'}`
+      });
+      continue;
+    }
+    const platformChange = platformChangeAlerts.get(train.key);
+    if (platformChange && now - platformChange.reportedAt <= CONFIG.platformChangeMemoryMs) {
+      items.push({ type: 'warning', priority: 1, scheduledMs: train.scheduledMs,
+        text: platformChange.message });
+    }
+    if (train.isDelayed) {
+      const status = /^expected\s/i.test(train.status) ? `now expected ${train.status.replace(/^expected\s*/i,'')}` : 'delayed';
+      items.push({
+        type: 'warning', priority: 2, scheduledMs: train.scheduledMs,
+        text: `${train.time} to ${train.destination} is ${status}.${train.lateReason ? ' Reason: ' + train.lateReason : ''}`
+      });
+    }
+  }
+  items.sort((a,b) => a.priority - b.priority || a.scheduledMs - b.scheduledMs);
+  if (items.length) return items.slice(0, 10);
+  return [{
+    type: 'normal', priority: 9, scheduledMs: 0,
+    text: 'LIVE SERVICE INFORMATION  •  Please check your platform before boarding and listen for station announcements.'
+  }];
+}
+
+function showActiveAlert() {
+  const alert = alertQueue[activeAlertIndex] || {
+    type: 'normal', text: 'Please listen for station announcements.'
+  };
+  tickerText.textContent = alert.text;
+  tickerLabel.textContent = alert.type === 'cancelled' ? 'CANCELLATION' :
+    alert.type === 'warning' ? 'SERVICE ALERT' :
+    alert.type === 'unavailable' ? 'SERVICE UPDATE' : 'SERVICE UPDATE';
+  tickerLabel.classList.toggle('alert-warning', alert.type === 'warning');
+  tickerLabel.classList.toggle('alert-cancelled', alert.type === 'cancelled');
+  tickerLabel.classList.toggle('alert-unavailable', alert.type === 'unavailable');
+}
+
+function setAlerts(items) {
+  const signature = JSON.stringify(items.map(item => [item.type, item.text]));
+  if (signature === alertFingerprint) return;  // No flicker during routine refreshes.
+  alertFingerprint = signature;
+  alertQueue = items;
+  activeAlertIndex = 0; // New information takes priority immediately.
+  showActiveAlert();
+}
+
+function updateServiceAlerts() {
+  if (!boardIsAvailable) return;
+  setAlerts(buildServiceAlerts(selectDepartures()));
+}
+
+function rotateServiceAlert() {
+  if (alertQueue.length < 2) return;
+  activeAlertIndex = (activeAlertIndex + 1) % alertQueue.length;
+  showActiveAlert();
+}
+
+// The optional cancellations feed provides reason codes, not station alerts.
+// If it fails, the main board continues to show cancellation information.
+async function fetchCancellationReasons() {
+  if (cancellationsBusy) return;
+  cancellationsBusy = true;
+  try {
+    const response = await fetch(CONFIG.cancellationsUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Cancellations feed HTTP ' + response.status);
+    const json = await response.json();
+    if (!Array.isArray(json.results)) throw new Error('Unexpected cancellation data');
+    const next = new Map();
+    for (const entry of json.results) {
+      if (!entry.train_id || !entry.reason) continue;
+      next.set(String(entry.train_id), String(entry.reason).trim());
+    }
+    cancellationReasons = next;
+    updateServiceAlerts();
+  } catch (error) {
+    console.warn('Additional cancellation reasons unavailable:', error);
+  } finally {
+    cancellationsBusy = false;
+  }
 }
 
 async function fetchDepartures() {
@@ -458,15 +596,15 @@ async function fetchDepartures() {
     if (!Array.isArray(json.results)) throw new Error('Unexpected departure data');
     latestServices = parseServices(json);
     boardIsAvailable = true;
+    recordPlatformChanges(latestServices);
     updateDisplayedServices();
-    tickerText.textContent = 'LIVE DEPARTURES  •  Updated every 30 seconds  •  Please listen for station announcements.';
   } catch (error) {
     console.warn('Departure feed unavailable:', error);
     boardIsAvailable = false;
     latestServices = [];
     // Never substitute invented train times on a public/platform display.
     emptyMessage('Live departure information is temporarily unavailable. Please check station screens.');
-    tickerText.textContent = 'LIVE DATA UNAVAILABLE — Please refer to official station information.';
+    setAlerts([{ type: 'unavailable', text: 'LIVE DEPARTURE INFORMATION UNAVAILABLE — Please refer to official station information.' }]);
   } finally {
     departuresBusy = false;
   }
@@ -583,8 +721,11 @@ updateClock();
 setInterval(updateClock, 1000);
 fetchDepartures();
 fetchDepartureActivity();
+fetchCancellationReasons();
 setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
 setInterval(fetchDepartureActivity, CONFIG.activityIntervalMs);
+setInterval(fetchCancellationReasons, CONFIG.cancellationsRefreshMs);
+setInterval(rotateServiceAlert, CONFIG.alertRotationMs);
 setInterval(advanceBoardScroll, 40);
 requestAnimationFrame(autoScrollFrame);
 </script>
