@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manchester Victoria | Northern Live Departures</title>
 <style>
+@font-face {
+  font-family: "Bunday Clean";
+  src: url("bunday-clean-regular.woff") format("woff");
+  font-weight: 400 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "Bunday Clean";
+  src: url("bunday-clean-bold.woff") format("woff");
+  font-weight: 700 900;
+  font-style: normal;
+}
+
 :root {
   --navy:#262262;
   --blue:#0698d6;
@@ -18,7 +32,7 @@
   --red:#c83c4b;
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Gotham","Gotham Book","Gotham Rounded",Arial,Helvetica,sans-serif}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 header{
   background:#fff;
   border-bottom:1px solid #e4e7ed;
@@ -29,43 +43,43 @@ header{
 .brand{display:flex;align-items:center;gap:26px;min-width:0}
 .logo{width:190px;height:76px;object-fit:contain;display:block}
 .station{border-left:1px solid #d9dce6;padding-left:24px}
-h1{margin:0;color:var(--navy);font-size:clamp(23px,4vw,36px);line-height:1.1;font-weight:750}
+h1{margin:0;color:var(--navy);font-size:clamp(23px,4vw,36px);line-height:1.1;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .subtitle{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:2.5px;margin-top:8px}
-.clock{color:var(--navy);font-size:26px;font-weight:750;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.clock{color:var(--navy);font-size:26px;font-weight:750;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .clock small{display:block;color:var(--muted);font-size:11px;margin-top:5px;font-weight:500}
 main{max-width:1500px;margin:auto;padding:27px 4%}
 .toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:18px}
-.heading{font-size:21px;font-weight:750;color:var(--navy)}
+.heading{font-size:21px;font-weight:750;color:var(--navy);font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .live{color:var(--green);font-size:12px;margin-top:7px;font-weight:650}
 .live:before{content:"";display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:8px;box-shadow:0 0 0 3px rgba(22,134,83,.12)}
-button{background:var(--navy);color:#fff;border:0;border-radius:4px;padding:12px 17px;font-weight:700;cursor:pointer;transition:background .15s ease}
+button{background:var(--navy);color:#fff;border:0;border-radius:4px;padding:12px 17px;font-weight:700;font-family:"Bunday Clean", Arial, Helvetica, sans-serif;cursor:pointer;transition:background .15s ease}
 button:hover{background:#36318a}
 button:disabled{opacity:.55;cursor:wait}
 .filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-input{background:#fff;border:1px solid #d4d9e3;color:var(--navy);padding:12px 14px;border-radius:4px;font-size:14px;flex:1;min-width:180px;outline:none}
+input{background:#fff;border:1px solid #d4d9e3;color:var(--navy);padding:12px 14px;border-radius:4px;font-size:14px;flex:1;min-width:180px;outline:none;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(6,152,214,.12)}
 input::placeholder{color:#8791a2}
 .board{background:var(--navy);border:1px solid #1e1a50;border-radius:6px;overflow:hidden;box-shadow:0 8px 24px rgba(38,34,98,.10)}
 .labels,.service{display:grid;grid-template-columns:90px minmax(150px,1fr) 90px 115px 160px 35px;align-items:center;gap:12px;padding:16px 20px}
-.labels{background:#1d1a50;color:#aeb8d6;font-size:10px;letter-spacing:1.1px;text-transform:uppercase;font-weight:750}
+.labels{background:#1d1a50;color:#aeb8d6;font-size:10px;letter-spacing:1.1px;text-transform:uppercase;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .service{min-height:82px;border-top:1px solid rgba(255,255,255,.11);cursor:pointer;color:#fff;transition:background .15s ease}
 .service:hover{background:#302b77}
-.time{color:#fff;font-size:22px;font-weight:750;font-variant-numeric:tabular-nums}
-.destination{font-size:17px;font-weight:750;color:#fff}
+.time{color:#fff;font-size:22px;font-weight:750;font-variant-numeric:tabular-nums;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
+.destination{font-size:17px;font-weight:750;color:#fff;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .operator{color:#bdc4db;font-size:12px;margin-top:6px}
-.platform{background:rgba(6,152,214,.16);color:#79d5ff;border:1px solid rgba(6,152,214,.38);border-radius:4px;padding:8px;text-align:center;font-weight:750}
-.status{color:#8fe0b5;font-size:12px;font-weight:700}
+.platform{background:rgba(6,152,214,.16);color:#79d5ff;border:1px solid rgba(6,152,214,.38);border-radius:4px;padding:8px;text-align:center;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
+.status{color:#8fe0b5;font-size:12px;font-weight:700;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .delayed,.cancelled{color:#ff9ca5}.early{color:#8fe0b5}.boarding{color:#79d5ff}
 .expand{color:#79d5ff;font-size:20px;text-align:center}
 .route{display:none;background:#1d1a50;border-top:1px solid rgba(255,255,255,.12);padding:23px 30px 28px;color:#fff}
 .route.open{display:block}
-.route-title{color:#79d5ff;font-size:11px;letter-spacing:1.2px;font-weight:800;margin-bottom:20px}
+.route-title{color:#79d5ff;font-size:11px;letter-spacing:1.2px;font-weight:800;margin-bottom:20px;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .stop{display:grid;grid-template-columns:22px 85px minmax(0,1fr) 85px;gap:12px;min-height:53px;position:relative;align-items:start}
 .stop:not(:last-child):before{content:"";position:absolute;left:8px;top:14px;height:calc(100% + 1px);width:2px;background:#5d5a91}
 .dot{width:18px;height:18px;border-radius:50%;border:3px solid var(--blue);background:#1d1a50;z-index:1}
 .destination-stop .dot{background:var(--blue)}
-.stop-name{font-weight:700;font-size:14px;color:#fff}
-.stop-time{color:#79d5ff;font-size:13px;font-variant-numeric:tabular-nums}
+.stop-name{font-weight:700;font-size:14px;color:#fff;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
+.stop-time{color:#79d5ff;font-size:13px;font-variant-numeric:tabular-nums;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
 .stop-platform{color:#bdc4db;font-size:12px;text-align:right}
 .stop-sub{color:#aeb8d6;font-size:11px;margin-top:4px}
 .route-error,.empty{padding:35px;text-align:center;color:#c5cbe0}
