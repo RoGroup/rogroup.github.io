@@ -193,6 +193,8 @@ footer {
 .ticker-label.alert-unavailable { background: #ffffff; color: var(--navy); border-left-color: var(--amber); }
 </style>
 <script src="static-notices.js" defer></script>
+<script src="platform-alterations.js" defer></script>
+
 </head>
 <body>
 
@@ -674,6 +676,7 @@ async function fetchDepartures() {
     const json = await response.json();
     if (!Array.isArray(json.results)) throw new Error('Unexpected departure data');
     latestServices = parseServices(json);
+    window.MCVPlatformAlerts?.observe(json.results);
     boardIsAvailable = true;
     recordPlatformChanges(latestServices);
     updateDisplayedServices();

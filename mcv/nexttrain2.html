@@ -78,6 +78,8 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
 @media(max-height:650px) and (min-width:621px) {header{min-height:70px;padding-top:6px;padding-bottom:6px}.logo{height:42px}main{padding-top:12px;padding-bottom:10px;gap:10px}.hero{padding:10px 0}.booked-time{font-size:clamp(58px,7vw,110px)}.destination{font-size:clamp(36px,5.2vw,75px)}.calling{min-height:58px}.notice-bar{min-height:45px;padding-top:8px;padding-bottom:8px}}
 </style>
 <script src="static-notices.js" defer></script>
+<script src="platform-alterations.js" defer></script>
+
 </head>
 <body>
 <div class="screen" id="screen">
@@ -334,6 +336,7 @@ async function refreshDepartures() {
     if (!response.ok) throw new Error('Departure feed HTTP ' + response.status);
     const json = await response.json();
     const newServices = parseServices(json);
+    window.MCVPlatformAlerts?.observe(json.results);
     noticePlatformMoves(newServices);
     services = newServices;
     feedUpdatedAt = Date.now();

@@ -19,6 +19,19 @@
 .table-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}.table-actions input{width:180px;border:1px solid var(--line);border-radius:4px;font-size:12px;padding:9px 10px}.table-wrap{width:100%;overflow-x:auto;max-height:500px;overflow-y:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}thead{position:sticky;top:0;background:#eff5fb;z-index:1}th{font-size:10px;text-transform:uppercase;color:#65708c;letter-spacing:.09em;font-weight:900;padding:11px 13px;white-space:nowrap}td{padding:12px 13px;border-top:1px solid #e7ecf2;vertical-align:middle}td strong{color:var(--navy)}td.small{font-size:11px;color:var(--muted)}tbody tr:nth-child(even){background:#fafcfe}.missing{font-size:13px;color:var(--muted);padding:24px;line-height:1.5}.warning-strip{background:#fff7e6;border-top:1px solid #efddb7;padding:12px 17px;font-size:12px;line-height:1.5;color:#71551a}
 .event-line{display:flex;gap:12px;padding:10px 17px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted)}.event-line b{color:var(--navy)}.foot{border-top:1px solid var(--line);color:var(--muted);padding:20px 0;font-size:12px;line-height:1.6}
 @media(max-width:1180px){.two{grid-template-columns:1fr}.monitor{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:820px){.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.monitor,.platform-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding:15px 13px}.top{padding:12px 13px}.hero{flex-direction:column;align-items:flex-start}.control-status{white-space:normal}.top-actions .view-link{display:none}}@media(max-width:560px){.monitor,.platform-grid,.targets{grid-template-columns:1fr 1fr}.identity-divider{display:none}.station-title{font-size:16px}.logo{width:98px}.top-actions{display:none}.monitor-card{padding:10px}.row{flex-direction:column}.buttons{flex-direction:column;align-items:stretch}.buttons .primary{width:100%}}
+
+
+/* Feed-observed platform alterations & staff-reviewed announcement drafting. */
+.change-item{padding:14px 19px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:start;gap:14px}
+.change-item:first-child{border-top:0}.change-text{color:var(--navy);font-weight:900;font-size:15px;margin:5px 0}.change-meta{font-size:12px;color:var(--muted);line-height:1.6}
+.change-item button{flex:none}.change-status{display:inline-block;border-radius:4px;padding:4px 7px;background:#fff2c9;color:var(--navy);font-size:11px;font-weight:900}
+.review-box{background:#fff5cf;border:1px solid #f0cd68;border-radius:6px;padding:12px 14px;font-size:12px;line-height:1.55;color:#393123;margin-bottom:15px}
+.announce-text{min-height:196px;resize:vertical;line-height:1.62;font-size:15px}.announce-controls{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-bottom:13px}
+.announce-controls>div:first-child{grid-column:span 2}.announce-check[hidden]{display:none!important}.announce-check{display:flex;gap:9px;align-items:flex-start;margin:10px 0;font-size:13px;color:var(--ink);line-height:1.4}
+.announce-check input{flex:none;margin-top:2px;accent-color:var(--navy)}.announce-controls .input{background:white}.announce-help{font-size:12px;color:var(--muted);line-height:1.5;margin:9px 0}
+.announce-actions{display:flex;align-items:center;justify-content:flex-start;gap:11px;flex-wrap:wrap;margin:12px 0 0}.announce-actions .secondary,.announce-actions .primary{min-height:42px}
+.announce-actions button:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:550px){.change-item{flex-direction:column}.announce-controls{grid-template-columns:1fr}.announce-controls>div:first-child{grid-column:span 1}}
 </style>
 </head>
 <body>
@@ -40,9 +53,32 @@
     <div class="warning-strip"><strong>Static hosting limitation:</strong> These are display shortcuts, not online/offline indicators. For genuine remote screen health, a separate service is required.</div>
    </section>
    <section class="panel"><div class="panel-top"><div><h2 class="panel-heading">Next service by platform</h2><p class="panel-description">Based on the current departure feed; platform allocations can change.</p></div><span class="meta" id="platform-time">Awaiting feed</span></div><div class="platform-grid" id="platform-summary"><div class="missing">Waiting for departure data…</div></div></section>
+
+   <section class="panel" id="platform-alerts"><div class="panel-top"><div><h2 class="panel-heading">Observed platform changes</h2><p class="panel-description">Detected between successful feed updates in <strong>this browser tab</strong>; not a verified alteration log.</p></div><span class="meta" id="changes-meta">Waiting for updates</span></div>
+      <div class="warning-strip"><strong>Check before publishing:</strong> The feed may be ahead of or behind the authorised station systems. Prepare an alert only after confirming the platform allocation.</div>
+      <div id="change-events"><p class="missing">No platform changes observed since this page opened.</p></div>
+   </section>
    <section class="panel"><div class="panel-top"><div><h2 class="panel-heading">Station departures</h2><p class="panel-description">Booked order, with overdue delayed services highlighted. Headcode shown if supplied.</p></div><div class="table-actions"><input type="search" id="search" placeholder="Destination / headcode" aria-label="Search departures"><span class="meta" id="feed-age">Awaiting feed</span></div></div><div class="table-wrap"><table><thead><tr><th>Booked</th><th>Expected</th><th>Destination</th><th>Platform</th><th>Headcode</th><th>Status</th></tr></thead><tbody id="departure-rows"><tr><td colspan="6" class="missing">Loading departures…</td></tr></tbody></table></div><div class="warning-strip">Not a dispatch authority. Verify train movements, platforms, formations and operational changes against approved railway systems.</div></section>
   </div>
   <div>
+
+   <section class="panel" id="announcements"><div class="panel-top"><div><h2 class="panel-heading">Staff announcement assistant</h2><p class="panel-description">Create an editable PA script from the current departures feed. Nothing is played or broadcast automatically.</p></div><span class="pill">STAFF DRAFT</span></div>
+    <div class="form-pad">
+      <div class="review-box"><strong>Staff review required.</strong> Check times, allocations, stopping patterns, disruption reasons and permitted wording against authorised sources before making an announcement. A feed change alone does not confirm a platform alteration.</div>
+      <div class="announce-controls">
+        <div><label for="announce-service" class="field-label">Select a live service</label><select id="announce-service" class="input"><option value="">Waiting for departures…</option></select></div>
+        <div><label for="announce-type" class="field-label">Announcement type</label><select id="announce-type" class="input"><option value="departure">Service information</option><option value="delay">Delay update</option><option value="cancellation">Cancellation</option><option value="alteration">Observed platform change</option></select></div>
+        <div><label for="announce-tone" class="field-label">Length</label><select id="announce-tone" class="input"><option value="normal">Standard</option><option value="short">Concise</option></select></div>
+      </div>
+      <label class="announce-check"><input id="announce-stops" type="checkbox"><span>Include full onward calling pattern (if supplied)</span></label>
+      <label class="announce-check"><input id="announce-carriage" type="checkbox"><span>Include the locally configured front-two-carriages reminder, where relevant <strong>(check the formation first)</strong></span></label>
+      <label class="announce-check" id="announce-verify-row" hidden><input id="announce-verify" type="checkbox"><span>I have verified the platform alteration in the authorised station information system.</span></label>
+      <div class="announce-actions"><button class="primary" type="button" id="announce-generate">Generate draft</button><span class="form-sub" id="announce-info" role="status">Select a service to begin.</span></div>
+      <label class="field-label" style="margin-top:17px" for="announce-output">Editable announcement script</label><textarea id="announce-output" class="input announce-text" spellcheck="true" aria-label="Announcement draft" placeholder="A reviewed script will appear here after you select a service and generate it."></textarea>
+      <div class="announce-actions"><button class="secondary" type="button" id="announce-copy" disabled>Copy reviewed script</button><button class="secondary" type="button" id="announce-clear">Clear</button></div>
+      <p class="announce-help">Headcodes are shown in the selection list for staff identification but omitted from passenger-facing scripts. Copying doesn't make an announcement or publish a passenger notice.</p>
+    </div>
+   </section>
    <section class="panel"><div class="panel-top"><div><h2 class="panel-heading">Prepare passenger notice</h2><p class="panel-description">Download an updated notices.json file, then commit it to GitHub. Screens poll that published file and hide notices after expiry.</p></div><span class="pill">GitHub commit required</span></div>
     <form id="notice-form" class="form-pad"><label for="notice-message" class="field-label">Message to passengers</label><textarea id="notice-message" maxlength="270" required minlength="5" placeholder="Example: Please check the departure screens for the latest platform information."></textarea><div class="form-sub" id="char-count">0 / 270 characters · plain text only</div>
     <div class="row" style="margin-top:14px"><div><label class="field-label" for="notice-kind">Priority</label><select id="notice-kind"><option value="info">Information · blue</option><option value="warning">Important · amber</option><option value="urgent">Urgent · red</option></select></div><div><label class="field-label" for="notice-duration">Automatically expire after</label><select id="notice-duration"><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60" selected>1 hour</option><option value="120">2 hours</option><option value="240">4 hours</option></select></div></div>
@@ -56,6 +92,7 @@
  </div>
  <footer class="foot"><strong>Manchester Victoria · Northern display management</strong> · This static control page can only read the same public departure feed as the boards. It cannot observe physical screen availability or publish notices without a GitHub commit. Confirm operating information using authorised railway systems.</footer>
 </main>
+<script src="platform-alterations.js"></script>
 <script>
  'use strict';
 const $=id=>document.getElementById(id);
@@ -79,7 +116,15 @@ function parseServices(json){if(!Array.isArray(json?.results))throw Error('Unexp
  const delayed=!cancelled&&!departed&&(['delayed','expected_late','delayed_no_estimate'].includes(code)||(/^expected/i.test(txt)&&expected-booked>60000)||expected-booked>60000);
  const destination=stationName(raw.destination?.name||raw.destination_name,raw.destination?.crs||raw.destination_crs);
  const platform=raw.platform_withheld?'':String(raw.platform??'').trim().toUpperCase().replace(/^PLATFORM\s+/,'');
- return {booked,expected,code,txt,cancelled,departed,delayed,destination,platform,headcode:String(raw.headcode||'').toUpperCase().trim(),lateReason:String(raw.late_reason||'').trim(),operator:String(raw.operator||''),serviceClass:String(raw.service_class||'').toLowerCase(),notForDisplay:raw.not_for_display===true};
+ const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
+ const mcv=points.findIndex(p=>String(p.station?.crs||p.crs||'').toUpperCase()==='MCV'||String(p.station?.name||p.name||'').toUpperCase()==='MANCHESTER VICTORIA');
+ const onward=(mcv>=0?points.slice(mcv+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV'));
+ const stops=onward.map(p=>stationName(p.station?.name||p.name,p.station?.crs||p.crs)).filter(Boolean);
+ const destCrs=String(raw.destination?.crs||raw.destination_crs||'').toUpperCase();
+ const trainId=raw.train_id==null?'':String(raw.train_id).trim();
+ const identity=trainId||String(raw.train_uid||'').trim();
+ const key=identity&&Number.isFinite(booked)?[identity,booked,String(destCrs||raw.destination?.name||raw.destination_name||'').toUpperCase()].join('|'):'';
+ return {key,booked,expected,code,txt,cancelled,departed,delayed,destination,destCrs,platform,headcode:String(raw.headcode||'').toUpperCase().trim(),lateReason:String(raw.late_reason||'').trim(),cancelReason:String(raw.cancel_reason||raw.cancellation_reason||'').trim(),operator:String(raw.operator||''),serviceClass:String(raw.service_class||'').toLowerCase(),notForDisplay:raw.not_for_display===true,stops};
  }).filter(s=>!s.notForDisplay&&!s.departed&&!['freight','empty stock','trip'].includes(s.serviceClass)).sort((a,b)=>(a.delayed&&a.booked<Date.now()?0:1)-(b.delayed&&b.booked<Date.now()?0:1)||(a.booked||Infinity)-(b.booked||Infinity));}
 function badge(s){if(s.cancelled)return '<span class="pill offline">Cancelled</span>';if(s.delayed)return `<span class="pill stale">${esc(s.txt||'Delayed')}</span>`;return '<span class="pill ok">On time</span>'}
 function renderDirectory(){const list=tab==='staff'?staff:tab==='next'?passenger.filter(s=>s.startsWith('nexttrain')):tab==='platforms'?passenger.filter(s=>!s.startsWith('nexttrain')):passenger;
@@ -95,7 +140,7 @@ function renderDepartures(){if(!lastFeed){$('departure-rows').innerHTML=`<tr><td
  $('feed-age').textContent=`Received ${ago(lastFeed)}${feedError?' · last good data':''}`;
  $('connection-dot').className='dot '+(feedError||Date.now()-lastFeed>90000?'warn':'good');
  $('connection-message').textContent=feedError?'Feed unavailable · last successful data shown':Date.now()-lastFeed>90000?'Feed data is stale':'Live station feed connected';}
-async function refreshDepartures(){try{const url='https://api.traini.ac/api/departures/MCV?limit=100&_='+Date.now();const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);services=parseServices(await res.json());lastFeed=Date.now();feedError='';}catch(err){feedError=String(err?.message||err);if(!lastFeed){$('connection-message').textContent='Live feed unavailable';$('connection-dot').className='dot bad';}}renderPlatforms();renderDepartures();}
+async function refreshDepartures(){try{const url='https://api.traini.ac/api/departures/MCV?limit=100&_='+Date.now();const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const raw=await res.json();if(!Array.isArray(raw.results))throw Error('Unexpected departures response');window.MCVPlatformAlerts?.observe(raw.results);services=parseServices(raw);lastFeed=Date.now();feedError='';renderChanges();renderAnnouncementChoices();}catch(err){feedError=String(err?.message||err);if(!lastFeed){$('connection-message').textContent='Live feed unavailable';$('connection-dot').className='dot bad';}}renderPlatforms();renderDepartures();}
 function validNotice(n){return n&&typeof n==='object'&&typeof n.id==='string'&&typeof n.message==='string'&&n.message.length<=270&&n.message.length>=5&&['info','warning','urgent'].includes(n.kind)&&Array.isArray(n.targets)&&n.targets.length>0&&n.targets.every(t=>passenger.includes(t))&&Number.isFinite(Date.parse(n.expires_at))&&Number.isFinite(Date.parse(n.created_at));}
 function active(){return notices.filter(n=>Date.parse(n.expires_at)>Date.now());}
 function renderNotices(){const list=active().slice().sort((a,b)=>(PRIORITY[a.kind]??3)-(PRIORITY[b.kind]??3)||Date.parse(a.created_at)-Date.parse(b.created_at));
@@ -112,6 +157,95 @@ function chooseTargets(mode){for(const el of document.querySelectorAll('.screen-
 function updateTargetCount(){$('submit-message').textContent=`${document.querySelectorAll('.screen-target:checked').length} display type(s) selected · requires GitHub commit`;}
 function downloadNotices(){const payload={version:1,updated_at:new Date().toISOString(),notices:notices.filter(validNotice).filter(n=>Date.parse(n.expires_at)>Date.now())};
  const blob=new Blob([JSON.stringify(payload,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='notices.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);$('submit-message').textContent='File downloaded only. Upload and commit notices.json to publish to screens.';}
+
+function feedFresh(){return !feedError&&lastFeed&&Date.now()-lastFeed<90000;}
+function renderChanges(){
+ const changes=window.MCVPlatformAlerts?.recent()||[];
+ $('changes-meta').textContent=changes.length?changes.length+' recent change(s)':'None observed this session';
+ $('change-events').innerHTML=changes.length?changes.map(c=>`<div class="change-item"><div><span class="change-status">OBSERVED IN FEED · ${stamp(c.at)}</span><div class="change-text">${esc(c.booked)} ${esc(c.destination)} · ${esc(c.from)} → ${esc(c.to)}</div><div class="change-meta">${c.headcode?esc(c.headcode)+' · ':''}Displayed on this browser only · ${c.targets.length} potentially affected board types</div></div><button type="button" class="secondary prepare-change" data-change="${esc(c.id)}" ${feedFresh()?'':'disabled'}>Prepare notice</button></div>`).join(''):'<p class="missing">No platform alterations observed in this control-room tab. Open it before the change to detect one; changes that happened before page load cannot be reconstructed.</p>';
+}
+let announcementSignature='';
+function serviceSignature(s){return JSON.stringify([s.key,s.booked,s.expected,s.platform,s.cancelled,s.delayed,s.txt,s.lateReason,s.cancelReason,s.stops,s.operator]);}
+function chooseService(){return services.find(s=>s.key&&s.key===$('announce-service').value)||null;}
+function renderAnnouncementChoices(){
+ const node=$('announce-service'),chosen=node.value;
+ node.innerHTML='<option value="">Select departure…</option>'+services.filter(s=>s.key).slice(0,100).map(s=>`<option value="${esc(s.key)}">${esc(clockFmt(s.booked))} · ${esc(s.destination)} · P${esc(s.platform||'TBC')}${s.headcode?' · '+esc(s.headcode):''}${s.cancelled?' · CANCELLED':s.delayed?' · DELAYED':''}</option>`).join('');
+ node.value=services.some(s=>s.key===chosen)?chosen:'';
+ if(announcementSignature && (!feedFresh()||!chooseService()||serviceSignature(chooseService())!==announcementSignature)) clearOutput('Train information has changed or is stale. Generate and review a new script.');
+ else if(!announcementSignature)$('announce-info').textContent=feedFresh()?'Live list updated · select a train':'Feed stale or unavailable · do not use for announcements';
+ $('announce-verify-row').hidden=$('announce-type').value!=='alteration';
+}
+function alertFor(s){const events=window.MCVPlatformAlerts?.recent()||[];return events.find(e=>e.key===s.key&&e.to===window.MCVPlatformAlerts?.normalizePlatform(s.platform))||null;}
+function configuredCarriage(s){
+ if(s.destCrs==='CLH'||s.destination==='CLITHEROE')return 'Passengers travelling to Langho, Whalley and Clitheroe must travel in the front two carriages only.';
+ if(s.destCrs==='HBL'||s.destination==='HEADBOLT LANE')return 'Passengers travelling to Upholland, Rainford and Headbolt Lane must travel in the front two carriages only.';
+ return '';
+}
+function clearOutput(message){announcementSignature='';$('announce-output').value='';$('announce-copy').disabled=true;$('announce-info').textContent=message||'Select a service and generate a draft.';}
+function generateAnnouncement(){
+ const s=chooseService(),kind=$('announce-type').value,short=$('announce-tone').value==='short';
+ if(!feedFresh()){clearOutput('Live feed unavailable or older than 90 seconds. Refresh and verify before drafting.');return;}
+ if(!s){clearOutput('Choose a service in the current live feed.');return;}
+ const platform=s.platform?`platform ${s.platform}`:'a platform yet to be confirmed';
+ const speechName=n=>String(n||'').toLowerCase().replace(/\b[a-z]/g,ch=>ch.toUpperCase());
+ const train=`the ${clockFmt(s.booked)} ${s.operator?s.operator+' ':''}service to ${speechName(s.destination)}`;
+ const sentenceTrain=train.charAt(0).toUpperCase()+train.slice(1);
+ let script='';
+ if(kind==='departure'){
+   if(s.cancelled){clearOutput('This train is cancelled. Choose Cancellation instead.');return;}
+   script=short?`Attention please. ${sentenceTrain} is shown as departing from ${platform}. Please check the station information screens.`
+     :`May I have your attention please. ${sentenceTrain} is currently shown as departing from ${platform}. Please check the station departure information and follow staff instructions before boarding.`;
+ } else if(kind==='delay'){
+   if(!s.delayed||s.cancelled){clearOutput('The current feed does not report this train as delayed.');return;}
+   const timing=Number.isFinite(s.expected)&&s.expected>s.booked?`Its current expected departure time is ${clockFmt(s.expected)}.`:'An estimated departure time is not currently available.';
+   script=short?`Attention please. ${sentenceTrain} is delayed. ${timing}`:
+     `May I have your attention please. We regret to announce that ${train} is delayed. ${timing}${s.lateReason?' The reported reason is '+s.lateReason.replace(/[.\s]+$/,'')+'.':''} We apologise for the disruption. Please check the station screens for the latest information.`;
+ } else if(kind==='cancellation'){
+   if(!s.cancelled){clearOutput('The current feed does not report this train as cancelled.');return;}
+   script=short?`Attention please. ${sentenceTrain} has been cancelled. Please speak to a member of staff for journey advice.`:
+     `May I have your attention please. We regret to announce that ${train} has been cancelled.${s.cancelReason?' The reason reported is '+s.cancelReason.replace(/[.\s]+$/,'')+'.':''} Please check the station information or speak to a member of staff for advice about alternative travel. We apologise for the inconvenience.`;
+ } else if(kind==='alteration'){
+   const change=alertFor(s);
+   if(!change){clearOutput('No platform alteration for this service has been observed in this control-room session.');return;}
+   if(!$('announce-verify').checked){clearOutput('Check the platform change with authorised station information, then tick the confirmation box.');return;}
+   script=short?`Attention please. ${sentenceTrain} is now shown departing from platform ${change.to}, instead of platform ${change.from}. Please check the station screens.`:
+     `May I have your attention please. A change of platform has been reported for ${train}. This service is now shown as departing from platform ${change.to}, instead of platform ${change.from}. Please make your way to the correct platform and follow station staff instructions.`;
+ } else return;
+ if($('announce-stops').checked&&s.stops.length&&kind!=='cancellation')script+=' This service is scheduled to call at '+s.stops.map(p=>speechName(p).replace(/\.$/,'')).join(', ').replace(/, ([^,]+)$/,' and $1')+'.';
+ if($('announce-carriage').checked&&kind!=='cancellation'){
+   const reminder=configuredCarriage(s);
+   if(reminder)script+=' '+reminder;
+ }
+ $('announce-output').value=script;
+ announcementSignature=serviceSignature(s);
+ $('announce-copy').disabled=false;
+ $('announce-info').textContent='Draft generated. Review/modify it before reading aloud or copying.';
+}
+$('change-events').addEventListener('click',e=>{
+ const button=e.target.closest('button.prepare-change');if(!button||!feedFresh())return;
+ const change=(window.MCVPlatformAlerts?.recent()||[]).find(c=>c.id===button.dataset.change);if(!change)return;
+ if(!confirm(`Have you verified the following platform alteration against authorised station information?\n\n${change.booked} ${change.destination}\nPlatform ${change.from} → ${change.to}\n\nThe next step only PREFILLS the notice editor. It does not publish.`))return;
+ $('notice-message').value=`PLATFORM ALTERATION: The ${change.booked} service to ${change.destination} is now shown as departing from Platform ${change.to} instead of Platform ${change.from}. Please check station screens and follow staff instructions.`;
+ $('char-count').textContent=$('notice-message').value.length+' / 270 characters · plain text only';
+ $('notice-kind').value='warning';
+ $('notice-duration').value='15';
+ for(const el of document.querySelectorAll('.screen-target'))el.checked=change.targets.includes(el.value);
+ updateTargetCount();$('notice-form').scrollIntoView({behavior:'smooth',block:'center'});$('submit-message').textContent=`Verified change · ${change.targets.length} displays selected · download and commit JSON to publish`;
+ $('notice-message').focus();
+});
+$('announce-type').addEventListener('change',()=>{$('announce-verify-row').hidden=$('announce-type').value!=='alteration';$('announce-verify').checked=false;clearOutput('Announcement type changed. Generate a new draft.');});
+$('announce-service').addEventListener('change',()=>{$('announce-verify').checked=false;clearOutput('Service changed. Generate a new draft.');});
+for(const id of ['announce-tone','announce-stops','announce-carriage','announce-verify'])$(id).addEventListener('change',()=>clearOutput('Draft options changed. Generate and review a new draft.'));
+$('announce-generate').addEventListener('click',generateAnnouncement);
+$('announce-output').addEventListener('input',()=>{$('announce-copy').disabled=!$('announce-output').value.trim()||!feedFresh()||($('announce-type').value==='alteration'&&!$('announce-verify').checked);});
+$('announce-clear').addEventListener('click',()=>clearOutput('Draft cleared.'));
+$('announce-copy').addEventListener('click',async()=>{
+ if(!feedFresh()||!$('announce-output').value.trim()||!chooseService()||serviceSignature(chooseService())!==announcementSignature){clearOutput('The source data changed. Generate and verify a new script.');return;}
+ if($('announce-type').value==='alteration'&&!$('announce-verify').checked)return;
+ try{await navigator.clipboard.writeText($('announce-output').value);$('announce-info').textContent='Script copied — staff must still verify and deliver it.';}
+ catch(_){$('announce-output').focus();$('announce-output').select();$('announce-info').textContent='Copy unavailable here. Script selected; press ⌘C / Ctrl+C.';}
+});
+window.addEventListener('mcv:platform-change',()=>{renderChanges();renderAnnouncementChoices();});
 $('monitor-tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-group]');if(!b)return;tab=b.dataset.group;for(const x of $('monitor-tabs').querySelectorAll('button'))x.classList.toggle('active',x===b);renderDirectory();});
 document.querySelectorAll('[data-choose]').forEach(b=>b.addEventListener('click',()=>chooseTargets(b.dataset.choose)));
 $('target-list').addEventListener('change',updateTargetCount);$('search').addEventListener('input',renderDepartures);
@@ -120,8 +254,8 @@ $('notice-form').addEventListener('submit',e=>{e.preventDefault();if(!noticesLoa
  if(!confirm(`Add this ${kind} notice to a JSON draft for ${targets.length} screen(s), expiring in ${minutes} minutes?\n\nYou must commit the downloaded notices.json file to publish it.\n\n${msg}`))return;
  const now=new Date();notices.push({id:'notice-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),message:msg,kind,targets,created_at:now.toISOString(),expires_at:new Date(now.getTime()+minutes*60000).toISOString()});unsaved=true;renderNotices();downloadNotices();$('notice-message').value='';$('char-count').textContent='0 / 270 characters · plain text only';});
 $('active-notices').addEventListener('click',e=>{const b=e.target.closest('button.remove');if(!b)return;if(!confirm('Remove this notice from your draft? You must commit a new notices.json to remove it from screens.'))return;notices=notices.filter(n=>n.id!==b.dataset.id);unsaved=true;renderNotices();downloadNotices();});
-buildTargets();renderDirectory();renderPlatforms();renderNotices();refreshDepartures();refreshNotices();
-setInterval(refreshDepartures,30000);setInterval(refreshNotices,30000);setInterval(()=>{renderPlatforms();renderDepartures();renderNotices()},10000);
+buildTargets();renderDirectory();renderPlatforms();renderNotices();renderChanges();refreshDepartures();refreshNotices();
+setInterval(refreshDepartures,30000);setInterval(refreshNotices,30000);setInterval(()=>{renderPlatforms();renderDepartures();renderNotices();renderChanges();},10000);
 
 </script>
 </body></html>
