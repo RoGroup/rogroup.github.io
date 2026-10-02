@@ -1,5 +1,24 @@
 {
   "version": 1,
-  "updated_at": null,
-  "notices": []
+  "updated_at": "2026-10-02T20:06:55.826Z",
+  "notices": [
+    {
+      "id": "notice-mure9b2o-2r1sup",
+      "message": "This station has been closed due to an operational incident. Please make your way to the nearest exit",
+      "kind": "urgent",
+      "targets": [
+        "platform.html",
+        "platform1.html",
+        "platform2.html",
+        "platform3.html",
+        "platform4.html",
+        "platform5.html",
+        "platform6.html",
+        "platform12.html",
+        "platform45.html"
+      ],
+      "created_at": "2026-10-02T20:06:55.824Z",
+      "expires_at": "2026-10-02T20:21:55.824Z"
+    }
+  ]
 }
