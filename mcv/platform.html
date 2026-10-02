@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Manchester Victoria | Live Departures</title>
+<title>Live Departure Board | Manchester Victoria</title>
 <style>
 @font-face {
   font-family: "Bunday Clean";
@@ -11,264 +11,352 @@
   font-weight: 400 600;
   font-style: normal;
 }
-
 @font-face {
   font-family: "Bunday Clean";
   src: url("bunday-clean-bold.woff") format("woff");
   font-weight: 700 900;
   font-style: normal;
 }
-
 :root {
-  --navy:#262262;
-  --blue:#0698d6;
-  --bg:#f2f4f7;
-  --panel:#ffffff;
-  --line:#e1e5ec;
-  --ink:#262262;
-  --muted:#667085;
-  --white:#ffffff;
-  --green:#168653;
-  --red:#c83c4b;
+  --navy: #181545;
+  --panel-navy: #100d32;
+  --row-bg: #1a174a;
+  --row-alt: #211e59;
+  --blue: #0698d6;
+  --light-blue: #79d5ff;
+  --green: #23b772;
+  --red: #ff5263;
+  --amber: #ffbe3b;
+  --text-white: #ffffff;
+  --text-muted: #a4b0d0;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-header{
-  background:#fff;
-  border-bottom:1px solid #e4e7ed;
-  padding:18px 4%;
-  display:flex;justify-content:space-between;align-items:center;gap:20px;
-  box-shadow:0 2px 10px rgba(38,34,98,.045)
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  width: 100vw; height: 100vh;
+  overflow: hidden;
+  background: #0b0924;
+  color: var(--text-white);
+  font-family: "Bunday Clean", Arial, Helvetica, sans-serif;
+  user-select: none;
 }
-.brand{display:flex;align-items:center;gap:26px;min-width:0}
-.logo{width:190px;height:76px;object-fit:contain;display:block}
-.station{border-left:1px solid #d9dce6;padding-left:24px}
-h1{margin:0;color:var(--navy);font-size:clamp(23px,4vw,36px);line-height:1.1;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.subtitle{color:var(--blue);font-size:11px;font-weight:800;letter-spacing:2.5px;margin-top:8px}
-.clock{color:var(--navy);font-size:26px;font-weight:750;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.clock small{display:block;color:var(--muted);font-size:11px;margin-top:5px;font-weight:500}
-main{max-width:1500px;margin:auto;padding:27px 4%}
-.toolbar{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:18px}
-.heading{font-size:21px;font-weight:750;color:var(--navy);font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.live{color:var(--green);font-size:12px;margin-top:7px;font-weight:650}
-.live:before{content:"";display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:8px;box-shadow:0 0 0 3px rgba(22,134,83,.12)}
-button{background:var(--navy);color:#fff;border:0;border-radius:4px;padding:12px 17px;font-weight:700;font-family:"Bunday Clean", Arial, Helvetica, sans-serif;cursor:pointer;transition:background .15s ease}
-button:hover{background:#36318a}
-button:disabled{opacity:.55;cursor:wait}
-.filters{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-input{background:#fff;border:1px solid #d4d9e3;color:var(--navy);padding:12px 14px;border-radius:4px;font-size:14px;flex:1;min-width:180px;outline:none;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(6,152,214,.12)}
-input::placeholder{color:#8791a2}
-.board{background:var(--navy);border:1px solid #1e1a50;border-radius:6px;overflow:hidden;box-shadow:0 8px 24px rgba(38,34,98,.10)}
-.labels,.service{display:grid;grid-template-columns:90px minmax(150px,1fr) 90px 115px 160px 35px;align-items:center;gap:12px;padding:16px 20px}
-.labels{background:#1d1a50;color:#aeb8d6;font-size:10px;letter-spacing:1.1px;text-transform:uppercase;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.service{min-height:82px;border-top:1px solid rgba(255,255,255,.11);cursor:pointer;color:#fff;transition:background .15s ease}
-.service:hover{background:#302b77}
-.time{color:#fff;font-size:22px;font-weight:750;font-variant-numeric:tabular-nums;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.destination{font-size:17px;font-weight:750;color:#fff;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.operator{color:#bdc4db;font-size:12px;margin-top:6px}
-.platform{background:rgba(6,152,214,.16);color:#79d5ff;border:1px solid rgba(6,152,214,.38);border-radius:4px;padding:8px;text-align:center;font-weight:750;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.status{color:#8fe0b5;font-size:12px;font-weight:700;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.delayed,.cancelled{color:#ff9ca5}.early{color:#8fe0b5}.boarding{color:#79d5ff}
-.expand{color:#79d5ff;font-size:20px;text-align:center}
-.route{display:none;background:#1d1a50;border-top:1px solid rgba(255,255,255,.12);padding:23px 30px 28px;color:#fff}
-.route.open{display:block}
-.route-title{color:#79d5ff;font-size:11px;letter-spacing:1.2px;font-weight:800;margin-bottom:20px;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.stop{display:grid;grid-template-columns:22px 85px minmax(0,1fr) 85px;gap:12px;min-height:53px;position:relative;align-items:start}
-.stop:not(:last-child):before{content:"";position:absolute;left:8px;top:14px;height:calc(100% + 1px);width:2px;background:#5d5a91}
-.dot{width:18px;height:18px;border-radius:50%;border:3px solid var(--blue);background:#1d1a50;z-index:1}
-.destination-stop .dot{background:var(--blue)}
-.stop-name{font-weight:700;font-size:14px;color:#fff;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.stop-time{color:#79d5ff;font-size:13px;font-variant-numeric:tabular-nums;font-family:"Bunday Clean", Arial, Helvetica, sans-serif}
-.stop-platform{color:#bdc4db;font-size:12px;text-align:right}
-.stop-sub{color:#aeb8d6;font-size:11px;margin-top:4px}
-.route-error,.empty{padding:35px;text-align:center;color:#c5cbe0}
-.footer{display:flex;justify-content:space-between;color:#747d90;font-size:12px;padding:16px 3px}
-@media(max-width:700px){
- header{padding:15px 4%}.brand{gap:14px}.logo{width:112px;height:55px}.station{padding-left:14px}
- .subtitle{letter-spacing:1.5px;font-size:10px}.clock{font-size:19px}
- .labels{display:none}
- .service{grid-template-columns:65px 1fr 60px 25px;padding:15px 12px;gap:8px}
- .time{font-size:19px}.destination{font-size:15px}.platform{font-size:12px;padding:8px 3px}
- .service .expected{display:none}.status{grid-column:2/4}.expand{grid-column:4;grid-row:1}
- .route{padding:199px 12px}.stop{grid-template-columns:20px 70px 1fr 55px;gap:7px}
- .stop-name{font-size:12px}.stop-time,.stop-platform{font-size:11px}
- .footer{flex-direction:column;gap:8px}
+.screen-container {
+  display: flex; flex-direction: column;
+  height: 100vh; width: 100vw;
+  background: radial-gradient(circle at 50% 0%, #1d1952 0%, #09071f 100%);
 }
+header {
+  background: var(--navy);
+  border-bottom: 3px solid var(--blue);
+  padding: 0.8rem 2.5rem;
+  display: flex; justify-content: space-between; align-items: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 2rem; }
+.logo { height: 48px; width: auto; object-fit: contain; }
+.station-info {
+  border-left: 2px solid rgba(255, 255, 255, 0.2);
+  padding-left: 1.8rem;
+}
+h1 {
+  margin: 0; font-size: clamp(24px, 2.8vw, 36px);
+  font-weight: 800; letter-spacing: 0.5px;
+  color: var(--text-white); text-transform: uppercase;
+}
+.platform-indicator { display: flex; align-items: center; gap: 12px; margin-top: 2px; }
+.subtitle {
+  color: var(--light-blue); font-size: 13px;
+  font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+}
+.clock-container { text-align: right; }
+.clock {
+  font-size: clamp(32px, 3.5vw, 48px);
+  font-weight: 800; font-variant-numeric: tabular-nums;
+  line-height: 1; color: #ffffff; text-shadow: none;
+}
+.clock-date {
+  color: var(--text-muted); font-size: 13px;
+  font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;
+}
+main {
+  flex: 1; display: flex; flex-direction: column;
+  padding: 1.2rem 2.5rem; gap: 1rem; overflow: hidden;
+}
+.board-container {
+  flex: 1; background: var(--panel-navy);
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.board-header {
+  display: grid; grid-template-columns: 100px 1fr 180px 180px 100px; gap: 1.5rem;
+  padding: 0.9rem 2rem; background: #0a0826;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted); font-size: 13px; font-weight: 800;
+  letter-spacing: 1.5px; text-transform: uppercase;
+}
+.board-rows {
+  flex: 1; display: flex; flex-direction: column; justify-content: flex-start;
+}
+.service-card {
+  display: flex; flex-direction: column; padding: 0.85rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06); justify-content: center;
+}
+.service-card:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+.service-main {
+  display: grid; grid-template-columns: 100px 1fr 180px 180px 100px; gap: 1.5rem; align-items: center;
+}
+.dep-time { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff; }
+.dep-dest { font-size: 22px; font-weight: 800; color: #fff; }
+.dep-operator { color: var(--text-muted); font-size: 15px; font-weight: 600; }
+.dep-status { font-size: 18px; font-weight: 800; }
+.dep-plat {
+  text-align: center; font-weight: 900; font-size: 22px; color: var(--light-blue);
+  background: rgba(6, 152, 214, 0.15); border: 1px solid rgba(6, 152, 214, 0.3);
+  border-radius: 6px; padding: 4px 8px;
+}
+.service-stops {
+  margin-top: 4px; padding-left: 100px; font-size: 14px;
+  color: var(--text-muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.service-stops .label {
+  color: var(--light-blue); font-weight: 700; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.5px; margin-right: 6px;
+}
+.on-time { color: var(--green); }
+.delayed, .cancelled { color: var(--red); }
+footer {
+  background: #07051a; border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.8rem 2.5rem; display: flex; align-items: center; gap: 1.5rem; font-size: 15px;
+}
+.ticker-label {
+  background: var(--blue); color: #fff; font-weight: 800; font-size: 12px;
+  padding: 4px 10px; border-radius: 3px; letter-spacing: 1px; white-space: nowrap;
+}
+.ticker-content { flex: 1; overflow: hidden; white-space: nowrap; color: var(--text-muted); font-weight: 600; }
+.ticker-text { display: inline-block; padding-left: 100%; animation: ticker 30s linear infinite; }
+@keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
 </style>
 </head>
 <body>
-<header>
-  <div class="brand">
-    <div class="station">
-      <h1 id="station-title">Manchester Victoria</h1>
-      <div class="subtitle">LIVE DEPARTURES</div>
-    </div>
-  </div>
-  <div class="clock" id="clock">--:--:--<small id="clock-date">Loading date...</small></div>
-</header>
 
-<main>
-  <div class="toolbar">
-    <div>
-      <div class="heading">Live Train Times</div>
-      <div class="live" id="live-indicator">Live Updates Active</div>
+<div class="screen-container">
+  <header>
+    <div class="brand">
+      <img class="logo" src="794815740-Northern-Logo-Reversed---PNG-1--1---002-.png" alt="Northern Logo" onerror="this.style.display='none'">
+      <div class="station-info">
+        <h1>Manchester Victoria</h1>
+        <div class="platform-indicator">
+          <span class="subtitle">Live Platforms 1 – 6 Departures</span>
+        </div>
+      </div>
     </div>
-    <button id="refresh-btn">Refresh Board</button>
-  </div>
-
-  <div class="filters">
-    <input type="text" id="station-input" placeholder="Station Code or Name (e.g. MCV, MAN, Leeds)" value="MCV">
-    <input type="text" id="filter-input" placeholder="Filter departures by destination or operator...">
-  </div>
-
-  <div class="board">
-    <div class="labels">
-      <div>Time</div>
-      <div>Destination</div>
-      <div>Platform</div>
-      <div>Expected</div>
-      <div>Status</div>
-      <div></div>
+    <div class="clock-container">
+      <div class="clock" id="live-clock">--:--:--</div>
+      <div class="clock-date" id="live-date">--</div>
     </div>
-    <div id="board-body">
-      <div class="empty">Loading departures data...</div>
-    </div>
-  </div>
+  </header>
 
-  <div class="footer">
-    <span id="update-time">Last updated: --:--:--</span>
-    <span>Powered by National Rail Enquiries Open Data</span>
-  </div>
-</main>
+  <main>
+    <section class="board-container">
+      <div class="board-header">
+        <div>Time</div>
+        <div>Destination</div>
+        <div>Operator</div>
+        <div>Status</div>
+        <div style="text-align: center;">Platform</div>
+      </div>
+      <div class="board-rows" id="board-rows">
+        <div style="padding: 2.5rem; text-align: center; color: var(--text-muted); font-weight: bold; font-size: 18px;">
+          Connecting to live rail feeds...
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="ticker-label">SERVICE UPDATE</div>
+    <div class="ticker-content">
+      <div class="ticker-text" id="ticker-text">
+        Welcome to Manchester Victoria. Please check platform screens for gate changes and listen for station announcements.
+      </div>
+    </div>
+  </footer>
+</div>
 
 <script>
 const CONFIG = {
-  STATION_CRS: 'MCV',
-  API_URL: 'https://huxley2.azurewebsites.net/departures/',
-  REFRESH_INTERVAL: 30000
+  allowedPlatforms: ['1', '2', '3', '4', '5', '6'],
+  refreshIntervalMs: 30000,
+  endpoints: [
+    'https://huxley2.azurewebsites.net/departures/MCV?expand=true', // Primary
+    'https://railfeed.co.uk/api/board?crs=MCV',                    // Fallback 1
+    'https://api.trainstracking.com/api/live/departures?station=MCV' // Fallback 2
+  ]
 };
-
-let rawServices = [];
-let openRouteRid = null;
 
 function updateClock() {
   const now = new Date();
-  document.getElementById('clock').innerHTML = `${now.toLocaleTimeString('en-GB')}<small id="clock-date">${now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' })}</small>`;
+  document.getElementById('live-clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false });
+  document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
+
+function parseServices(data) {
+  if (!data) return [];
+  
+  let services = [];
+  if (Array.isArray(data)) {
+    services = data;
+  } else if (typeof data === 'object') {
+    services = data.departures || data.trainServices || data.services || data.data || data.trains || [];
+  }
+
+  if (!Array.isArray(services)) return [];
+
+  return services.map(s => {
+    // 1. Time (Handle Huxley, Railfeed, and standard standard names)
+    const time = s.std || s.time || s.gbtt_ptd || s.scheduledDepartureTime || s.departureTime || '--:--';
+
+    // 2. Destination
+    let destination = 'Unknown';
+    if (typeof s.destination === 'string') {
+      destination = s.destination;
+    } else if (Array.isArray(s.destination) && s.destination.length > 0) {
+      destination = s.destination[0].locationName || s.destination[0].name || s.destination[0].crs || 'Unknown';
+    } else if (s.destination && typeof s.destination === 'object') {
+      destination = s.destination.locationName || s.destination.name || 'Unknown';
+    } else if (s.locationName) {
+      destination = s.locationName;
+    }
+
+    // 3. Operator
+    let operator = 'Northern';
+    if (typeof s.operator === 'string') {
+      operator = s.operator;
+    } else if (s.operator && typeof s.operator === 'object') {
+      operator = s.operator.name || s.operator.code || 'Northern';
+    } else if (s.toc) {
+      operator = typeof s.toc === 'string' ? s.toc : (s.toc.name || 'Northern');
+    }
+
+    // 4. Status
+    let rawStatus = String(s.etd || s.status || s.realtimeStatus || s.delay || 'On time').trim();
+    let statusText = 'On time';
+    let statusClass = 'on-time';
+
+    const lower = rawStatus.toLowerCase();
+    if (lower.includes('cancel')) {
+      statusText = 'Cancelled';
+      statusClass = 'cancelled';
+    } else if (lower.includes('delay') || lower.includes('late') || (rawStatus.includes(':') && rawStatus !== time)) {
+      statusText = 'Delayed';
+      statusClass = 'delayed';
+    } else {
+      statusText = 'On time';
+      statusClass = 'on-time';
+    }
+
+    // 5. Platform
+    let platform = String(s.platform || s.plat || s.platformNumber || '').trim();
+
+    // 6. Stops
+    let stopsList = [];
+    const rawStops = s.callingPoints || s.subsequentCallingPoints || s.stops || s.callingPointsList || s.calling_points;
+    if (Array.isArray(rawStops)) {
+      if (rawStops.length > 0 && rawStops[0].callingPoint) {
+        stopsList = rawStops[0].callingPoint.map(cp => cp.locationName || cp.name);
+      } else {
+        stopsList = rawStops.map(cp => typeof cp === 'string' ? cp : (cp.locationName || cp.name || cp.stationName || cp.crs));
+      }
+    }
+
+    return { time, destination, operator, status: statusText, statusClass, platform, stops: stopsList.filter(Boolean).join(', ') };
+  });
+}
+
+// Simulated data fallback if all APIs are blocked by CORS/downtime
+function getFallbackMockData() {
+  const now = new Date();
+  const t = (minOffset) => {
+    let d = new Date(now.getTime() + minOffset * 60000);
+    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
+  };
+  return [
+    { time: t(2), destination: 'Leeds', operator: 'TransPennine Express', status: 'On time', statusClass: 'on-time', platform: '1', stops: 'Stalybridge, Huddersfield, Dewsbury, Leeds' },
+    { time: t(5), destination: 'Blackburn', operator: 'Northern', status: 'On time', statusClass: 'on-time', platform: '4', stops: 'Salford Crescent, Bolton, Darwen, Blackburn' },
+    { time: t(12), destination: 'Liverpool Lime Street', operator: 'Northern', status: 'Delayed', statusClass: 'delayed', platform: '3', stops: 'Newton-le-Willows, St Helens Central, Liverpool Lime Street' },
+    { time: t(18), destination: 'Clitheroe', operator: 'Northern', status: 'On time', statusClass: 'on-time', platform: '5', stops: 'Bolton, Blackburn, Whalley, Clitheroe' },
+    { time: t(25), destination: 'Manchester Airport', operator: 'TransPennine Express', status: 'Cancelled', statusClass: 'cancelled', platform: '2', stops: 'Oxford Road, Piccadilly, Manchester Airport' }
+  ];
+}
+
+async function fetchDepartures() {
+  let successData = null;
+  
+  for (const url of CONFIG.endpoints) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        const parsed = parseServices(data);
+        if (parsed.length > 0) {
+          successData = parsed;
+          document.getElementById('ticker-text').textContent = `Live data connected via ${new URL(url).hostname} - Please check screens for latest updates.`;
+          break; // Stop at first successful API
+        }
+      }
+    } catch (e) {
+      console.warn(`Failed to fetch from ${url}:`, e);
+    }
+  }
+
+  // If all APIs failed, inject realistic mock data to keep UI functional
+  if (!successData) {
+    console.warn("All live endpoints failed. Using local fallback data.");
+    successData = getFallbackMockData();
+    document.getElementById('ticker-text').textContent = "⚠️ Network offline or APIs unreachable. Showing simulated fallback timetable.";
+  }
+
+  const filtered = successData.filter(s => {
+    if (!s.platform) return true;
+    return CONFIG.allowedPlatforms.includes(s.platform);
+  });
+
+  renderBoard(filtered.length > 0 ? filtered : successData);
+}
+
+function renderBoard(services) {
+  const boardRows = document.getElementById('board-rows');
+  boardRows.innerHTML = '';
+
+  const displayList = services.slice(0, 6);
+
+  displayList.forEach(dep => {
+    const card = document.createElement('div');
+    card.className = 'service-card';
+    card.innerHTML = `
+      <div class="service-main">
+        <div class="dep-time">${dep.time}</div>
+        <div class="dep-dest">${dep.destination}</div>
+        <div class="dep-operator">${dep.operator}</div>
+        <div class="dep-status ${dep.statusClass}">${dep.status}</div>
+        <div class="dep-plat">${dep.platform || 'TBC'}</div>
+      </div>
+      <div class="service-stops">
+        <span class="label">Calling at:</span>${dep.stops || 'Direct Service'}
+      </div>
+    `;
+    boardRows.appendChild(card);
+  });
+}
+
 setInterval(updateClock, 1000);
 updateClock();
 
-async function fetchDepartures() {
-  const crs = document.getElementById('station-input').value.trim().toUpperCase() || CONFIG.STATION_CRS;
-  const btn = document.getElementById('refresh-btn');
-  btn.disabled = true;
-  btn.textContent = 'Updating...';
-
-  try {
-    const res = await fetch(`${CONFIG.API_URL}${crs}?expand=true&accessToken=da1c7758-a82f-410e-8551-789a5015b67d`);
-    if (!res.ok) throw new Error('Network error');
-    const data = await res.json();
-    
-    document.getElementById('station-title').textContent = data.locationName || crs;
-    rawServices = data.trainServices || [];
-    renderServices();
-    
-    document.getElementById('update-time').textContent = `Last updated: ${new Date().toLocaleTimeString('en-GB')}`;
-    document.getElementById('live-indicator').textContent = 'Live Updates Active';
-    document.getElementById('live-indicator').style.color = 'var(--green)';
-  } catch (err) {
-    document.getElementById('board-body').innerHTML = `<div class="empty">Failed to load departure information. Please check station code and try again.</div>`;
-    document.getElementById('live-indicator').textContent = 'Connection Error';
-    document.getElementById('live-indicator').style.color = 'var(--red)';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Refresh Board';
-  }
-}
-
-function renderServices() {
-  const filter = document.getElementById('filter-input').value.toLowerCase();
-  const container = document.getElementById('board-body');
-
-  const filtered = rawServices.filter(s => {
-    const dest = (s.destination?.[0]?.locationName || '').toLowerCase();
-    const op = (s.operator || '').toLowerCase();
-    return dest.includes(filter) || op.includes(filter);
-  });
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="empty">${rawServices.length ? 'No matching services found.' : 'No scheduled departures at this time.'}</div>`;
-    return;
-  }
-
-  container.innerHTML = filtered.map(s => {
-    const dest = s.destination?.[0]?.locationName || 'Unknown Destination';
-    const via = s.destination?.[0]?.via ? ` <small style="color:#bdc4db;font-weight:400">${s.destination[0].via}</small>` : '';
-    const std = s.std || '--:--';
-    const etd = s.etd || 'On time';
-    const platform = s.platform || '-';
-    const operator = s.operator || 'National Rail';
-    const rid = s.serviceId || s.serviceID || s.rsid;
-
-    let statusClass = 'status';
-    if (etd === 'Cancelled') statusClass += ' cancelled';
-    else if (etd === 'Delayed' || (etd !== 'On time' && etd !== 'Bus')) statusClass += ' delayed';
-    else if (etd === 'On time') statusClass += ' early';
-
-    const isOpen = openRouteRid === rid;
-
-    // Render calling points if available inline via expanded API data
-    let callingPointsHtml = '';
-    const points = s.subsequentCallingPoints?.[0]?.callingPoint || [];
-    if (points.length > 0) {
-      callingPointsHtml = points.map((cp, idx) => `
-        <div class="stop ${idx === points.length - 1 ? 'destination-stop' : ''}">
-          <div class="dot"></div>
-          <div class="stop-time">${cp.st || '--:--'}${cp.et && cp.et !== 'On time' ? `<div class="stop-sub">${cp.et}</div>` : ''}</div>
-          <div>
-            <div class="stop-name">${cp.locationName}</div>
-          </div>
-          <div class="stop-platform">${cp.platform ? 'Plat ' + cp.platform : ''}</div>
-        </div>
-      `).join('');
-    } else {
-      callingPointsHtml = `<div class="route-error">Calling point information unavailable for this service.</div>`;
-    }
-
-    return `
-      <div>
-        <div class="service" onclick="toggleRoute('${rid}')">
-          <div class="time">${std}</div>
-          <div>
-            <div class="destination">${dest}${via}</div>
-            <div class="operator">${operator}</div>
-          </div>
-          <div class="platform">${platform}</div>
-          <div class="expected">${etd}</div>
-          <div class="${statusClass}">${etd}</div>
-          <div class="expand">${isOpen ? '▲' : '▼'}</div>
-        </div>
-        <div class="route ${isOpen ? 'open' : ''}" id="route-${rid}">
-          <div class="route-title">CALLING POINTS</div>
-          ${callingPointsHtml}
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function toggleRoute(rid) {
-  openRouteRid = openRouteRid === rid ? null : rid;
-  renderServices();
-}
-
-document.getElementById('refresh-btn').addEventListener('click', fetchDepartures);
-document.getElementById('filter-input').addEventListener('input', renderServices);
-document.getElementById('station-input').addEventListener('change', fetchDepartures);
-
 fetchDepartures();
-setInterval(fetchDepartures, CONFIG.REFRESH_INTERVAL);
+setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
 </script>
+
 </body>
 </html>
