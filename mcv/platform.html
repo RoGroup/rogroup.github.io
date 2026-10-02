@@ -190,9 +190,7 @@ const CONFIG = {
   allowedPlatforms: ['1', '2', '3', '4', '5', '6'],
   refreshIntervalMs: 30000,
   endpoints: [
-    'https://huxley2.azurewebsites.net/departures/MCV?expand=true', // Primary
-    'https://railfeed.co.uk/api/board?crs=MCV',                    // Fallback 1
-    'https://api.trainstracking.com/api/live/departures?station=MCV' // Fallback 2
+    'https://api.traini.ac/api/departures/MCV?limit=30' // Traini live departures API
   ]
 };
 
@@ -209,19 +207,24 @@ function parseServices(data) {
   if (Array.isArray(data)) {
     services = data;
   } else if (typeof data === 'object') {
-    services = data.departures || data.trainServices || data.services || data.data || data.trains || [];
+    services = data.departures || data.trainServices || data.services || data.data || data.trains || data.results || [];
+    if (!Array.isArray(services) && services && typeof services === 'object') {
+      services = services.departures || services.services || services.results || [];
+    }
   }
 
   if (!Array.isArray(services)) return [];
 
   return services.map(s => {
     // 1. Time (Handle Huxley, Railfeed, and standard standard names)
-    const time = s.std || s.time || s.gbtt_ptd || s.scheduledDepartureTime || s.departureTime || '--:--';
+    const time = s.std || s.time || s.gbtt_ptd || s.scheduledDepartureTime || s.departureTime || s.scheduled || s.departure || '--:--';
 
     // 2. Destination
     let destination = 'Unknown';
     if (typeof s.destination === 'string') {
       destination = s.destination;
+    } else if (typeof s.destinationName === 'string' || typeof s.destination_name === 'string') {
+      destination = s.destinationName || s.destination_name;
     } else if (Array.isArray(s.destination) && s.destination.length > 0) {
       destination = s.destination[0].locationName || s.destination[0].name || s.destination[0].crs || 'Unknown';
     } else if (s.destination && typeof s.destination === 'object') {
@@ -234,6 +237,8 @@ function parseServices(data) {
     let operator = 'Northern';
     if (typeof s.operator === 'string') {
       operator = s.operator;
+    } else if (typeof s.operatorName === 'string' || typeof s.operator_name === 'string' || typeof s.tocName === 'string') {
+      operator = s.operatorName || s.operator_name || s.tocName;
     } else if (s.operator && typeof s.operator === 'object') {
       operator = s.operator.name || s.operator.code || 'Northern';
     } else if (s.toc) {
@@ -258,7 +263,7 @@ function parseServices(data) {
     }
 
     // 5. Platform
-    let platform = String(s.platform || s.plat || s.platformNumber || '').trim();
+    let platform = String(s.platform || s.plat || s.platformNumber || s.platform_number || '').trim();
 
     // 6. Stops
     let stopsList = [];
@@ -311,7 +316,7 @@ async function fetchDepartures() {
     }
   }
 
-  // If all APIs failed, inject realistic mock data to keep UI functional
+  // If the API fails or is blocked by browser CORS, show clearly-labelled demo data
   if (!successData) {
     console.warn("All live endpoints failed. Using local fallback data.");
     successData = getFallbackMockData();
