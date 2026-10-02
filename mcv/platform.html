@@ -221,9 +221,12 @@ const CONFIG = {
 };
 
 const MOTION = {
-  verticalPixelsPerSecond: 23,
-  pauseAtTopMs: 5500,
-  pauseAtBottomMs: 5500,
+  // Move by most of a screen every eight seconds: a full ten-departure cycle
+  // is far easier to follow on a screen nobody is controlling with a mouse.
+  verticalPageHoldMs: 7500,
+  verticalFirstHoldMs: 4500,
+  verticalMoveMs: 1450,
+  verticalScreenFraction: 0.78,
   callingPointsPixelsPerSecond: 75,
   callingPointsStartPauseMs: 1800,
   callingPointsEndPauseMs: 2200
@@ -239,8 +242,12 @@ const departedTrainIds = new Map();
 let stopViewports = [];
 const stopStates = new Map();
 let lastDelayedKeys = new Set();
-let verticalPhase = 'top';
-let verticalWaitUntil = performance.now() + MOTION.pauseAtTopMs;
+// The main board uses a clock-driven pager rather than a tiny per-frame crawl.
+// Unlike requestAnimationFrame-based incremental scrolling, it advances in
+// clearly visible steps on Safari and resumes following live-data rerenders.
+let verticalMode = 'hold';
+let verticalHoldUntil = performance.now() + MOTION.verticalFirstHoldMs;
+let verticalTransition = null;
 let previousAnimationTime = null;
 
 function updateClock() {
@@ -271,6 +278,16 @@ function escapeHTML(value) {
   }[char]));
 }
 
+// Local presentation-only station name correction. Does not alter the live feed.
+// SFD is Salford Central; SLD is Salford Crescent and must remain unchanged.
+function displayStationName(name, crs = '') {
+  const rawName = String(name ?? '').trim();
+  const code = String(crs ?? '').trim().toUpperCase();
+  if (code === 'SFD') return 'Salford Central';
+  if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'Salford Central';
+  return rawName || code;
+}
+
 // Prefer Traini's stable status codes; status_text is for the passenger-facing text.
 function parseServices(data) {
   const entries = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
@@ -297,7 +314,9 @@ function parseServices(data) {
       String(p.station?.name || p.name || '').toLowerCase() === 'manchester victoria';
     const mcvIndex = points.findIndex(isVictoria);
     const onward = mcvIndex >= 0 ? points.slice(mcvIndex + 1) : points.filter(p => !isVictoria(p));
-    const stops = onward.map(p => p.station?.name || p.name || p.station?.crs || p.crs).filter(Boolean).join(', ');
+    const stops = onward.map(p => displayStationName(
+      p.station?.name || p.name, p.station?.crs || p.crs
+    )).filter(Boolean).join(', ');
     const departs = s.departs || null;
     const trainId = s.train_id == null ? '' : String(s.train_id);
     // Calendar date/time is part of the key, so the same service on a later day is distinct.
@@ -308,7 +327,10 @@ function parseServices(data) {
       trainId,
       scheduledMs: epoch(departs),
       time: formatTrainiTime(departs),
-      destination: s.destination?.name || s.destination_name || 'Unknown',
+      destination: displayStationName(
+        s.destination?.name || s.destination_name || 'Unknown',
+        s.destination?.crs || s.destination_crs
+      ),
       operator: s.operator || 'National Rail',
       status, statusClass, isDelayed, isDeparted,
       platform: s.platform_withheld === true ? '' : String(s.platform ?? '').trim(),
@@ -395,8 +417,9 @@ function renderBoard(services) {
   if (newlyDelayed) {
     // A newly reported delay is important enough to show at once.
     boardRows.scrollTop = 0;
-    verticalPhase = 'top';
-    verticalWaitUntil = performance.now() + MOTION.pauseAtTopMs;
+    verticalMode = 'hold';
+    verticalTransition = null;
+    verticalHoldUntil = performance.now() + MOTION.verticalFirstHoldMs;
   } else if (anchorKey) {
     const newAnchor = [...boardRows.querySelectorAll('.service-card')]
       .find(card => card.dataset.serviceKey === anchorKey);
@@ -468,31 +491,49 @@ async function fetchDepartureActivity() {
   }
 }
 
-// Monotonic-time animation means a constant pace on 30, 60 or 120 Hz screens.
+// Advance by around one screen every few seconds, then show the bottom page
+// fully before returning to the first departure. This runs on a timer, not
+// Safari's frame rate, and always reaches the final departure of the ten.
+function advanceBoardScroll() {
+  const now = performance.now();
+  const bottom = Math.max(0, boardRows.scrollHeight - boardRows.clientHeight);
+  if (!boardIsAvailable || bottom <= 1) {
+    if (verticalMode !== 'hold' || verticalTransition) {
+      verticalTransition = null;
+      verticalMode = 'hold';
+      verticalHoldUntil = now + MOTION.verticalFirstHoldMs;
+    }
+    return;
+  }
+
+  if (verticalMode === 'moving') {
+    const move = verticalTransition;
+    if (!move) { verticalMode = 'hold'; return; }
+    const fraction = Math.min(1, (now - move.startedAt) / MOTION.verticalMoveMs);
+    const eased = fraction < .5 ? 2 * fraction * fraction : 1 - Math.pow(-2 * fraction + 2, 2) / 2;
+    boardRows.scrollTop = Math.max(0, Math.min(bottom, move.from + (move.to - move.from) * eased));
+    if (fraction >= 1) {
+      boardRows.scrollTop = Math.max(0, Math.min(bottom, move.to));
+      verticalTransition = null;
+      verticalMode = 'hold';
+      verticalHoldUntil = now + MOTION.verticalPageHoldMs;
+    }
+    return;
+  }
+
+  if (now < verticalHoldUntil) return;
+  const current = Math.max(0, Math.min(bottom, boardRows.scrollTop));
+  const step = Math.max(120, Math.floor(boardRows.clientHeight * MOTION.verticalScreenFraction));
+  // A full top-to-bottom cycle, rather than stopping after the first viewport.
+  const next = current >= bottom - 2 ? 0 : Math.min(bottom, current + step);
+  verticalTransition = { from: current, to: next, startedAt: now };
+  verticalMode = 'moving';
+}
+
+// Smooth long calling-point strips only when those particular strips overflow.
 function autoScrollFrame(now) {
   const elapsed = previousAnimationTime === null ? 0 : Math.min((now - previousAnimationTime) / 1000, 0.1);
   previousAnimationTime = now;
-  const bottom = Math.max(0, boardRows.scrollHeight - boardRows.clientHeight);
-
-  if (bottom > 1) {
-    if (verticalPhase === 'top' && now >= verticalWaitUntil) verticalPhase = 'down';
-    if (verticalPhase === 'down') {
-      boardRows.scrollTop = Math.min(bottom, boardRows.scrollTop + MOTION.verticalPixelsPerSecond * elapsed);
-      if (boardRows.scrollTop >= bottom - 1) {
-        boardRows.scrollTop = bottom;
-        verticalPhase = 'bottom';
-        verticalWaitUntil = now + MOTION.pauseAtBottomMs;
-      }
-    } else if (verticalPhase === 'bottom' && now >= verticalWaitUntil) {
-      boardRows.scrollTop = 0;
-      verticalPhase = 'top';
-      verticalWaitUntil = now + MOTION.pauseAtTopMs;
-    }
-  } else {
-    boardRows.scrollTop = 0;
-    verticalPhase = 'top';
-    verticalWaitUntil = now + MOTION.pauseAtTopMs;
-  }
 
   // A stopping pattern moves ONLY when it overflows its available width.
   // Hidden rows pause; when they reappear, their horizontal progress resumes.
@@ -533,6 +574,7 @@ fetchDepartures();
 fetchDepartureActivity();
 setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
 setInterval(fetchDepartureActivity, CONFIG.activityIntervalMs);
+setInterval(advanceBoardScroll, 40);
 requestAnimationFrame(autoScrollFrame);
 </script>
 
