@@ -30,7 +30,7 @@
   --red: #ff5263;
   --amber: #ffbe3b;
   --text-white: #ffffff;
-  --text-muted: #9aa5c4;
+  --text-muted: #a4b0d0;
 }
 
 * { box-sizing: border-box; }
@@ -60,7 +60,7 @@ html, body {
 header {
   background: var(--navy);
   border-bottom: 3px solid var(--blue);
-  padding: 1rem 2.5rem;
+  padding: 0.8rem 2.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -75,20 +75,19 @@ header {
 }
 
 .logo {
-  height: 64px;
+  height: 52px;
   width: auto;
   object-fit: contain;
-  filter: brightness(0) invert(1);
 }
 
 .station-info {
   border-left: 2px solid rgba(255, 255, 255, 0.2);
-  padding-left: 2rem;
+  padding-left: 1.8rem;
 }
 
 h1 {
   margin: 0;
-  font-size: clamp(28px, 3vw, 42px);
+  font-size: clamp(24px, 2.8vw, 36px);
   font-weight: 800;
   letter-spacing: 0.5px;
   color: var(--text-white);
@@ -99,22 +98,12 @@ h1 {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
-}
-
-.platform-badge {
-  background: var(--blue);
-  color: #fff;
-  font-weight: 900;
-  font-size: 16px;
-  padding: 2px 10px;
-  border-radius: 4px;
-  letter-spacing: 1px;
+  margin-top: 2px;
 }
 
 .subtitle {
   color: var(--light-blue);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -125,7 +114,7 @@ h1 {
 }
 
 .clock {
-  font-size: clamp(36px, 4vw, 56px);
+  font-size: clamp(32px, 3.5vw, 48px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -135,9 +124,9 @@ h1 {
 
 .clock-date {
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  margin-top: 6px;
+  margin-top: 4px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -147,113 +136,12 @@ main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 2.5rem;
-  gap: 1.5rem;
+  padding: 1.2rem 2.5rem;
+  gap: 1rem;
   overflow: hidden;
 }
 
-/* Primary Departure Banner (Next Train) */
-.hero-departure {
-  background: linear-gradient(135deg, #1f1b5c 0%, #120e3d 100%);
-  border: 2px solid var(--blue);
-  border-radius: 8px;
-  padding: 1.5rem 2rem;
-  display: grid;
-  grid-template-columns: 140px 1fr 220px 140px;
-  align-items: center;
-  gap: 2rem;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 0 15px rgba(6, 152, 214, 0.15);
-  position: relative;
-}
-
-.hero-departure::before {
-  content: "NEXT DEPARTURE";
-  position: absolute;
-  top: -12px;
-  left: 20px;
-  background: var(--blue);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 800;
-  padding: 2px 10px;
-  border-radius: 3px;
-  letter-spacing: 1.5px;
-}
-
-.hero-time {
-  font-size: 52px;
-  font-weight: 900;
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-  line-height: 1;
-}
-
-.hero-dest-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.hero-destination {
-  font-size: 38px;
-  font-weight: 800;
-  line-height: 1.1;
-  color: #fff;
-}
-
-.hero-calling-at {
-  color: var(--text-muted);
-  font-size: 16px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hero-calling-at span {
-  color: var(--light-blue);
-}
-
-.hero-status-box {
-  text-align: right;
-}
-
-.hero-status {
-  font-size: 26px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.hero-operator {
-  color: var(--text-muted);
-  font-size: 14px;
-  margin-top: 4px;
-}
-
-.hero-plat {
-  background: rgba(6, 152, 214, 0.2);
-  border: 2px solid var(--blue);
-  border-radius: 6px;
-  text-align: center;
-  padding: 8px 12px;
-}
-
-.hero-plat-label {
-  font-size: 11px;
-  color: var(--light-blue);
-  font-weight: 700;
-  letter-spacing: 1px;
-  display: block;
-}
-
-.hero-plat-num {
-  font-size: 36px;
-  font-weight: 900;
-  color: #fff;
-  line-height: 1;
-}
-
-/* Secondary Departures Board */
+/* Departures Board */
 .board-container {
   flex: 1;
   background: var(--panel-navy);
@@ -267,9 +155,9 @@ main {
 
 .board-header {
   display: grid;
-  grid-template-columns: 100px 1fr 140px 180px 100px;
+  grid-template-columns: 100px 1fr 180px 180px 100px;
   gap: 1.5rem;
-  padding: 1rem 2rem;
+  padding: 0.9rem 2rem;
   background: #0a0826;
   border-bottom: 2px solid rgba(255, 255, 255, 0.1);
   color: var(--text-muted);
@@ -283,20 +171,26 @@ main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
 }
 
-.service-row {
-  display: grid;
-  grid-template-columns: 100px 1fr 140px 180px 100px;
-  gap: 1.5rem;
-  padding: 1.2rem 2rem;
-  align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 18px;
+.service-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  justify-content: center;
 }
 
-.service-row:nth-child(even) {
+.service-card:nth-child(even) {
   background: rgba(255, 255, 255, 0.02);
+}
+
+.service-main {
+  display: grid;
+  grid-template-columns: 100px 1fr 180px 180px 100px;
+  gap: 1.5rem;
+  align-items: center;
 }
 
 .dep-time {
@@ -308,7 +202,7 @@ main {
 
 .dep-dest {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   color: #fff;
 }
 
@@ -325,12 +219,34 @@ main {
 
 .dep-plat {
   text-align: center;
-  font-weight: 800;
-  font-size: 20px;
+  font-weight: 900;
+  font-size: 22px;
   color: var(--light-blue);
-  background: rgba(6, 152, 214, 0.1);
-  border-radius: 4px;
+  background: rgba(6, 152, 214, 0.15);
+  border: 1px solid rgba(6, 152, 214, 0.3);
+  border-radius: 6px;
   padding: 4px 8px;
+}
+
+/* Intermediate Stops Row */
+.service-stops {
+  margin-top: 4px;
+  padding-left: 100px; /* Align with destination text */
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.service-stops .label {
+  color: var(--light-blue);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  margin-right: 6px;
 }
 
 /* Status Colors */
@@ -380,24 +296,15 @@ footer {
   100% { transform: translate3d(-100%, 0, 0); }
 }
 
-/* High contrast mode / Adjustments for low-res screens */
 @media (max-width: 1024px) {
-  header { padding: 1rem 1.5rem; }
-  main { padding: 1rem 1.5rem; gap: 1rem; }
-  .hero-departure {
-    grid-template-columns: 110px 1fr 180px 100px;
+  header { padding: 0.8rem 1.5rem; }
+  main { padding: 1rem 1.5rem; }
+  .board-header, .service-main {
+    grid-template-columns: 80px 1fr 140px 140px 80px;
     gap: 1rem;
-    padding: 1.2rem;
   }
-  .hero-time { font-size: 40px; }
-  .hero-destination { font-size: 28px; }
-  .hero-status { font-size: 20px; }
-  .board-header, .service-row {
-    grid-template-columns: 80px 1fr 110px 150px 80px;
-    gap: 1rem;
-    padding: 0.8rem 1.2rem;
-  }
-  .dep-time { font-size: 20px; }
+  .service-stops { padding-left: 80px; }
+  .dep-time { font-size: 22px; }
   .dep-dest { font-size: 18px; }
 }
 </style>
@@ -407,11 +314,11 @@ footer {
 <div class="screen-container">
   <header>
     <div class="brand">
-      <img class="logo" src="data:image/webp;base64,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" alt="Northern Logo">
+      <img class="logo" src="794815740-Northern-Logo-Reversed---PNG-1--1---002-.png" alt="Northern Logo">
       <div class="station-info">
         <h1>Manchester Victoria</h1>
         <div class="platform-indicator">
-          <span class="subtitle">Live Platform Departures</span>
+          <span class="subtitle">Platforms 1 – 6 Departures</span>
         </div>
       </div>
     </div>
@@ -422,24 +329,6 @@ footer {
   </header>
 
   <main>
-    <!-- Primary Next Departure Display -->
-    <section class="hero-departure" id="next-departure">
-      <div class="hero-time" id="hero-time">12:42</div>
-      <div class="hero-dest-group">
-        <div class="hero-destination" id="hero-dest">Leeds</div>
-        <div class="hero-calling-at">Calling at: <span id="hero-stops">Rochdale, Todmorden, Halifax, Bradford Interchange, Newcraighall</span></div>
-      </div>
-      <div class="hero-status-box">
-        <div class="hero-status on-time" id="hero-status">On Time</div>
-        <div class="hero-operator" id="hero-operator">Northern • 3 Coaches</div>
-      </div>
-      <div class="hero-plat">
-        <span class="hero-plat-label">PLATFORM</span>
-        <span class="hero-plat-num" id="hero-plat">4</span>
-      </div>
-    </section>
-
-    <!-- Secondary Departures List -->
     <section class="board-container">
       <div class="board-header">
         <div>Time</div>
@@ -449,7 +338,7 @@ footer {
         <div style="text-align: center;">Platform</div>
       </div>
       <div class="board-rows" id="board-rows">
-        <!-- Rows populated dynamically -->
+        <!-- 6 Platform Rows rendered via JS -->
       </div>
     </section>
   </main>
@@ -457,15 +346,15 @@ footer {
   <footer>
     <div class="ticker-label">SERVICE UPDATE</div>
     <div class="ticker-content">
-      <div class="ticker-text" id="ticker-text">
-        Welcome to Manchester Victoria. Please have your ticket ready for inspection. Keep your personal belongings with you at all times.
+      <div class="ticker-text">
+        Welcome to Manchester Victoria. Please hold handrails when using stairs or escalators. Keep your personal belongings with you at all times.
       </div>
     </div>
   </footer>
 </div>
 
 <script>
-// Mock Departure Data suited for platform viewing
+// Mock 6-Platform Departure Services with Intermediate Stops
 const departuresData = [
   {
     time: "12:42",
@@ -474,7 +363,7 @@ const departuresData = [
     status: "On Time",
     statusClass: "on-time",
     platform: "4",
-    stops: "Rochdale, Todmorden, Hebden Bridge, Halifax, Bradford Interchange"
+    stops: "Rochdale, Todmorden, Hebden Bridge, Halifax, Bradford Interchange, Newcraighall"
   },
   {
     time: "12:47",
@@ -483,7 +372,7 @@ const departuresData = [
     status: "On Time",
     statusClass: "on-time",
     platform: "3",
-    stops: "Newton-le-Willows, Earlestown, Lea Green"
+    stops: "Newton-le-Willows, Earlestown, Lea Green, Wavertree Technology Park"
   },
   {
     time: "12:51",
@@ -492,7 +381,7 @@ const departuresData = [
     status: "Delayed",
     statusClass: "delayed",
     platform: "1",
-    stops: "Bolton, Darwen"
+    stops: "Salford Central, Bolton, Hall i' th' Wood, Entwistle, Darwen"
   },
   {
     time: "12:58",
@@ -501,7 +390,7 @@ const departuresData = [
     status: "On Time",
     statusClass: "on-time",
     platform: "5",
-    stops: "Ashton-under-Lyne"
+    stops: "Ashton-under-Lyne, Stalybridge"
   },
   {
     time: "13:05",
@@ -510,7 +399,7 @@ const departuresData = [
     status: "On Time",
     statusClass: "on-time",
     platform: "2",
-    stops: "Salford Central, Salford Crescent, Hindley"
+    stops: "Salford Central, Salford Crescent, Moorside, Atherton, Hindley"
   },
   {
     time: "13:12",
@@ -519,7 +408,7 @@ const departuresData = [
     status: "Boarding",
     statusClass: "boarding",
     platform: "6",
-    stops: "Warrington Bank Quay, Frodsham"
+    stops: "Warrington Bank Quay, Runcorn East, Frodsham, Helsby"
   }
 ];
 
@@ -536,38 +425,28 @@ function updateClock() {
 }
 
 function renderDepartures() {
-  if (departuresData.length === 0) return;
-
-  // Next departure (Hero)
-  const hero = departuresData[0];
-  document.getElementById('hero-time').textContent = hero.time;
-  document.getElementById('hero-dest').textContent = hero.destination;
-  document.getElementById('hero-stops').textContent = hero.stops;
-  document.getElementById('hero-status').textContent = hero.status;
-  document.getElementById('hero-status').className = `hero-status ${hero.statusClass}`;
-  document.getElementById('hero-operator').textContent = `${hero.operator} • Direct Service`;
-  document.getElementById('hero-plat').textContent = hero.platform;
-
-  // Subsequent departures
   const boardRows = document.getElementById('board-rows');
   boardRows.innerHTML = '';
 
-  const subsequent = departuresData.slice(1, 6);
-  subsequent.forEach(dep => {
-    const row = document.createElement('div');
-    row.className = 'service-row';
-    row.innerHTML = `
-      <div class="dep-time">${dep.time}</div>
-      <div class="dep-dest">${dep.destination}</div>
-      <div class="dep-operator">${dep.operator}</div>
-      <div class="dep-status ${dep.statusClass}">${dep.status}</div>
-      <div class="dep-plat">${dep.platform}</div>
+  departuresData.forEach(dep => {
+    const card = document.createElement('div');
+    card.className = 'service-card';
+    card.innerHTML = `
+      <div class="service-main">
+        <div class="dep-time">${dep.time}</div>
+        <div class="dep-dest">${dep.destination}</div>
+        <div class="dep-operator">${dep.operator}</div>
+        <div class="dep-status ${dep.statusClass}">${dep.status}</div>
+        <div class="dep-plat">${dep.platform}</div>
+      </div>
+      <div class="service-stops">
+        <span class="label">Calling at:</span>${dep.stops}
+      </div>
     `;
-    boardRows.appendChild(row);
+    boardRows.appendChild(card);
   });
 }
 
-// Initialize
 setInterval(updateClock, 1000);
 updateClock();
 renderDepartures();
