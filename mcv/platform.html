@@ -96,14 +96,13 @@ main {
   color: var(--text-muted); font-size: 13px; font-weight: 800;
   letter-spacing: 1.5px; text-transform: uppercase;
 }
+/* The list scrolls itself; hide manual scrollbars on platform displays. */
 .board-rows {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
   justify-content: flex-start; overflow-y: auto; overscroll-behavior: contain;
-  scrollbar-width: thin; scrollbar-color: var(--blue) rgba(255,255,255,0.08);
+  scrollbar-width: none;
 }
-.board-rows::-webkit-scrollbar { width: 9px; }
-.board-rows::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-.board-rows::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 8px; }
+.board-rows::-webkit-scrollbar { display: none; }
 .service-card {
   display: flex; flex-direction: column; padding: 0.85rem 2rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06); justify-content: center;
@@ -122,20 +121,22 @@ main {
   background: rgba(6, 152, 214, 0.15); border: 1px solid rgba(6, 152, 214, 0.3);
   border-radius: 6px; padding: 4px 8px;
 }
+/* Fixed CALLING AT label; long calling-point strings travel across the available width. */
 .service-stops {
-  margin-top: 4px; margin-left: 100px; padding: 2px 0 5px; font-size: 14px;
-  color: var(--text-muted); font-weight: 600; white-space: nowrap;
-  overflow-x: auto; overflow-y: hidden; max-width: calc(100% - 100px);
-  scrollbar-width: thin; scrollbar-color: var(--blue) rgba(255,255,255,0.06);
-  -webkit-overflow-scrolling: touch; cursor: grab;
+  margin-top: 4px; margin-left: calc(100px + 1.5rem); padding: 2px 0 5px;
+  display: flex; gap: 6px; min-width: 0; max-width: calc(100% - 100px - 1.5rem);
+  color: var(--text-muted); font-size: 14px; font-weight: 600; white-space: nowrap;
 }
-.service-stops::-webkit-scrollbar { height: 5px; }
-.service-stops::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
-.service-stops::-webkit-scrollbar-thumb { background: var(--blue); border-radius: 6px; }
 .service-stops .label {
-  color: var(--light-blue); font-weight: 700; text-transform: uppercase;
-  font-size: 12px; letter-spacing: 0.5px; margin-right: 6px;
+  flex: none; color: var(--light-blue); font-weight: 700; text-transform: uppercase;
+  font-size: 12px; letter-spacing: 0.5px;
 }
+.stops-viewport {
+  flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.stops-viewport::-webkit-scrollbar { display: none; }
+.stops-text { display: inline-block; white-space: nowrap; }
 .on-time { color: var(--green); }
 .delayed, .cancelled { color: var(--red); }
 footer {
@@ -300,30 +301,132 @@ async function fetchDepartures() {
   renderBoard(filtered.length > 0 ? filtered : successData);
 }
 
+// Platform display movement; change these numbers to adjust the pace.
+const MOTION = {
+  verticalPixelsPerSecond: 23,
+  pauseAtTopMs: 5000,
+  pauseAtBottomMs: 5500,
+  callingPointsPixelsPerSecond: 40,
+  callingPointsStartPauseMs: 2000,
+  callingPointsEndPauseMs: 2500
+};
+
+const boardRows = document.getElementById('board-rows');
+let stopViewports = [];
+const stopStates = new Map();
+let verticalPhase = 'top';
+let verticalWaitUntil = performance.now() + MOTION.pauseAtTopMs;
+let previousAnimationTime = null;
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[character]));
+}
+
 function renderBoard(services) {
-  const boardRows = document.getElementById('board-rows');
+  // A live refresh must not throw the display back to the first departure.
+  const previousPosition = boardRows.scrollTop;
+  const previousStops = new Map();
+  for (const viewport of stopViewports) {
+    const key = viewport.closest('.service-card')?.dataset.serviceKey;
+    if (key) previousStops.set(key, viewport.scrollLeft);
+  }
+
   boardRows.innerHTML = '';
-
-  const displayList = services.slice(0, 6);
-
-  displayList.forEach(dep => {
+  const currentKeys = new Set();
+  // Display all live departures, not just the first six.
+  services.forEach((dep, index) => {
     const card = document.createElement('div');
     card.className = 'service-card';
+    const key = [dep.time, dep.destination, dep.operator].join('|');
+    const uniqueKey = currentKeys.has(key) ? key + '|' + index : key;
+    currentKeys.add(uniqueKey);
+    card.dataset.serviceKey = uniqueKey;
     card.innerHTML = `
       <div class="service-main">
-        <div class="dep-time">${dep.time}</div>
-        <div class="dep-dest">${dep.destination}</div>
-        <div class="dep-operator">${dep.operator}</div>
-        <div class="dep-status ${dep.statusClass}">${dep.status}</div>
-        <div class="dep-plat">${dep.platform || 'TBC'}</div>
+        <div class="dep-time">${escapeHTML(dep.time)}</div>
+        <div class="dep-dest">${escapeHTML(dep.destination)}</div>
+        <div class="dep-operator">${escapeHTML(dep.operator)}</div>
+        <div class="dep-status ${['on-time', 'delayed', 'cancelled'].includes(dep.statusClass) ? dep.statusClass : 'on-time'}">${escapeHTML(dep.status)}</div>
+        <div class="dep-plat">${escapeHTML(dep.platform || 'TBC')}</div>
       </div>
       <div class="service-stops">
-        <span class="label">Calling at:</span>${dep.stops || 'Direct Service'}
+        <span class="label">Calling at:</span>
+        <div class="stops-viewport"><span class="stops-text">${escapeHTML(dep.stops || 'Direct service')}</span></div>
       </div>
     `;
     boardRows.appendChild(card);
+    const viewport = card.querySelector('.stops-viewport');
+    if (previousStops.has(uniqueKey)) viewport.scrollLeft = previousStops.get(uniqueKey);
   });
+  stopViewports = [...boardRows.querySelectorAll('.stops-viewport')];
+  // Keep the vertical scroll in the same place when the 30-second data refresh occurs.
+  boardRows.scrollTop = Math.min(previousPosition, Math.max(0, boardRows.scrollHeight - boardRows.clientHeight));
+  for (const key of stopStates.keys()) if (!currentKeys.has(key)) stopStates.delete(key);
 }
+
+// Animate with elapsed time rather than frame count, so it behaves at 30/60/120 Hz.
+function autoScrollFrame(now) {
+  const elapsed = previousAnimationTime === null ? 0 : Math.min((now - previousAnimationTime) / 1000, 0.1);
+  previousAnimationTime = now;
+  const bottom = Math.max(0, boardRows.scrollHeight - boardRows.clientHeight);
+
+  if (bottom > 1) {
+    if (verticalPhase === 'top' && now >= verticalWaitUntil) {
+      verticalPhase = 'down';
+    }
+    if (verticalPhase === 'down') {
+      boardRows.scrollTop = Math.min(bottom, boardRows.scrollTop + MOTION.verticalPixelsPerSecond * elapsed);
+      if (boardRows.scrollTop >= bottom - 1) {
+        boardRows.scrollTop = bottom;
+        verticalPhase = 'bottom';
+        verticalWaitUntil = now + MOTION.pauseAtBottomMs;
+      }
+    } else if (verticalPhase === 'bottom' && now >= verticalWaitUntil) {
+      boardRows.scrollTop = 0;
+      verticalPhase = 'top';
+      verticalWaitUntil = now + MOTION.pauseAtTopMs;
+    }
+  } else {
+    boardRows.scrollTop = 0;
+    verticalPhase = 'top';
+    verticalWaitUntil = now + MOTION.pauseAtTopMs;
+  }
+
+  // Each long list of stops scrolls horizontally, independently and automatically.
+  // Hidden rows are paused until they appear on screen to make stops easier to read.
+  const visibleArea = boardRows.getBoundingClientRect();
+  for (const viewport of stopViewports) {
+    const excess = viewport.scrollWidth - viewport.clientWidth;
+    if (excess <= 1) continue;
+    const rowRect = viewport.closest('.service-card').getBoundingClientRect();
+    if (rowRect.bottom <= visibleArea.top || rowRect.top >= visibleArea.bottom) continue;
+
+    const key = viewport.closest('.service-card').dataset.serviceKey;
+    let state = stopStates.get(key);
+    if (!state) {
+      state = { phase: 'start', waitUntil: now + MOTION.callingPointsStartPauseMs };
+      stopStates.set(key, state);
+    }
+    if (now < state.waitUntil) continue;
+    if (state.phase === 'start') state.phase = 'moving';
+    if (state.phase === 'moving') {
+      viewport.scrollLeft = Math.min(excess, viewport.scrollLeft + MOTION.callingPointsPixelsPerSecond * elapsed);
+      if (viewport.scrollLeft >= excess - 1) {
+        viewport.scrollLeft = excess;
+        state.phase = 'end';
+        state.waitUntil = now + MOTION.callingPointsEndPauseMs;
+      }
+    } else if (state.phase === 'end') {
+      viewport.scrollLeft = 0;
+      state.phase = 'start';
+      state.waitUntil = now + MOTION.callingPointsStartPauseMs;
+    }
+  }
+  requestAnimationFrame(autoScrollFrame);
+}
+requestAnimationFrame(autoScrollFrame);
 
 setInterval(updateClock, 1000);
 updateClock();
