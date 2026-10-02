@@ -200,83 +200,39 @@ function updateClock() {
   document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+function formatTrainiTime(value) {
+  if (value === null || value === undefined || value === '') return '--:--';
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) return d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', timeZone:'Europe/London'});
+  return String(value);
+}
+
 function parseServices(data) {
-  if (!data) return [];
-  
-  let services = [];
-  if (Array.isArray(data)) {
-    services = data;
-  } else if (typeof data === 'object') {
-    services = data.departures || data.trainServices || data.services || data.data || data.trains || data.results || [];
-    if (!Array.isArray(services) && services && typeof services === 'object') {
-      services = services.departures || services.services || services.results || [];
-    }
-  }
-
-  if (!Array.isArray(services)) return [];
-
+  const services = Array.isArray(data) ? data : (data && Array.isArray(data.results) ? data.results : []);
   return services.map(s => {
-    // 1. Time (Handle Huxley, Railfeed, and standard standard names)
-    const time = s.std || s.time || s.gbtt_ptd || s.scheduledDepartureTime || s.departureTime || s.scheduled || s.departure || '--:--';
-
-    // 2. Destination
-    let destination = 'Unknown';
-    if (typeof s.destination === 'string') {
-      destination = s.destination;
-    } else if (typeof s.destinationName === 'string' || typeof s.destination_name === 'string') {
-      destination = s.destinationName || s.destination_name;
-    } else if (Array.isArray(s.destination) && s.destination.length > 0) {
-      destination = s.destination[0].locationName || s.destination[0].name || s.destination[0].crs || 'Unknown';
-    } else if (s.destination && typeof s.destination === 'object') {
-      destination = s.destination.locationName || s.destination.name || 'Unknown';
-    } else if (s.locationName) {
-      destination = s.locationName;
-    }
-
-    // 3. Operator
-    let operator = 'Northern';
-    if (typeof s.operator === 'string') {
-      operator = s.operator;
-    } else if (typeof s.operatorName === 'string' || typeof s.operator_name === 'string' || typeof s.tocName === 'string') {
-      operator = s.operatorName || s.operator_name || s.tocName;
-    } else if (s.operator && typeof s.operator === 'object') {
-      operator = s.operator.name || s.operator.code || 'Northern';
-    } else if (s.toc) {
-      operator = typeof s.toc === 'string' ? s.toc : (s.toc.name || 'Northern');
-    }
-
-    // 4. Status
-    let rawStatus = String(s.etd || s.status || s.realtimeStatus || s.delay || 'On time').trim();
-    let statusText = 'On time';
-    let statusClass = 'on-time';
-
+    const destination = s.destination?.name || s.destination_name || s.destinationName || 'Unknown';
+    const rawStatus = String(s.status_text || s.status || 'On time');
     const lower = rawStatus.toLowerCase();
-    if (lower.includes('cancel')) {
-      statusText = 'Cancelled';
-      statusClass = 'cancelled';
-    } else if (lower.includes('delay') || lower.includes('late') || (rawStatus.includes(':') && rawStatus !== time)) {
-      statusText = 'Delayed';
-      statusClass = 'delayed';
-    } else {
-      statusText = 'On time';
-      statusClass = 'on-time';
-    }
-
-    // 5. Platform
-    let platform = String(s.platform || s.plat || s.platformNumber || s.platform_number || '').trim();
-
-    // 6. Stops
-    let stopsList = [];
-    const rawStops = s.callingPoints || s.subsequentCallingPoints || s.stops || s.callingPointsList || s.calling_points;
-    if (Array.isArray(rawStops)) {
-      if (rawStops.length > 0 && rawStops[0].callingPoint) {
-        stopsList = rawStops[0].callingPoint.map(cp => cp.locationName || cp.name);
-      } else {
-        stopsList = rawStops.map(cp => typeof cp === 'string' ? cp : (cp.locationName || cp.name || cp.stationName || cp.crs));
-      }
-    }
-
-    return { time, destination, operator, status: statusText, statusClass, platform, stops: stopsList.filter(Boolean).join(', ') };
+    let statusText = rawStatus;
+    let statusClass = 'on-time';
+    if (lower.includes('cancel')) { statusText = 'Cancelled'; statusClass = 'cancelled'; }
+    else if (lower.includes('late') || lower.includes('delay')) { statusText = rawStatus.replaceAll('_',' '); statusClass = 'delayed'; }
+    else if (lower.includes('boarding')) { statusText = 'Boarding'; statusClass = 'on-time'; }
+    else if (lower === 'expected_early') { statusText = 'Early'; }
+    else if (lower === 'on_time' || lower === 'on time') { statusText = 'On time'; }
+    const points = Array.isArray(s.calling_points) ? s.calling_points : [];
+    const victoriaIndex = points.findIndex(p => (p.station?.crs || p.crs || '').toUpperCase() === 'MCV' || (p.station?.name || p.name || '').toLowerCase() === 'manchester victoria');
+    const onward = victoriaIndex >= 0 ? points.slice(victoriaIndex + 1) : points.filter(p => (p.station?.crs || p.crs || '').toUpperCase() !== 'MCV');
+    const stops = onward.map(p => p.station?.name || p.name || p.station?.crs || p.crs).filter(Boolean).join(', ');
+    return {
+      time: formatTrainiTime(s.departs),
+      destination,
+      operator: s.operator || 'National Rail',
+      status: statusText,
+      statusClass,
+      platform: String(s.platform || '').trim(),
+      stops
+    };
   });
 }
 
@@ -304,6 +260,7 @@ async function fetchDepartures() {
       const response = await fetch(url, { cache: 'no-store' });
       if (response.ok) {
         const data = await response.json();
+        if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
         const parsed = parseServices(data);
         if (parsed.length > 0) {
           successData = parsed;
