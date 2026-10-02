@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Manchester Victoria | Next 10 Live Departures</title>
+<title>Manchester Victoria | Next 12 Live Departures</title>
 <style>
 @font-face {
   font-family: "Bunday Clean";
@@ -170,7 +170,7 @@ footer {
       <div class="station-info">
         <h1>Manchester Victoria</h1>
         <div class="platform-indicator">
-          <span class="subtitle">NEXT 10 DEPARTURES &middot; PLATFORMS 1–6</span>
+          <span class="subtitle">NEXT 12 DEPARTURES &middot; PLATFORMS 1–6</span>
         </div>
       </div>
     </div>
@@ -212,7 +212,7 @@ footer {
 // Unattended platform-display settings. Board data refreshes every 30 seconds;
 // actual-departure activity checks run every 10 seconds in between.
 const CONFIG = {
-  maxDepartures: 10,
+  maxDepartures: 12,
   allowedPlatforms: ['1', '2', '3', '4', '5', '6'],
   refreshIntervalMs: 30000,
   activityIntervalMs: 10000,
@@ -221,7 +221,7 @@ const CONFIG = {
 };
 
 const MOTION = {
-  // Move by most of a screen every eight seconds: a full ten-departure cycle
+  // Move by most of a screen every eight seconds: a full twelve-departure cycle
   // is far easier to follow on a screen nobody is controlling with a mouse.
   verticalPageHoldMs: 7500,
   verticalFirstHoldMs: 4500,
@@ -283,8 +283,8 @@ function escapeHTML(value) {
 function displayStationName(name, crs = '') {
   const rawName = String(name ?? '').trim();
   const code = String(crs ?? '').trim().toUpperCase();
-  if (code === 'SFD') return 'Salford Central';
-  if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'Salford Central';
+  if (code === 'SFD') return 'SALFORD CENTRAL';
+  if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'SALFORD CENTRAL';
   return rawName || code;
 }
 
@@ -448,7 +448,7 @@ async function fetchDepartures() {
     latestServices = parseServices(json);
     boardIsAvailable = true;
     updateDisplayedServices();
-    tickerText.textContent = 'LIVE DATA: api.traini.ac  •  Updated every 30 seconds  •  Please listen for station announcements.';
+    tickerText.textContent = 'LIVE DEPARTURES  •  Updated every 30 seconds  •  Please listen for station announcements.';
   } catch (error) {
     console.warn('Departure feed unavailable:', error);
     boardIsAvailable = false;
@@ -493,7 +493,7 @@ async function fetchDepartureActivity() {
 
 // Advance by around one screen every few seconds, then show the bottom page
 // fully before returning to the first departure. This runs on a timer, not
-// Safari's frame rate, and always reaches the final departure of the ten.
+// Safari's frame rate, and always reaches the final departure of the twelve.
 function advanceBoardScroll() {
   const now = performance.now();
   const bottom = Math.max(0, boardRows.scrollHeight - boardRows.clientHeight);
