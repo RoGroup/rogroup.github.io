@@ -119,7 +119,6 @@ h1 {
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: #ffffff;
-  /* Removed glow effect */
   text-shadow: none;
 }
 
@@ -253,8 +252,6 @@ main {
 /* Status Colors */
 .on-time { color: var(--green); }
 .delayed, .cancelled { color: var(--red); }
-.early { color: var(--green); }
-.boarding { color: var(--amber); }
 
 /* Footer Ticker / Information Bar */
 footer {
@@ -360,40 +357,51 @@ function updateClock() {
   document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', options);
 }
 
+function extractValue(obj, paths) {
+  if (!obj) return null;
+  for (let path of paths) {
+    let current = obj;
+    let parts = path.split('.');
+    let found = true;
+    for (let p of parts) {
+      if (current && current[p] !== undefined && current[p] !== null) {
+        current = current[p];
+      } else {
+        found = false;
+        break;
+      }
+    }
+    if (found && current !== null && current !== undefined) return current;
+  }
+  return null;
+}
+
 function parseResponseData(data) {
   let rawServices = [];
   
   if (Array.isArray(data)) {
     rawServices = data;
   } else if (data && typeof data === 'object') {
-    rawServices = data.departures || data.trainServices || data.services || data.data || [];
+    rawServices = data.departures || data.trainServices || data.services || data.data || data.trains || [];
   }
 
   if (!Array.isArray(rawServices)) return [];
 
-  // Robust field extraction helper
-  const getField = (obj, keys) => {
-    for (let k of keys) {
-      if (obj[k] !== undefined && obj[k] !== null) return obj[k];
-    }
-    return null;
-  };
-
   const formatted = [];
 
   for (let s of rawServices) {
-    // Check platform filtering (1-6)
-    const platVal = String(getField(s, ['platform', 'plat', 'platformNumber']) || '').trim();
+    // Platform extraction
+    const platVal = String(extractValue(s, ['platform', 'plat', 'platformNumber']) || '').trim();
     if (CONFIG.platforms.length > 0 && platVal && !CONFIG.platforms.includes(platVal)) {
       continue;
     }
 
     // Departure Time
-    const timeVal = getField(s, ['std', 'time', 'scheduledDepartureTime', 'scheduledDeparture', 'departureTime']) || '--:--';
+    const timeVal = extractValue(s, ['std', 'time', 'scheduledDepartureTime', 'scheduledDeparture', 'departureTime', 'aimedDepartureTime']) || '--:--';
 
     // Destination
     let destVal = 'Unknown Destination';
-    const rawDest = getField(s, ['destination', 'dest', 'locationName']);
+    const rawDest = extractValue(s, ['destination', 'dest', 'locationName']);
     if (typeof rawDest === 'string') {
       destVal = rawDest;
     } else if (Array.isArray(rawDest) && rawDest.length > 0) {
@@ -403,29 +411,32 @@ function parseResponseData(data) {
     }
 
     // Operator
-    let opVal = getField(s, ['operator', 'toc', 'operatorName', 'serviceProvider']) || 'Northern';
-    if (typeof opVal === 'object') opVal = opVal.name || 'Northern';
+    let opVal = extractValue(s, ['operator', 'toc', 'operatorName', 'serviceProvider']) || 'Northern';
+    if (typeof opVal === 'object') opVal = opVal.name || opVal.code || 'Northern';
 
-    // Status
-    let statusText = getField(s, ['etd', 'status', 'expectedDepartureTime', 'realtimeStatus']) || 'On time';
+    // Status mapping: strictly "On time", "Delayed", or "Cancelled"
+    let rawStatus = String(extractValue(s, ['etd', 'status', 'expectedDepartureTime', 'realtimeStatus']) || 'On time').trim();
+    let statusText = 'On time';
     let statusClass = 'on-time';
-    const lowerStatus = String(statusText).toLowerCase();
 
-    if (lowerStatus.includes('delay') || lowerStatus.includes('late')) {
-      statusClass = 'delayed';
-    } else if (lowerStatus.includes('board')) {
-      statusClass = 'boarding';
-    } else if (lowerStatus.includes('cancel')) {
+    const lowerStatus = rawStatus.toLowerCase();
+    if (lowerStatus.includes('cancel')) {
+      statusText = 'Cancelled';
       statusClass = 'cancelled';
+    } else if (lowerStatus.includes('delay') || lowerStatus.includes('late') || (rawStatus.includes(':') && rawStatus !== timeVal)) {
+      statusText = 'Delayed';
+      statusClass = 'delayed';
+    } else {
+      statusText = 'On time';
+      statusClass = 'on-time';
     }
 
-    // Calling points
+    // Calling points / Stops
     let stopsList = [];
-    const rawStops = getField(s, ['callingPoints', 'subsequentCallingPoints', 'stops', 'callingPointsList']);
+    const rawStops = extractValue(s, ['callingPoints', 'subsequentCallingPoints', 'stops', 'callingPointsList']);
     
     if (Array.isArray(rawStops)) {
       if (rawStops.length > 0 && rawStops[0].callingPoint) {
-        // Handle LDBWS structure
         stopsList = rawStops[0].callingPoint.map(cp => cp.locationName || cp.name);
       } else {
         stopsList = rawStops.map(cp => typeof cp === 'string' ? cp : (cp.locationName || cp.name || cp.stationName));
@@ -446,34 +457,6 @@ function parseResponseData(data) {
   return formatted;
 }
 
-// Generates fallback schedule when the external API endpoint cannot be reached directly by browser client
-function getFallbackDepartures() {
-  const now = new Date();
-  const routes = [
-    { p: "1", dest: "Blackburn", op: "Northern", stops: "Salford Central, Bolton, Hall i' th' Wood, Entwistle, Darwen", offset: 4 },
-    { p: "2", dest: "Wigan North Western", op: "Northern", stops: "Salford Central, Salford Crescent, Moorside, Atherton, Hindley", offset: 8 },
-    { p: "3", dest: "Liverpool Lime Street", op: "Northern", stops: "Newton-le-Willows, Earlestown, Lea Green, Wavertree Technology Park", offset: 14 },
-    { p: "4", dest: "Leeds", op: "Northern", stops: "Rochdale, Todmorden, Hebden Bridge, Halifax, Bradford Interchange", offset: 19 },
-    { p: "5", dest: "Stalybridge", op: "TransPennine Express", stops: "Ashton-under-Lyne, Stalybridge", offset: 25 },
-    { p: "6", dest: "Chester", op: "Transport for Wales", stops: "Warrington Bank Quay, Runcorn East, Frodsham, Helsby", offset: 32 }
-  ];
-
-  return routes.map(r => {
-    const depTime = new Date(now.getTime() + r.offset * 60000);
-    const h = String(depTime.getHours()).padStart(2, '0');
-    const m = String(depTime.getMinutes()).padStart(2, '0');
-    return {
-      time: `${h}:${m}`,
-      destination: r.dest,
-      operator: r.op,
-      status: r.offset <= 4 ? "Boarding" : "On time",
-      statusClass: r.offset <= 4 ? "boarding" : "on-time",
-      platform: r.p,
-      stops: r.stops
-    };
-  });
-}
-
 async function fetchDepartures() {
   try {
     const response = await fetch(CONFIG.apiEndpoint);
@@ -482,20 +465,25 @@ async function fetchDepartures() {
     const data = await response.json();
     const services = parseResponseData(data);
     
-    if (services.length > 0) {
-      renderBoard(services);
-    } else {
-      renderBoard(getFallbackDepartures());
-    }
+    renderBoard(services);
   } catch (err) {
-    // If browser blocks request or API is unreachable, ensure display always populates seamlessly
-    renderBoard(getFallbackDepartures());
+    console.error('API Fetch Error:', err);
+    // Display helpful message on screen if API call fails due to network/CORS issues
+    const boardRows = document.getElementById('board-rows');
+    if (boardRows.children.length === 0) {
+      boardRows.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--red); font-weight: bold;">Unable to connect to departure API: ${err.message}</div>`;
+    }
   }
 }
 
 function renderBoard(services) {
   const boardRows = document.getElementById('board-rows');
   boardRows.innerHTML = '';
+
+  if (!services || services.length === 0) {
+    boardRows.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--text-muted); font-weight: bold;">No departures currently scheduled for Platforms 1–6.</div>`;
+    return;
+  }
 
   const displayList = services.slice(0, 6);
 
