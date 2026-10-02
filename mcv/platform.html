@@ -192,6 +192,7 @@ footer {
 .ticker-label.alert-cancelled { background: var(--red); color: #ffffff; border-left-color: #ffffff; }
 .ticker-label.alert-unavailable { background: #ffffff; color: var(--navy); border-left-color: var(--amber); }
 </style>
+<script src="static-notices.js" defer></script>
 </head>
 <body>
 
@@ -233,11 +234,12 @@ footer {
     <div class="ticker-label" id="ticker-label">SERVICE UPDATE</div>
     <div class="ticker-content">
       <div class="ticker-text" id="ticker-text">
-        Welcome to Manchester Victoria. 
+        Please listen for station announcements and check your platform before boarding.
       </div>
     </div>
   </footer>
 </div>
+
 
 <script>
 'use strict';
@@ -593,7 +595,7 @@ function buildServiceAlerts(services) {
   if (items.length) return items.slice(0, 10);
   return [{
     type: 'normal', priority: 9, scheduledMs: 0,
-    text: 'WELCOME TO MANCHESTER VICTORIA  •  Please note train doors close 30 seconds before departure.'
+    text: 'LIVE SERVICE INFORMATION  •  Please check your platform before boarding and listen for station announcements.'
   }];
 }
 
