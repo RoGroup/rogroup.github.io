@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Live Departure Board | Manchester Victoria</title>
+<title>Manchester Victoria | Next 10 Live Departures</title>
 <style>
 @font-face {
   font-family: "Bunday Clean";
@@ -137,6 +137,15 @@ main {
 }
 .stops-viewport::-webkit-scrollbar { display: none; }
 .stops-text { display: inline-block; white-space: nowrap; }
+.service-reason {
+  margin: 6px 0 0 calc(100px + 1.5rem);
+  color: #ffd27d; font-size: 14px; font-weight: 600;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.35;
+}
+.service-reason .label {
+  font-size: 12px; font-weight: 800; letter-spacing: .35px;
+  margin-right: 6px;
+}
 .on-time { color: var(--green); }
 .delayed, .cancelled { color: var(--red); }
 footer {
@@ -161,7 +170,7 @@ footer {
       <div class="station-info">
         <h1>Manchester Victoria</h1>
         <div class="platform-indicator">
-          <span class="subtitle">Live Platforms 1 – 6 Departures</span>
+          <span class="subtitle">NEXT 10 DEPARTURES &middot; PLATFORMS 1–6</span>
         </div>
       </div>
     </div>
@@ -199,183 +208,274 @@ footer {
 </div>
 
 <script>
+'use strict';
+// Unattended platform-display settings. Board data refreshes every 30 seconds;
+// actual-departure activity checks run every 10 seconds in between.
 const CONFIG = {
+  maxDepartures: 10,
   allowedPlatforms: ['1', '2', '3', '4', '5', '6'],
   refreshIntervalMs: 30000,
-  endpoints: [
-    'https://api.traini.ac/api/departures/MCV?limit=30' // Traini live departures API
-  ]
+  activityIntervalMs: 10000,
+  departuresUrl: 'https://api.traini.ac/api/departures/MCV?limit=70',
+  activityUrl: 'https://api.traini.ac/api/stations/MCV/activity?limit=100'
 };
 
-function updateClock() {
-  const now = new Date();
-  document.getElementById('live-clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false });
-  document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function formatTrainiTime(value) {
-  if (value === null || value === undefined || value === '') return '--:--';
-  const d = new Date(value);
-  if (!Number.isNaN(d.getTime())) return d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', timeZone:'Europe/London'});
-  return String(value);
-}
-
-function parseServices(data) {
-  const services = Array.isArray(data) ? data : (data && Array.isArray(data.results) ? data.results : []);
-  return services.map(s => {
-    const destination = s.destination?.name || s.destination_name || s.destinationName || 'Unknown';
-    const rawStatus = String(s.status_text || s.status || 'On time');
-    const lower = rawStatus.toLowerCase();
-    let statusText = rawStatus;
-    let statusClass = 'on-time';
-    if (lower.includes('cancel')) { statusText = 'Cancelled'; statusClass = 'cancelled'; }
-    else if (lower.includes('late') || lower.includes('delay')) { statusText = rawStatus.replaceAll('_',' '); statusClass = 'delayed'; }
-    else if (lower.includes('boarding')) { statusText = 'Boarding'; statusClass = 'on-time'; }
-    else if (lower === 'expected_early') { statusText = 'Early'; }
-    else if (lower === 'on_time' || lower === 'on time') { statusText = 'On time'; }
-    const points = Array.isArray(s.calling_points) ? s.calling_points : [];
-    const victoriaIndex = points.findIndex(p => (p.station?.crs || p.crs || '').toUpperCase() === 'MCV' || (p.station?.name || p.name || '').toLowerCase() === 'manchester victoria');
-    const onward = victoriaIndex >= 0 ? points.slice(victoriaIndex + 1) : points.filter(p => (p.station?.crs || p.crs || '').toUpperCase() !== 'MCV');
-    const stops = onward.map(p => p.station?.name || p.name || p.station?.crs || p.crs).filter(Boolean).join(', ');
-    return {
-      time: formatTrainiTime(s.departs),
-      destination,
-      operator: s.operator || 'National Rail',
-      status: statusText,
-      statusClass,
-      platform: String(s.platform || '').trim(),
-      stops
-    };
-  });
-}
-
-// Simulated data fallback if all APIs are blocked by CORS/downtime
-function getFallbackMockData() {
-  const now = new Date();
-  const t = (minOffset) => {
-    let d = new Date(now.getTime() + minOffset * 60000);
-    return d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
-  };
-  return [
-    { time: t(2), destination: 'Leeds', operator: 'TransPennine Express', status: 'On time', statusClass: 'on-time', platform: '1', stops: 'Stalybridge, Huddersfield, Dewsbury, Leeds' },
-    { time: t(5), destination: 'Blackburn', operator: 'Northern', status: 'On time', statusClass: 'on-time', platform: '4', stops: 'Salford Crescent, Bolton, Darwen, Blackburn' },
-    { time: t(12), destination: 'Liverpool Lime Street', operator: 'Northern', status: 'Delayed', statusClass: 'delayed', platform: '3', stops: 'Newton-le-Willows, St Helens Central, Liverpool Lime Street' },
-    { time: t(18), destination: 'Clitheroe', operator: 'Northern', status: 'On time', statusClass: 'on-time', platform: '5', stops: 'Bolton, Blackburn, Whalley, Clitheroe' },
-    { time: t(25), destination: 'Manchester Airport', operator: 'TransPennine Express', status: 'Cancelled', statusClass: 'cancelled', platform: '2', stops: 'Oxford Road, Piccadilly, Manchester Airport' }
-  ];
-}
-
-async function fetchDepartures() {
-  let successData = null;
-  
-  for (const url of CONFIG.endpoints) {
-    try {
-      const response = await fetch(url, { cache: 'no-store' });
-      if (response.ok) {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
-        const parsed = parseServices(data);
-        if (parsed.length > 0) {
-          successData = parsed;
-          document.getElementById('ticker-text').textContent = `Live data connected via ${new URL(url).hostname} - Please check screens for latest updates.`;
-          break; // Stop at first successful API
-        }
-      }
-    } catch (e) {
-      console.warn(`Failed to fetch from ${url}:`, e);
-    }
-  }
-
-  // If the API fails or is blocked by browser CORS, show clearly-labelled demo data
-  if (!successData) {
-    console.warn("All live endpoints failed. Using local fallback data.");
-    successData = getFallbackMockData();
-    document.getElementById('ticker-text').textContent = "⚠️ Network offline or APIs unreachable. Showing simulated fallback timetable.";
-  }
-
-  const filtered = successData.filter(s => {
-    if (!s.platform) return true;
-    return CONFIG.allowedPlatforms.includes(s.platform);
-  });
-
-  renderBoard(filtered.length > 0 ? filtered : successData);
-}
-
-// Platform display movement; change these numbers to adjust the pace.
 const MOTION = {
   verticalPixelsPerSecond: 23,
-  pauseAtTopMs: 5000,
+  pauseAtTopMs: 5500,
   pauseAtBottomMs: 5500,
-  callingPointsPixelsPerSecond: 40,
-  callingPointsStartPauseMs: 2000,
-  callingPointsEndPauseMs: 2500
+  callingPointsPixelsPerSecond: 75,
+  callingPointsStartPauseMs: 1800,
+  callingPointsEndPauseMs: 2200
 };
 
 const boardRows = document.getElementById('board-rows');
+const tickerText = document.getElementById('ticker-text');
+let latestServices = [];
+let boardIsAvailable = false;
+let departuresBusy = false;
+let activityBusy = false;
+const departedTrainIds = new Map();
 let stopViewports = [];
 const stopStates = new Map();
+let lastDelayedKeys = new Set();
 let verticalPhase = 'top';
 let verticalWaitUntil = performance.now() + MOTION.pauseAtTopMs;
 let previousAnimationTime = null;
 
+function updateClock() {
+  const now = new Date();
+  document.getElementById('live-clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Europe/London' });
+  document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
+  });
+}
+
+function formatTrainiTime(value) {
+  if (value === null || value === undefined || value === '') return '--:--';
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
+  });
+  return String(value);
+}
+
+function epoch(value) {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+}
+
 function escapeHTML(value) {
-  return String(value ?? '').replace(/[&<>"']/g, character => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[character]));
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[char]));
+}
+
+// Prefer Traini's stable status codes; status_text is for the passenger-facing text.
+function parseServices(data) {
+  const entries = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+  return entries.map(s => {
+    const statusCode = String(s.status || '').toLowerCase().trim();
+    const initialStatusText = String(s.status_text || '').trim();
+    const isDeparted = statusCode === 'departed' || (statusCode === '' && /^departed\b/i.test(initialStatusText));
+    const cancelled = statusCode === 'cancelled' || (statusCode === '' && /^cancelled\b/i.test(initialStatusText));
+    const isDelayed = statusCode === 'expected_late' || statusCode === 'delayed_no_estimate' ||
+      statusCode === 'delayed' || (statusCode === '' &&
+      (/^delayed\b/i.test(initialStatusText) ||
+       (Number.isFinite(epoch(s.expected_departs)) && Number.isFinite(epoch(s.departs)) &&
+        epoch(s.expected_departs) > epoch(s.departs) + 60000)));
+    let status = initialStatusText || (cancelled ? 'Cancelled' : isDelayed ? 'Delayed' : 'On time');
+    if (isDelayed && status.toLowerCase() === 'expected_late' && s.expected_departs) {
+      status = 'Expected ' + formatTrainiTime(s.expected_departs);
+    }
+    if (!initialStatusText && isDelayed && s.expected_departs) {
+      status = 'Expected ' + formatTrainiTime(s.expected_departs);
+    }
+    const statusClass = cancelled ? 'cancelled' : isDelayed ? 'delayed' : 'on-time';
+    const points = Array.isArray(s.calling_points) ? s.calling_points : [];
+    const isVictoria = p => String(p.station?.crs || p.crs || '').toUpperCase() === 'MCV' ||
+      String(p.station?.name || p.name || '').toLowerCase() === 'manchester victoria';
+    const mcvIndex = points.findIndex(isVictoria);
+    const onward = mcvIndex >= 0 ? points.slice(mcvIndex + 1) : points.filter(p => !isVictoria(p));
+    const stops = onward.map(p => p.station?.name || p.name || p.station?.crs || p.crs).filter(Boolean).join(', ');
+    const departs = s.departs || null;
+    const trainId = s.train_id == null ? '' : String(s.train_id);
+    // Calendar date/time is part of the key, so the same service on a later day is distinct.
+    const serviceKey = [trainId || s.train_uid || s.headcode || 'service', departs || 'unknown',
+      s.destination?.crs || s.destination?.name || 'unknown', s.operator || 'unknown'].join('|');
+    return {
+      key: serviceKey,
+      trainId,
+      scheduledMs: epoch(departs),
+      time: formatTrainiTime(departs),
+      destination: s.destination?.name || s.destination_name || 'Unknown',
+      operator: s.operator || 'National Rail',
+      status, statusClass, isDelayed, isDeparted,
+      platform: s.platform_withheld === true ? '' : String(s.platform ?? '').trim(),
+      stops,
+      lateReason: isDelayed ? String(s.late_reason || '').trim() : '',
+      notForDisplay: s.not_for_display === true,
+      serviceClass: String(s.service_class || '').toLowerCase()
+    };
+  });
+}
+
+// Pick the next ten outstanding services chronologically, THEN pin delayed ones
+// above on-time services. Late trains from earlier still appear if Traini lists them.
+function selectDepartures() {
+  return latestServices.filter(s =>
+    !s.isDeparted && !s.notForDisplay &&
+    (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass)) &&
+    (!s.trainId || !departedTrainIds.has(s.trainId)) &&
+    (!s.platform || CONFIG.allowedPlatforms.includes(s.platform))
+  )
+  .sort((a, b) => a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key))
+  .slice(0, CONFIG.maxDepartures)
+  .sort((a, b) => Number(b.isDelayed) - Number(a.isDelayed) ||
+    a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key));
+}
+
+function emptyMessage(text) {
+  boardRows.innerHTML = `<div style="padding:2.5rem;text-align:center;color:var(--text-muted);font-size:20px;font-weight:700">${escapeHTML(text)}</div>`;
+  stopViewports = [];
+  stopStates.clear();
+  boardRows.scrollTop = 0;
 }
 
 function renderBoard(services) {
-  // A live refresh must not throw the display back to the first departure.
-  const previousPosition = boardRows.scrollTop;
-  const previousStops = new Map();
+  const oldPosition = boardRows.scrollTop;
+  const oldViewportTop = boardRows.getBoundingClientRect().top;
+  const oldCards = [...boardRows.querySelectorAll('.service-card')];
+  const visibleAnchor = oldCards.find(card => card.getBoundingClientRect().bottom > oldViewportTop + 2);
+  const anchorKey = visibleAnchor?.dataset.serviceKey;
+  const anchorOffset = visibleAnchor ? visibleAnchor.getBoundingClientRect().top - oldViewportTop : 0;
+  const stopPositions = new Map();
   for (const viewport of stopViewports) {
     const key = viewport.closest('.service-card')?.dataset.serviceKey;
-    if (key) previousStops.set(key, viewport.scrollLeft);
+    if (key) stopPositions.set(key, viewport.scrollLeft);
   }
 
-  boardRows.innerHTML = '';
+  if (!services.length) {
+    emptyMessage('No upcoming departures are currently listed.');
+    lastDelayedKeys.clear();
+    return;
+  }
+
+  const delayedKeys = new Set(services.filter(s => s.isDelayed).map(s => s.key));
+  const newlyDelayed = [...delayedKeys].some(key => !lastDelayedKeys.has(key));
+  lastDelayedKeys = delayedKeys;
   const currentKeys = new Set();
-  // Display all live departures, not just the first six.
-  services.forEach((dep, index) => {
+  boardRows.replaceChildren();
+  for (const dep of services) {
     const card = document.createElement('div');
     card.className = 'service-card';
-    const key = [dep.time, dep.destination, dep.operator].join('|');
-    const uniqueKey = currentKeys.has(key) ? key + '|' + index : key;
-    currentKeys.add(uniqueKey);
-    card.dataset.serviceKey = uniqueKey;
+    card.dataset.serviceKey = dep.key;
+    currentKeys.add(dep.key);
     card.innerHTML = `
       <div class="service-main">
         <div class="dep-time">${escapeHTML(dep.time)}</div>
         <div class="dep-dest">${escapeHTML(dep.destination)}</div>
         <div class="dep-operator">${escapeHTML(dep.operator)}</div>
-        <div class="dep-status ${['on-time', 'delayed', 'cancelled'].includes(dep.statusClass) ? dep.statusClass : 'on-time'}">${escapeHTML(dep.status)}</div>
+        <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
         <div class="dep-plat">${escapeHTML(dep.platform || 'TBC')}</div>
       </div>
+      ${dep.lateReason ? `<div class="service-reason"><span class="label">DELAY REASON:</span>${escapeHTML(dep.lateReason)}</div>` : ''}
       <div class="service-stops">
         <span class="label">Calling at:</span>
-        <div class="stops-viewport"><span class="stops-text">${escapeHTML(dep.stops || 'Direct service')}</span></div>
+        <div class="stops-viewport"><span class="stops-text">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span></div>
       </div>
     `;
     boardRows.appendChild(card);
     const viewport = card.querySelector('.stops-viewport');
-    if (previousStops.has(uniqueKey)) viewport.scrollLeft = previousStops.get(uniqueKey);
-  });
+    if (stopPositions.has(dep.key)) viewport.scrollLeft = stopPositions.get(dep.key);
+  }
   stopViewports = [...boardRows.querySelectorAll('.stops-viewport')];
-  // Keep the vertical scroll in the same place when the 30-second data refresh occurs.
-  boardRows.scrollTop = Math.min(previousPosition, Math.max(0, boardRows.scrollHeight - boardRows.clientHeight));
   for (const key of stopStates.keys()) if (!currentKeys.has(key)) stopStates.delete(key);
+
+  if (newlyDelayed) {
+    // A newly reported delay is important enough to show at once.
+    boardRows.scrollTop = 0;
+    verticalPhase = 'top';
+    verticalWaitUntil = performance.now() + MOTION.pauseAtTopMs;
+  } else if (anchorKey) {
+    const newAnchor = [...boardRows.querySelectorAll('.service-card')]
+      .find(card => card.dataset.serviceKey === anchorKey);
+    boardRows.scrollTop = oldPosition;
+    if (newAnchor) {
+      boardRows.scrollTop += newAnchor.getBoundingClientRect().top -
+        boardRows.getBoundingClientRect().top - anchorOffset;
+    }
+  } else {
+    boardRows.scrollTop = oldPosition;
+  }
 }
 
-// Animate with elapsed time rather than frame count, so it behaves at 30/60/120 Hz.
+function updateDisplayedServices() {
+  if (boardIsAvailable) renderBoard(selectDepartures());
+}
+
+async function fetchDepartures() {
+  if (departuresBusy) return;
+  departuresBusy = true;
+  try {
+    const response = await fetch(CONFIG.departuresUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Departure feed HTTP ' + response.status);
+    const json = await response.json();
+    if (!Array.isArray(json.results)) throw new Error('Unexpected departure data');
+    latestServices = parseServices(json);
+    boardIsAvailable = true;
+    updateDisplayedServices();
+    tickerText.textContent = 'LIVE DATA: api.traini.ac  •  Updated every 30 seconds  •  Please listen for station announcements.';
+  } catch (error) {
+    console.warn('Departure feed unavailable:', error);
+    boardIsAvailable = false;
+    latestServices = [];
+    // Never substitute invented train times on a public/platform display.
+    emptyMessage('Live departure information is temporarily unavailable. Please check station screens.');
+    tickerText.textContent = 'LIVE DATA UNAVAILABLE — Please refer to official station information.';
+  } finally {
+    departuresBusy = false;
+  }
+}
+
+async function fetchDepartureActivity() {
+  if (activityBusy) return;
+  activityBusy = true;
+  try {
+    const response = await fetch(CONFIG.activityUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Activity feed HTTP ' + response.status);
+    const json = await response.json();
+    if (!Array.isArray(json.results)) throw new Error('Unexpected activity data');
+    let newDeparture = false;
+    for (const event of json.results) {
+      if (String(event.event_type || '').toUpperCase() !== 'DEPARTURE' || !event.train_id) continue;
+      const id = String(event.train_id);
+      if (!departedTrainIds.has(id)) {
+        departedTrainIds.set(id, Date.now());
+        if (latestServices.some(service => service.trainId === id)) newDeparture = true;
+      }
+    }
+    // Keep memory bounded; train IDs are day-specific, only recent events matter.
+    for (const [id, firstSeen] of departedTrainIds) {
+      if (Date.now() - firstSeen > 5 * 60 * 60 * 1000) departedTrainIds.delete(id);
+    }
+    if (newDeparture) updateDisplayedServices();
+  } catch (error) {
+    // Normal board refresh still removes entries marked departed by the main feed.
+    console.warn('Departure activity unavailable:', error);
+  } finally {
+    activityBusy = false;
+  }
+}
+
+// Monotonic-time animation means a constant pace on 30, 60 or 120 Hz screens.
 function autoScrollFrame(now) {
   const elapsed = previousAnimationTime === null ? 0 : Math.min((now - previousAnimationTime) / 1000, 0.1);
   previousAnimationTime = now;
   const bottom = Math.max(0, boardRows.scrollHeight - boardRows.clientHeight);
 
   if (bottom > 1) {
-    if (verticalPhase === 'top' && now >= verticalWaitUntil) {
-      verticalPhase = 'down';
-    }
+    if (verticalPhase === 'top' && now >= verticalWaitUntil) verticalPhase = 'down';
     if (verticalPhase === 'down') {
       boardRows.scrollTop = Math.min(bottom, boardRows.scrollTop + MOTION.verticalPixelsPerSecond * elapsed);
       if (boardRows.scrollTop >= bottom - 1) {
@@ -394,16 +494,16 @@ function autoScrollFrame(now) {
     verticalWaitUntil = now + MOTION.pauseAtTopMs;
   }
 
-  // Each long list of stops scrolls horizontally, independently and automatically.
-  // Hidden rows are paused until they appear on screen to make stops easier to read.
+  // A stopping pattern moves ONLY when it overflows its available width.
+  // Hidden rows pause; when they reappear, their horizontal progress resumes.
   const visibleArea = boardRows.getBoundingClientRect();
   for (const viewport of stopViewports) {
     const excess = viewport.scrollWidth - viewport.clientWidth;
-    if (excess <= 1) continue;
-    const rowRect = viewport.closest('.service-card').getBoundingClientRect();
-    if (rowRect.bottom <= visibleArea.top || rowRect.top >= visibleArea.bottom) continue;
-
-    const key = viewport.closest('.service-card').dataset.serviceKey;
+    if (excess <= 1) { viewport.scrollLeft = 0; continue; }
+    const card = viewport.closest('.service-card');
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom <= visibleArea.top || rect.top >= visibleArea.bottom) continue;
+    const key = card.dataset.serviceKey;
     let state = stopStates.get(key);
     if (!state) {
       state = { phase: 'start', waitUntil: now + MOTION.callingPointsStartPauseMs };
@@ -426,13 +526,14 @@ function autoScrollFrame(now) {
   }
   requestAnimationFrame(autoScrollFrame);
 }
-requestAnimationFrame(autoScrollFrame);
 
-setInterval(updateClock, 1000);
 updateClock();
-
+setInterval(updateClock, 1000);
 fetchDepartures();
+fetchDepartureActivity();
 setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
+setInterval(fetchDepartureActivity, CONFIG.activityIntervalMs);
+requestAnimationFrame(autoScrollFrame);
 </script>
 
 </body>
