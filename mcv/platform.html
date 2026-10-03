@@ -115,6 +115,24 @@ main {
 }
 .dep-time { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; color: #fff; }
 .dep-dest { font-size: 22px; font-weight: 800; color: #fff; text-transform: uppercase; }
+/* Live coach counts are shown only when explicitly supplied by the feed.
+   Keep the number attached to the service and never infer it from boarding restrictions. */
+.dep-destination-wrap { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
+.dep-dest { min-width: 0; overflow-wrap: anywhere; }
+.formation-badge {
+  flex: 0 0 auto; display: inline-flex; align-items: center; white-space: nowrap;
+  border: 1px solid #aee8ff; color: #fff; border-radius: 5px;
+  font-size: 13px; font-weight: 800; letter-spacing: .35px; line-height: 1.3;
+  padding: 5px 8px;
+}
+
+/* Only display when the feed explicitly confirms a 5-carriage TPE service. */
+.first-class-badge {
+  flex: 0 0 auto; display: inline-flex; align-items: center; white-space: nowrap;
+  border: 1px solid #ffffff; background: #ffffff; color: var(--navy); border-radius: 5px;
+  font-size: 14px; font-weight: 800; letter-spacing: .3px; line-height: 1.3;
+  padding: 5px 9px;
+}
 .dep-operator { color: #ffffff; font-size: 15px; font-weight: 600; }
 .dep-status { font-size: 18px; font-weight: 800; }
 .dep-plat {
@@ -357,6 +375,22 @@ function frontCarriagesNotice(destinationName, destinationCrs = '') {
   return null;
 }
 
+// Uses the same nullable Darwin-supplied coach count as the next-train screens.
+// A boarding notice (e.g. FRONT 2 CARRIAGES) is not a train formation.
+function coachCount(raw) {
+  if (raw === null || raw === undefined || typeof raw === 'boolean' || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isInteger(n) && n > 0 && n <= 30 ? n : null;
+}
+
+// Local customer-information rule: never infer First Class placement from coach count alone.
+// Only apply the staff-supplied Coach E notice to TransPennine Express services
+// when the live feed *also* supplies exactly 5 coaches.
+function isTransPennineExpress(operatorName) {
+  const name = String(operatorName ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+  return name === 'tpe' || name.includes('transpennine express');
+}
+
 // Prefer Traini's stable status codes; status_text is for the passenger-facing text.
 function parseServices(data) {
   const entries = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
@@ -401,6 +435,7 @@ function parseServices(data) {
         s.destination?.crs || s.destination_crs
       ),
       operator: s.operator || 'National Rail',
+      coaches: coachCount(s.coaches),
       frontCarriages: frontCarriagesNotice(
         s.destination?.name || s.destination_name || '',
         s.destination?.crs || s.destination_crs || ''
@@ -475,7 +510,11 @@ function renderBoard(services) {
     card.innerHTML = `
       <div class="service-main">
         <div class="dep-time">${escapeHTML(dep.time)}</div>
-        <div class="dep-dest">${escapeHTML(dep.destination)}</div>
+        <div class="dep-destination-wrap">
+          <div class="dep-dest">${escapeHTML(dep.destination)}</div>
+          ${dep.coaches === null ? '' : `<span class="formation-badge" aria-label="Train formation: ${dep.coaches} ${dep.coaches === 1 ? 'carriage' : 'carriages'}">${dep.coaches} ${dep.coaches === 1 ? 'CARRIAGE' : 'CARRIAGES'}</span>`}
+          ${dep.coaches === 5 && isTransPennineExpress(dep.operator) && dep.statusClass !== 'cancelled' ? '<span class="first-class-badge" role="note">FIRST CLASS: COACH E</span>' : ''}
+        </div>
         <div class="dep-operator">${escapeHTML(dep.operator)}</div>
         <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
         <div class="dep-plat">${escapeHTML(dep.platform || 'TBC')}</div>
