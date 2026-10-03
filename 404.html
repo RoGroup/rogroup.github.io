@@ -1,82 +1,281 @@
+
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<title>Fresh • 404</title>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-   <style>
-     @import url('https://fonts.googleapis.com/css2?family=Encode+Sans+Semi+Expanded:wght@100;200;300;400;500;600;700;800;900&family=Raleway:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-* {
-  font-family: 'Encode Sans Semi Expanded', 'Roboto', sans-serif;
-  box-sizing: border-box;
-  transition: 0.3s ease-out !important;
-}
+  <meta http-equiv="refresh"
+        content="5;url=https://rogroup.github.io/mcv/index.html">
 
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  display: table;
-  background-image: url(https://i.imgur.com/QISFe2l.png);
-  background-size: cover;
-  background-position: center top;
-    font-family: 'Encode Sans Semi Expanded', sans-serif;
-}
+  <title>Page Not Found | Manchester Victoria</title>
 
-div.container {
-  position: relative;
-  z-index: 9999;
-  text-align: center;
-  vertical-align: middle;
-  display: table-cell;
-}
+  <style>
+    @font-face {
+      font-family: "Bunday Clean";
+      src: url("bunday-clean-regular.woff") format("woff");
+      font-weight: 400;
+    }
 
-body:after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  opacity: 0.83;
-}
+    @font-face {
+      font-family: "Bunday Clean";
+      src: url("bunday-clean-bold.woff") format("woff");
+      font-weight: 700;
+    }
 
-div.container > * {
-   font-family: 'Encode Sans Semi Expanded', sans-serif;
-  color: #FFFFFF;
-}
+    :root {
+      --navy: #262262;
+      --blue: #0698d6;
+      --white: #ffffff;
+      --background: #f3f5f8;
+      --muted: #667085;
+    }
 
-div.container > h1 {
-  font-size: 50px;
-}
+    * {
+      box-sizing: border-box;
+    }
 
-footer {
-  position: absolute;
-  bottom: 5px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  z-index: 9999999;
-}
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--background);
+      color: var(--navy);
+      font-family: "Bunday Clean", Arial, sans-serif;
+    }
 
-footer > * {
-   font-family: 'Encode Sans Semi Expanded', sans-serif;
-  color: #FFFFFF;
-  text-decoration: none;
-}
+    /* HEADER */
 
-footer {
-   font-family: 'Encode Sans Semi Expanded', sans-serif;
-  color: #FFFFFF;
-  font-size: 17px;
-}
+    header {
+      background: var(--white);
+      border-bottom: 4px solid var(--blue);
+      padding: 24px 5%;
+    }
 
-footer > a:hover {
-  color: #bdc3c7;
-}
-   </style>
-  </head>
-<div class="container">
-  <h1>404</h1>
-  <a style="font-size: 30px; text-decoration: none;" href="https://freshradio.pw/">Go Back to Fresh</ha>
-</div>
+    .brand {
+      font-size: 23px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .brand span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* MAIN CONTENT */
+
+    main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .error-card {
+      width: 100%;
+      max-width: 650px;
+      background: var(--white);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 12px 45px rgba(38, 34, 98, 0.08);
+      text-align: center;
+    }
+
+    .error-banner {
+      background: var(--navy);
+      color: var(--white);
+      padding: 46px 24px;
+    }
+
+    .error-code {
+      font-size: clamp(90px, 17vw, 150px);
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -5px;
+    }
+
+    .error-label {
+      margin-top: 12px;
+      color: #a9e5ff;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    .error-content {
+      padding: 42px 35px 45px;
+    }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(25px, 5vw, 34px);
+      font-weight: 700;
+    }
+
+    p {
+      margin: 0 auto;
+      max-width: 450px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .redirect-message {
+      margin-top: 30px;
+      font-size: 14px;
+      color: var(--navy);
+    }
+
+    .redirect-message strong {
+      color: var(--blue);
+    }
+
+    /* PROGRESS BAR */
+
+    .progress {
+      width: 100%;
+      height: 5px;
+      margin-top: 15px;
+      overflow: hidden;
+      background: #e5e9f1;
+      border-radius: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 100%;
+      background: var(--blue);
+      transform-origin: left;
+      animation: countdown 5s linear forwards;
+    }
+
+    @keyframes countdown {
+      from { transform: scaleX(1); }
+      to   { transform: scaleX(0); }
+    }
+
+    /* BUTTON */
+
+    .home-button {
+      display: inline-block;
+      margin-top: 32px;
+      padding: 15px 30px;
+      border-radius: 6px;
+      background: var(--navy);
+      color: var(--white);
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.2s ease;
+    }
+
+    .home-button:hover,
+    .home-button:focus-visible {
+      background: var(--blue);
+    }
+
+    footer {
+      padding: 22px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 600px) {
+      header { padding: 20px; }
+      .error-banner { padding: 38px 20px; }
+      .error-content { padding: 34px 22px; }
+      .home-button { width: 100%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .progress-fill { animation: none; }
+      .home-button { transition: none; }
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div class="brand">
+      NORTHERN
+      <span>Manchester Victoria</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="error-card">
+
+      <div class="error-banner">
+        <div class="error-code">404</div>
+        <div class="error-label">Page not found</div>
+      </div>
+
+      <div class="error-content">
+
+        <h1>Looks like we've hit the buffers.</h1>
+
+        <p>
+          Sorry, we couldn't find the page you're looking for.
+          Don't worry — we'll get you back to
+          Manchester Victoria.
+        </p>
+
+        <div class="redirect-message" role="status" aria-live="polite">
+          Returning to the homepage in
+          <strong><span id="countdown">5</span> seconds</strong>
+        </div>
+
+        <div class="progress" aria-hidden="true">
+          <div class="progress-fill"></div>
+        </div>
+
+        <a
+          class="home-button"
+          href="https://rogroup.github.io/mcv/index.html"
+        >
+          Return to Manchester Victoria &rarr;
+        </a>
+
+      </div>
+
+    </section>
+  </main>
+
+  <footer>
+    Manchester Victoria | Passenger Information
+  </footer>
+
+  <script>
+    const HOME_URL =
+      "https://rogroup.github.io/mcv/index.html";
+
+    let seconds = 5;
+
+    const countdown =
+      document.getElementById("countdown");
+
+    const timer = setInterval(() => {
+      seconds--;
+
+      countdown.textContent = seconds;
+
+      if (seconds <= 0) {
+        clearInterval(timer);
+        window.location.replace(HOME_URL);
+      }
+    }, 1000);
+  </script>
+
+</body>
+</html>
