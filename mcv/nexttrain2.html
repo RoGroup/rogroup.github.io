@@ -46,6 +46,9 @@ main {flex:1; min-height:0;display:flex;flex-direction:column; padding:clamp(18p
 .status {font-size:clamp(17px,1.6vw,26px);font-weight:900;padding:11px 18px;border-radius:5px;background:var(--green);color:#fff;text-transform:uppercase;line-height:1.25;}
 .status.delayed {color:var(--navy);background:var(--amber);}
 .status.notice {color:var(--navy);background:#fff;}
+/* The carriage-count pill is only displayed when the live feed provides a valid count. */
+.formation {display:inline-flex;align-items:center;white-space:nowrap;font-size:clamp(15px,1.35vw,23px);font-weight:800;letter-spacing:.3px;line-height:1.25;color:#fff;border:2px solid #aee8ff;border-radius:5px;padding:9px 14px;}
+.formation[hidden] {display:none!important;}
 .actual-platform {font-weight:900;font-size:clamp(19px,1.8vw,30px);color:#fff;padding:8px 14px;background:rgba(6,152,214,.36);border:2px solid var(--blue);border-radius:5px;white-space:nowrap;}
 .calling {flex:none; border-left:7px solid var(--blue);padding:3px 0 8px 21px; min-height:85px;}
 .calling-label {font-size:clamp(16px,1.5vw,25px);font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#aee8ff;margin-bottom:8px;}
@@ -101,7 +104,7 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
  <div class="mode-banner"><div class="eyebrow">NEXT TRAIN</div><div id="feed-state" class="feed-state" role="status">Connecting to live departures</div></div>
  <section class="hero" aria-label="Next advertised departure">
   <div class="time-panel"><div class="field-label">Booked departure</div><div class="booked-time" id="booked">--:--</div><div class="expected" id="expected-wrap" hidden><span>Now expected</span><strong id="expected">--:--</strong></div></div>
-  <div class="destination-panel"><div class="field-label">Destination</div><div class="destination" id="destination">Connecting to live information</div><div class="service-bottom"><div class="operator" id="operator"></div><div class="status notice" id="service-status">PLEASE WAIT</div><div class="actual-platform" id="actual-platform" hidden></div></div></div>
+  <div class="destination-panel"><div class="field-label">Destination</div><div class="destination" id="destination">Connecting to live information</div><div class="service-bottom"><div class="operator" id="operator"></div><div class="status notice" id="service-status">PLEASE WAIT</div><div class="actual-platform" id="actual-platform" hidden></div><div class="formation" id="formation" hidden aria-label="Train formation"></div></div></div>
  </section>
  <section class="calling" id="calling" aria-label="Calling points" hidden><div class="calling-label">Calling at</div><div class="stops-window" id="stops-window"><span class="stops-text" id="stops-text"></span></div></section>
  <div class="notice-bar" id="notice-bar" hidden><strong id="notice-heading"></strong><span id="notice-message"></span></div>
@@ -127,6 +130,7 @@ const $ = id => document.getElementById(id);
 const screen = $('screen'), stateLabel = $('feed-state'), destinationNode = $('destination');
 const bookedNode = $('booked'), expectedWrap = $('expected-wrap'), expectedNode = $('expected');
 const operatorNode = $('operator'), statusNode = $('service-status'), actualPlatformNode = $('actual-platform');
+const formationNode = $('formation');
 const callingSection = $('calling'), stopWindow = $('stops-window'), stopsNode = $('stops-text');
 const noticeBar = $('notice-bar'), noticeHeading = $('notice-heading'), noticeMessage = $('notice-message');
 const footerLabel = $('footer-label'), footerText = $('footer-text');
@@ -173,6 +177,13 @@ function isMatchingPlatform(platform) {
   const match = String(platform ?? '').trim().match(/^(?:platform\s*)?(\d+)\s*([AB])?$/i);
   return !!match && Number(match[1]) === PLATFORM_NUMBER;
 }
+function coachCount(raw) {
+  // Darwin's coaches field is nullable; don't infer a formation from
+  // the service, headcode or a front-two-carriages boarding instruction.
+  if (raw === null || raw === undefined || typeof raw === 'boolean' || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
+  return Number.isInteger(n) && n > 0 && n <= 30 ? n : null;
+}
 function parseServices(json) {
   if (!Array.isArray(json?.results)) throw new Error('Invalid departures response');
   return json.results.map(item => {
@@ -199,6 +210,7 @@ function parseServices(json) {
       key, trainId, platform: item.platform_withheld === true ? '' : String(item.platform ?? '').trim(),
       scheduledMs, booked:formatTime(item.departs), expected:expectedMs !== Infinity ? formatTime(item.expected_departs) : '',
       destination:stationName(destName,destCode), operator:String(item.operator || ''), stops,
+      coaches:coachCount(item.coaches),
       cancelled, departed, delayed, statusText, statusCode:code,expectedMs,
       reason:delayed ? String(item.late_reason || '').trim() : '',
       cancelReason:String(item.cancel_reason || '').trim(),
@@ -245,6 +257,8 @@ function emptyView(title, sub, offline = false) {
   statusNode.className = 'status notice';
   expectedWrap.hidden = true;
   actualPlatformNode.hidden = true;
+  formationNode.hidden = true;
+  formationNode.textContent = '';
   callingSection.hidden = true;
   setBanner('information', '', '');
   if (offline) {
@@ -297,6 +311,8 @@ function updateView() {
   const platformEnd = next.platform.toUpperCase().replace(/^PLATFORM\s*/i,'').replace(/\s+/g,'');
   actualPlatformNode.hidden = !platformEnd || platformEnd === String(PLATFORM_NUMBER);
   actualPlatformNode.textContent = 'PLATFORM ' + platformEnd;
+  formationNode.hidden = next.coaches === null;
+  formationNode.textContent = next.coaches === null ? '' : `${next.coaches} ${next.coaches === 1 ? 'CARRIAGE' : 'CARRIAGES'}`;
   const stopsText = next.stops.length ? next.stops.join('   •   ') : 'Stopping pattern currently unavailable';
   callingSection.hidden = false;
   if (lastStops !== stopsText) {
