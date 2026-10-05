@@ -411,7 +411,7 @@ function render(){
   }
   rows.innerHTML=list.map(function(s){
     const formation=s.coaches?String(s.coaches)+' cars':'—';
-    const detail=s.ecs?'EMPTY COACHING STOCK':s.operator;
+    const detail=s.ecs?'EMPTY COACHING STOCK · '+(s.operator&&s.operator!=='Unknown'?s.operator:'OPERATOR NOT SUPPLIED'):s.operator;
     const stops=s.ecs
       ?('TO: '+(s.stops.join(' · ')||s.destination))
       :(s.stops.length?s.stops.join(' · '):'Stopping pattern unavailable');
