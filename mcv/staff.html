@@ -15,6 +15,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .top{background:#fff;border-bottom:4px solid var(--blue);display:flex;align-items:center;justify-content:space-between;gap:24px;padding:14px clamp(18px,3vw,48px);position:relative;z-index:2}
 .identity{display:flex;align-items:center;gap:21px}.logo{width:170px;height:56px;object-fit:contain}.titleblock{border-left:1px solid #d2dbe7;padding-left:20px}.top h1{font-size:clamp(22px,2.3vw,32px);line-height:1.1;margin:0;font-weight:800;color:var(--navy);text-transform:uppercase}.subhead{margin-top:5px;font-size:12px;color:var(--blue);font-weight:800;letter-spacing:1.25px;text-transform:uppercase}.top-right{display:flex;gap:15px;align-items:center}.clock{color:var(--navy);font-weight:800;font-size:31px;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}.date{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);text-align:right;margin-top:2px}
 .container{max-width:1860px;margin:auto;padding:22px clamp(16px,3vw,48px) 40px}.feedbar{display:flex;gap:11px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:17px;min-height:53px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#95a1ae;flex:none}.dot.ok{background:var(--green)}.dot.warn{background:#d69900}.dot.off{background:var(--red)}.feedbar strong{color:var(--navy)}.feedbar .note{color:var(--muted);font-size:13px}.push{margin-left:auto}.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:white;color:var(--navy);padding:10px 13px;font-weight:800;text-decoration:none;gap:7px;white-space:nowrap}.button:hover{background:#edf9ff}.button.primary{background:var(--navy);color:white;border-color:var(--navy)}.button.primary:hover{background:#3b367e}.button:disabled{opacity:.55;cursor:wait}
+.rtt-button{margin-top:10px;background:#fff;color:var(--navy);border-color:#b8c8db;font-size:11px;padding:8px 10px}
+.rtt-button:hover{background:#eef8fd;border-color:#8fb8ce}
 .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}.stat-title{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:800}.stat-value{font-size:31px;font-weight:800;line-height:1.2;margin-top:7px;color:var(--navy);font-variant-numeric:tabular-nums}.stat.small .stat-value{font-size:18px;margin-top:13px}.stat-sub{font-size:12px;color:var(--muted);margin-top:5px}.stat.alert{border-left:5px solid var(--amber)}.stat.danger{border-left:5px solid var(--red)}
 .section-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:24px 0 12px}.section-heading h2{margin:0;color:var(--navy);font-size:19px}.section-heading p{margin:0;color:var(--muted);font-size:12px}
 .platforms{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px}.platform-card{background:#fff;border:1px solid var(--line);border-top:5px solid var(--blue);border-radius:10px;padding:14px;min-width:0;text-align:left;color:var(--ink)}.platform-card:hover{border-color:var(--blue);box-shadow:0 3px 14px #26226212}.platform-card.is-selected{background:var(--navy);color:#fff;border-color:var(--navy)}.platform-card.is-selected .platform-caption,.platform-card.is-selected .platform-meta,.platform-card.is-selected .platform-dest{color:#fff}.platform-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px}.platform-no{font-size:13px;font-weight:800;letter-spacing:.65px;text-transform:uppercase}.platform-meta{font-size:12px;font-weight:700;color:var(--muted)}.platform-dest{font-size:17px;font-weight:800;margin-top:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:var(--navy)}.platform-caption{font-size:12px;color:var(--muted);margin-top:5px;min-height:16px}.platform-card[data-delay="true"]{border-top-color:var(--amber)}.platform-card[data-cancel="true"]{border-top-color:var(--red)}
@@ -341,7 +343,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=c5bd0c42"></script>
+<script src="mcv-data.js?v=59a6cd6d"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -535,6 +537,27 @@ function latestPlatformChange(s){const h=state.platformHist.get(s.key)||[];retur
 
 
 function detailCacheKey(s){return String(s.rid||s.uid||s.serviceId||s.key||'')}
+function ukDatePath(msValue){
+  if(!Number.isFinite(msValue))return '';
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(msValue));
+  const get=type=>parts.find(p=>p.type===type)?.value||'';
+  return get('year')+'-'+get('month')+'-'+get('day');
+}
+function serviceDatePath(s){
+  const raw=String(s.serviceDate||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw))return raw;
+  if(/^\d{8}$/.test(raw))return raw.slice(0,4)+'-'+raw.slice(4,6)+'-'+raw.slice(6,8);
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(raw)){const [d,m,y]=raw.split('/');return y+'-'+m+'-'+d}
+  const fallback=Number.isFinite(s.bookedMs)?s.bookedMs:s.bookedArrivalMs;
+  return ukDatePath(fallback);
+}
+function realTimeTrainsUrl(s){
+  const uid=String(s.uid||'').trim();
+  const date=serviceDatePath(s);
+  if(!uid||!date)return '';
+  const id=uid.startsWith('gb-nr:')?uid:'gb-nr:'+uid;
+  return 'https://www.realtimetrains.co.uk/service/'+encodeURIComponent(id).replace(/%3A/g,':')+'/'+date+'/detailed#allox_id=0';
+}
 function matchDetailedService(target,candidates){
   const exact=candidates.find(x=>target.rid&&x.rid===target.rid)
     ||candidates.find(x=>target.uid&&x.uid===target.uid)
@@ -652,7 +675,8 @@ function parseServices(json){
       }];
     }
 
-    const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
+    const serviceDate=String(raw.scheduled_departure_date||raw.sdd||'').trim();
+    const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,serviceDate,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,lateReason:String(raw.late_reason||'').trim(),coaches,
@@ -791,7 +815,7 @@ function renderDetails(){
   const flow=serviceFlow(s),movement=movementType(s);
   const canShowPriorStops=flow.key!=='origin'&&(!s.previousStopsLoaded||beforeStops.length>0||detailsLoading||Boolean(s.previousStopsError));
   const platformMoves=nextPlatformMovements(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
-  const cat=categoryName(s.trainCategory);
+  const cat=categoryName(s.trainCategory),rttUrl=realTimeTrainsUrl(s);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
   const metric=(label,value,sub='')=>`<div class="ops-metric"><div class="label">${escapeHTML(label)}</div><div class="value">${escapeHTML(value||'—')}</div>${sub?`<div class="sub">${escapeHTML(sub)}</div>`:''}</div>`;
   const statusBadge=`<span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>`;
@@ -807,6 +831,7 @@ function renderDetails(){
     <div class="detail-heading">${escapeHTML(s.dest)}</div>
     <div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>
     ${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}
+    ${rttUrl?`<div><a class="button rtt-button" href="${escapeHTML(rttUrl)}" target="_blank" rel="noopener noreferrer">Open in RealTimeTrains ↗</a></div>`:''}
     <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
     <div class="ops-route">
@@ -872,6 +897,7 @@ function renderDetails(){
 
     <section class="detail-group"><h3>Technical identifiers</h3><div class="keyvalues">
       ${s.rid?extra('RID',s.rid):''}
+      ${s.serviceDate?extra('Service date',serviceDatePath(s)):''}
       ${extra('Feed service ID',s.serviceId||'Not supplied')}
       ${extra('Source status code',s.statusCode||'Not provided')}
       ${extra('Arrival forecast type',s.arrivalType||'Not supplied')}
