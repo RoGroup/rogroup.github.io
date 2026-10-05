@@ -78,10 +78,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="control.html#announcements">Announcement assistant</a> <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
+<script src="mcv-data.js"></script>
 <script>
 'use strict';
 const API = Object.freeze({
-  departures:'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
+  departures:MCVData.CONFIG.departuresUrl,
   activity:null,
   cancellations:null
 });
@@ -93,7 +94,7 @@ const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
 const ukClock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
 const ukDate = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'short',day:'numeric',month:'short',year:'numeric'});
-const escapeHTML = v=>String(v??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const escapeHTML = MCVData.escapeHTML;
 function ms(v){if(!v)return NaN;const n=Date.parse(v);return Number.isFinite(n)?n:NaN}
 function fmt(v){const n=typeof v==='number'?v:ms(v);return Number.isFinite(n)?ukTime.format(n):'—'}
 function station(name,crs=''){const n=String(name||'').trim(),c=String(crs||'').trim().toUpperCase();if(c==='SFD'||(n.toUpperCase()==='SALFORD'&&c!=='SLD'))return 'SALFORD CENTRAL';return n||c||'Unknown'}
@@ -102,101 +103,8 @@ function validPlatform(v){return /^[1-6](?:[AB])?$/i.test(String(v||'').trim())}
 function timeDiff(s){return Number.isFinite(s.expectedMs)&&Number.isFinite(s.bookedMs)?Math.max(0,Math.round((s.expectedMs-s.bookedMs)/60000)):null}
 function trainNotice(s){const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
 
-function rdmClockToIso(clock, generatedAt) {
-  const text = String(clock || '').trim();
-  if (!/^\d{2}:\d{2}$/.test(text)) return null;
-  const source = String(generatedAt || new Date().toISOString());
-  const datePart = /^\d{4}-\d{2}-\d{2}/.exec(source)?.[0] || new Date().toISOString().slice(0,10);
-  const tz = /(Z|[+-]\d{2}:\d{2})$/.exec(source)?.[1] || 'Z';
-  const anchor = new Date(source);
-  let candidate = new Date(`${datePart}T${text}:00${tz}`);
-  if (!Number.isFinite(candidate.getTime())) return null;
-  if (Number.isFinite(anchor.getTime())) {
-    const twelveHours = 12 * 60 * 60 * 1000;
-    const diff = candidate.getTime() - anchor.getTime();
-    if (diff < -twelveHours) candidate = new Date(candidate.getTime() + 24*60*60*1000);
-    else if (diff > twelveHours) candidate = new Date(candidate.getTime() - 24*60*60*1000);
-  }
-  return candidate.toISOString();
-}
-function rdmExpectedIso(value, booked, generatedAt) {
-  const raw = String(value || '').trim();
-  if (/^\d{2}:\d{2}$/.test(raw)) return rdmClockToIso(raw, generatedAt);
-  if (/^on time$/i.test(raw) || /^early$/i.test(raw)) return rdmClockToIso(booked, generatedAt);
-  return null;
-}
-function rdmStatusFor(service) {
-  const etd = String(service?.etd || '').trim();
-  if (/^\d{2}:\d{2}$/.test(String(service?.atd || '').trim())) return ['departed','Departed'];
-  if (service?.isCancelled === true || service?.filterLocationCancelled === true || /^cancelled$/i.test(etd)) return ['cancelled','Cancelled'];
-  if (/^delayed$/i.test(etd)) return ['delayed_no_estimate','Delayed'];
-  if (/^on time$/i.test(etd) || !etd) return ['on_time','On time'];
-  if (/^\d{2}:\d{2}$/.test(etd)) {
-    const std = String(service?.std || '').trim();
-    if (/^\d{2}:\d{2}$/.test(std)) {
-      const [sh,sm]=std.split(':').map(Number), [eh,em]=etd.split(':').map(Number);
-      let s=sh*60+sm,e=eh*60+em; if(e < s-720)e+=1440; if(s < e-720)s+=1440;
-      if (e > s) return ['expected_late',`Expected ${etd}`];
-      if (e < s) return ['expected_early',`Expected ${etd}`];
-    }
-    return ['on_time',`Expected ${etd}`];
-  }
-  return ['', etd || 'Status not supplied'];
-}
-function rdmCallingPoints(service, generatedAt) {
-  const groups = Array.isArray(service?.subsequentCallingPoints) ? service.subsequentCallingPoints : [];
-  const points = groups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
-  return points.map(point => {
-    const booked = rdmClockToIso(point?.st, generatedAt);
-    const expected = rdmExpectedIso(point?.et, point?.st, generatedAt);
-    return {
-      station: {name:String(point?.locationName || ''), crs:String(point?.crs || '')},
-      name:String(point?.locationName || ''), crs:String(point?.crs || ''),
-      scheduled: booked, arrives: booked, departs: booked,
-      expected: expected || booked, expected_arrives: expected || booked, expected_departs: expected || booked,
-      platform: String(point?.platform || ''), platform_withheld: !String(point?.platform || '').trim(),
-      is_cancelled: point?.isCancelled === true
-    };
-  });
-}
-function rdmToLegacyBoard(data) {
-  if (!data || !Array.isArray(data.trainServices)) return data;
-  const generatedAt = data.generatedAt || new Date().toISOString();
-  return {
-    generated_at: generatedAt,
-    results: data.trainServices.map((service, index) => {
-      const [status, statusText] = rdmStatusFor(service);
-      const destination = Array.isArray(service?.destination) ? service.destination[0] : service?.destination;
-      const origin = Array.isArray(service?.origin) ? service.origin[0] : service?.origin;
-      const booked = rdmClockToIso(service?.std, generatedAt);
-      const expected = rdmExpectedIso(service?.etd, service?.std, generatedAt);
-      const length = Number(service?.length);
-      return {
-        train_id: String(service?.serviceID || service?.rsid || `rdm-${index}`),
-        train_uid: '', headcode: '',
-        service_id: String(service?.serviceID || ''), rsid: String(service?.rsid || ''),
-        departs: booked, expected_departs: expected,
-        arrives: booked, expected_arrives: expected,
-        status, status_text: statusText,
-        destination: {name:String(destination?.locationName || destination?.name || 'Unknown'), crs:String(destination?.crs || '')},
-        destination_name:String(destination?.locationName || destination?.name || 'Unknown'), destination_crs:String(destination?.crs || ''),
-        origin: {name:String(origin?.locationName || origin?.name || ''), crs:String(origin?.crs || '')},
-        origin_name:String(origin?.locationName || origin?.name || ''), origin_crs:String(origin?.crs || ''),
-        operator:String(service?.operator || 'National Rail'), operator_code:String(service?.operatorCode || ''),
-        platform:String(service?.platform || ''), platform_withheld:!String(service?.platform || '').trim(),
-        calling_points: rdmCallingPoints(service, generatedAt),
-        coaches:Number.isInteger(length) && length > 0 ? length : null,
-        late_reason:String(service?.delayReason || ''), cancel_reason:String(service?.cancelReason || ''),
-        not_for_display:String(service?.serviceType || 'train').toLowerCase() !== 'train',
-        service_class:String(service?.serviceType || 'train').toLowerCase(),
-        is_reverse_formation:service?.isReverseFormation === true
-      };
-    })
-  };
-}
-
 function parseServices(json){
-  if(Array.isArray(json?.trainServices))json=rdmToLegacyBoard(json);
+  json=MCVData.toLegacyBoard(json);
   if(!json||!Array.isArray(json.results))throw new Error('Unexpected departures feed format');
   return json.results.map(raw=>{
     const statusCode=String(raw.status||'').trim().toLowerCase(),statusText=String(raw.status_text||'').trim();
@@ -252,9 +160,9 @@ function updateFeedBanner(){
   const dot=$('feed-dot');dot.className='dot';
   let status='',detail='';
   if(!state.lastGood){dot.classList.add('off');status='No live departures received';detail=state.lastError||'Waiting for first successful response';}
-  else if(state.lastError){dot.classList.add('off');status='Feed error — displaying last successful data';detail=`Last successful update ${fmt(state.lastGood)} (${Math.floor(age/1000)}s ago) · ${state.lastError}`;}
-  else if(age>STALE_MS){dot.classList.add('warn');status='STALE DATA — refresh overdue';detail=`Last successful update ${fmt(state.lastGood)} (${Math.floor(age/1000)}s ago)`;}
-  else{dot.classList.add('ok');status='Live departures connected';detail=`Last updated ${fmt(state.lastGood)} · ${Math.floor(age/1000)}s ago · auto-refresh every 20s`;}
+  else if(state.lastError){dot.classList.add('off');status='Feed error — displaying last successful data';detail=`Last successful update ${MCVData.formatLiveClock(state.lastGood)} (${Math.floor(age/1000)}s ago) · ${state.lastError}`;}
+  else if(age>STALE_MS){dot.classList.add('warn');status='STALE DATA — refresh overdue';detail=`Last successful update ${MCVData.formatLiveClock(state.lastGood)} (${Math.floor(age/1000)}s ago)`;}
+  else{dot.classList.add('ok');status='Live departures connected';detail=`Last updated ${MCVData.formatLiveClock(state.lastGood)} · ${Math.floor(age/1000)}s ago · auto-refresh every 20s`;}
   $('feed-status').textContent=status;$('feed-detail').textContent=detail;
 }
 function renderStats(){
@@ -329,8 +237,8 @@ function renderEvents(){
 function render(){updateFeedBanner();renderStats();renderPlatforms();renderTable();renderDetails();renderEvents()}
 async function getJSON(url){const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);return response.json()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
-  try{const json=await getJSON(API.departures);const next=parseServices(json);
-    compareFeeds(next);state.services=next;state.lastGood=Date.now();state.lastError='';
+  try{const board=await MCVData.fetchBoard({allowStale:true});const json=board.raw;const next=parseServices(json);
+    compareFeeds(next);state.services=next;state.lastGood=board.receivedAt||Date.now();state.lastError=board.fallback?'Live feed unavailable — showing last received data':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey))state.selectedKey='';
     render();
   }catch(err){state.lastError=String(err.message||err);console.warn('Departure feed:',err);updateFeedBanner();}
@@ -355,7 +263,7 @@ async function fetchCancelReasons(){if(state.cancelBusy)return;state.cancelBusy=
     state.cancellationReasons=map;state.cancelStatus='connected';renderDetails();
   }catch(err){state.cancelStatus='unavailable';console.warn('Cancellation reason feed:',err)}finally{state.cancelBusy=false;renderEvents()}
 }
-function updateClock(){const d=Date.now();$('clock').textContent=ukClock.format(d);$('date').textContent=ukDate.format(d);updateFeedBanner()}
+function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
   const cols=['Booked','Headcode','Destination','Destination CRS','Operator','Platform','Expected','Status','Delay minutes','Delay / cancellation reason','Calling points','Train ID'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
