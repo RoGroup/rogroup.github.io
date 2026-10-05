@@ -525,7 +525,7 @@ function parseServices(json){
       arrivalType:String(raw.arrival_type||'').trim(),departureType:String(raw.departure_type||'').trim(),
       origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),originCrs:String(raw.origin?.crs||raw.origin_crs||'').trim().toUpperCase(),
       note:String(raw.cancel_reason||'').trim()};
-    service.firstClassNotice=MCVData.firstClassNotice({
+    service.firstClassNotice=service.ecs?null:MCVData.firstClassNotice({
       coaches:service.coaches,operator:service.operator,operatorCode:service.operatorCode,
       cancelled:service.cancelled,statusClass:service.cancelled?'cancelled':''
     });
