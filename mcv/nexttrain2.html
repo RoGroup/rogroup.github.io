@@ -52,9 +52,21 @@ main {flex:1; min-height:0;display:flex;flex-direction:column; padding:clamp(18p
 .actual-platform {font-weight:900;font-size:clamp(19px,1.8vw,30px);color:#fff;padding:8px 14px;background:rgba(6,152,214,.36);border:2px solid var(--blue);border-radius:5px;white-space:nowrap;}
 .calling {flex:none; border-left:7px solid var(--blue);padding:3px 0 8px 21px; min-height:85px;}
 .calling-label {font-size:clamp(16px,1.5vw,25px);font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#aee8ff;margin-bottom:8px;}
-.stops-window {width:100%;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none;font-size:clamp(22px,2.05vw,36px);line-height:1.5;font-weight:650;}
+.stops-window {width:100%;overflow:hidden;white-space:nowrap;scrollbar-width:none;font-size:clamp(22px,2.05vw,36px);line-height:1.5;font-weight:650;}
 .stops-window::-webkit-scrollbar {display:none;}
-.stops-text {display:inline-block;white-space:nowrap;}
+.stops-track {display:inline-flex;align-items:center;width:max-content;white-space:nowrap;will-change:transform;}
+.stops-text,.stops-repeat {display:inline-block;flex:0 0 auto;white-space:nowrap;}
+.stops-repeat {display:none;}
+.stops-track.ticker-active .stops-repeat {display:inline-block;}
+.stops-track.ticker-active {animation:calling-points-ticker var(--ticker-duration,18s) linear infinite;}
+@keyframes calling-points-ticker {
+  0%,15% {transform:translateX(0);}
+  85%,100% {transform:translateX(calc(-1 * var(--ticker-distance,0px)));}
+}
+@media (prefers-reduced-motion: reduce) {
+  .stops-track.ticker-active {animation:none;transform:none;}
+  .stops-track.ticker-active .stops-repeat {display:none;}
+}
 .notice-bar {flex:none; display:flex;align-items:center;gap:14px;background:var(--amber);color:var(--navy);border-radius:5px;padding:clamp(12px,1.1vw,20px) clamp(17px,1.5vw,28px);font-size:clamp(15px,1.4vw,22px);font-weight:650;min-height:53px;line-height:1.28;}
 .notice-bar strong {font-weight:900;text-transform:uppercase;white-space:nowrap;letter-spacing:.6px;}
 .notice-bar[hidden], .expected[hidden], .actual-platform[hidden], .calling[hidden] {display:none!important;}
@@ -112,7 +124,7 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
   <div class="time-panel"><div class="field-label">Booked departure</div><div class="booked-time" id="booked">--:--</div><div class="expected" id="expected-wrap" hidden><span>Now expected</span><strong id="expected">--:--</strong></div></div>
   <div class="destination-panel"><div class="field-label">Destination</div><div class="destination" id="destination">Connecting to live information</div><div class="service-bottom"><div class="operator" id="operator"></div><div class="status notice" id="service-status">PLEASE WAIT</div><div class="actual-platform" id="actual-platform" hidden></div><div class="formation" id="formation" hidden aria-label="Train formation"></div></div></div>
  </section>
- <section class="calling" id="calling" aria-label="Calling points" hidden><div class="calling-label">Calling at</div><div class="stops-window" id="stops-window"><span class="stops-text" id="stops-text"></span></div></section>
+ <section class="calling" id="calling" aria-label="Calling points" hidden><div class="calling-label">Calling at</div><div class="stops-window" id="stops-window" data-stop-count="0"><span class="stops-track" id="stops-track"><span class="stops-text" id="stops-text"></span><span class="stops-repeat" id="stops-repeat" aria-hidden="true"></span></span></div></section>
  <div class="notice-bar" id="notice-bar" hidden><strong id="notice-heading"></strong><span id="notice-message"></span></div>
 </main>
 <footer><div class="footer-label" id="footer-label">SERVICE INFORMATION</div><div class="footer-text" id="footer-text">Please check the destination and listen for station announcements before boarding.</div></footer>
@@ -137,7 +149,7 @@ const screen = $('screen'), stateLabel = $('feed-state'), destinationNode = $('d
 const bookedNode = $('booked'), expectedWrap = $('expected-wrap'), expectedNode = $('expected');
 const operatorNode = $('operator'), statusNode = $('service-status'), actualPlatformNode = $('actual-platform');
 const formationNode = $('formation');
-const callingSection = $('calling'), stopWindow = $('stops-window'), stopsNode = $('stops-text');
+const callingSection = $('calling'), stopWindow = $('stops-window'), stopsNode = $('stops-text'), stopsTrack = $('stops-track'), stopsRepeat = $('stops-repeat');
 const noticeBar = $('notice-bar'), noticeHeading = $('notice-heading'), noticeMessage = $('notice-message');
 const footerLabel = $('footer-label'), footerText = $('footer-text');
 let services = [];
@@ -305,10 +317,12 @@ function updateView() {
   const stopsText = next.stops.length ? next.stops.join('   •   ') : 'Stopping pattern currently unavailable';
   callingSection.hidden = false;
   if (lastStops !== stopsText) {
-    stopsNode.textContent = stopsText.toUpperCase();
-    stopWindow.scrollLeft=0;
-    scrollState.phase='start'; scrollState.waitUntil=performance.now()+CONFIG.callingStartHoldMs;
+    const upperStops = stopsText.toUpperCase();
+    stopsNode.textContent = upperStops;
+    stopsRepeat.textContent = upperStops;
+    stopWindow.dataset.stopCount = String(next.stops.length || 0);
     lastStops=stopsText;
+    requestAnimationFrame(configureCallingTicker);
   }
   if (next.specialNotice) setBanner('warning', 'BOARDING INFORMATION', next.specialNotice);
   else if (next.reason) setBanner('warning', 'DELAY REASON', next.reason);
@@ -361,21 +375,42 @@ async function refreshCancellationReasons() { return; }
 function updateClock() {
   MCVData.updateClock('clock', 'clock-date', { dateOptions: { weekday:'short', day:'numeric', month:'short' } });
 }
-function scrollCallingPattern(now) {
-  const elapsed = scrollState.lastFrame == null ? 0 : Math.min(.1,(now-scrollState.lastFrame)/1000);
-  scrollState.lastFrame = now;
-  if (!isAvailable || callingSection.hidden) { requestAnimationFrame(scrollCallingPattern);return; }
-  const overflow = Math.max(0,stopWindow.scrollWidth-stopWindow.clientWidth);
-  if (overflow <= 1) { stopWindow.scrollLeft=0;scrollState.phase='start';scrollState.waitUntil=now+CONFIG.callingStartHoldMs; requestAnimationFrame(scrollCallingPattern);return; }
-  if (now >= scrollState.waitUntil) {
-    if (scrollState.phase === 'start') scrollState.phase = 'moving';
-    if (scrollState.phase === 'moving') {
-      stopWindow.scrollLeft = Math.min(overflow,stopWindow.scrollLeft+CONFIG.callingScrollPxPerSecond*elapsed);
-      if (stopWindow.scrollLeft>=overflow-1) {stopWindow.scrollLeft=overflow;scrollState.phase='end';scrollState.waitUntil=now+CONFIG.callingEndHoldMs;}
-    } else if(scrollState.phase === 'end') {stopWindow.scrollLeft=0;scrollState.phase='start';scrollState.waitUntil=now+CONFIG.callingStartHoldMs;}
+function configureCallingTicker() {
+  if (!stopsTrack || !stopsNode || !stopsRepeat || stopWindow.clientWidth <= 0) return;
+
+  const primaryWidth = stopsNode.getBoundingClientRect().width;
+  const stopCount = Number(stopWindow.dataset.stopCount || 0);
+  const textLength = (stopsNode.textContent || '').trim().length;
+  const shouldTicker =
+    primaryWidth > stopWindow.clientWidth + 1 ||
+    stopCount >= 4 ||
+    textLength >= 52;
+
+  stopsTrack.classList.toggle('ticker-active', shouldTicker);
+
+  if (!shouldTicker) {
+    stopsRepeat.style.marginLeft = '0px';
+    stopsTrack.style.removeProperty('--ticker-distance');
+    stopsTrack.style.removeProperty('--ticker-duration');
+    return;
   }
-  requestAnimationFrame(scrollCallingPattern);
+
+  const gap = Math.max(64, stopWindow.clientWidth - primaryWidth + 64);
+  stopsRepeat.style.marginLeft = gap + 'px';
+
+  const distance = primaryWidth + gap;
+  const travelSeconds = Math.max(7, distance / CONFIG.callingScrollPxPerSecond);
+  const duration = Math.max(11, travelSeconds / 0.70);
+
+  stopsTrack.style.setProperty('--ticker-distance', distance + 'px');
+  stopsTrack.style.setProperty('--ticker-duration', duration.toFixed(2) + 's');
 }
+
+let callingTickerResizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(callingTickerResizeTimer);
+  callingTickerResizeTimer = setTimeout(configureCallingTicker, 120);
+});
 
 updateClock();
 emptyView('Connecting to live departure information','PLEASE WAIT',true);
@@ -390,7 +425,7 @@ setInterval(updateClock,1000);
 // A delayed service gains priority when its BOOKED departure time is passed;
 // recalculate without waiting for the next 30-second network refresh.
 setInterval(()=>{if(isAvailable)updateView();},1000);
-requestAnimationFrame(scrollCallingPattern);
+configureCallingTicker();
 </script>
 </body>
 </html>
