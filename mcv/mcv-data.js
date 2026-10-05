@@ -182,6 +182,7 @@
     if (!isTransPennineExpress(service.operator, service.operatorCode)) return null;
 
     if (service.coaches === 3) return 'FIRST CLASS: COACH C';
+    if (service.coaches === 5) return 'FIRST CLASS: COACH E';
     if (service.coaches === 6) return 'FIRST CLASS: COACHES C & G';
 
     return null;
