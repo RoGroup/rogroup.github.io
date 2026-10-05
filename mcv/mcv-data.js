@@ -24,7 +24,7 @@
   const VERSION = '1.1.4';
 
   const CONFIG = Object.freeze({
-    departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
+    departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
     refreshIntervalMs: 20000,
     staleAfterMs: 90000,
     lastGoodStorageKey: 'mcv-rdm-last-good-v1',
