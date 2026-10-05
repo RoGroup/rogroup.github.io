@@ -243,7 +243,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
   <section class="stats" aria-label="Station summary">
-    <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">Not departed · passenger + ECS</div></div>
+    <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub" id="stat-total-split">Awaiting data</div></div>
     <div class="stat alert"><div class="stat-title">Delayed</div><div class="stat-value" id="stat-delay">—</div><div class="stat-sub" id="stat-overdue">Awaiting data</div></div>
     <div class="stat danger"><div class="stat-title">Cancelled</div><div class="stat-value" id="stat-cancel">—</div><div class="stat-sub">Still shown by live feed</div></div>
     <div class="stat"><div class="stat-title">Platform TBC</div><div class="stat-value" id="stat-tbc">—</div><div class="stat-sub">Not allocated / withheld</div></div>
@@ -455,11 +455,12 @@ function updateFeedBanner(){
 function renderStats(){
   if(!state.lastGood)return;
   const arr=visibleServices(),next=sortedServices().find(s=>!s.cancelled&&Number.isFinite(s.bookedMs));
-  $('stat-total').textContent=arr.length;$('stat-delay').textContent=arr.filter(s=>s.delayed).length;
+  const ecsCount=arr.filter(s=>s.ecs).length,passengerCount=arr.length-ecsCount;
+  $('stat-total').textContent=arr.length;$('stat-total-split').textContent=`${passengerCount} passenger | ${ecsCount} ECS`;$('stat-delay').textContent=arr.filter(s=>s.delayed).length;
   $('stat-overdue').textContent=`${arr.filter(overdue).length} delayed past booked time`;
   $('stat-cancel').textContent=arr.filter(s=>s.cancelled).length;
   $('stat-tbc').textContent=arr.filter(s=>!s.platform&&!s.cancelled).length;
-  $('stat-ecs').textContent=arr.filter(s=>s.ecs).length;
+  $('stat-ecs').textContent=ecsCount;
   $('stat-next').textContent=next?next.booked:'—';$('stat-next-dest').textContent=next?`${next.headcode?next.headcode+' · ':''}${next.dest} · ${next.platform||'TBC'}`:'No upcoming service in feed';
 }
 function renderPlatforms(){
