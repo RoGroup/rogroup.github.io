@@ -55,6 +55,7 @@ header {
   z-index: 10;
 }
 .brand { display: flex; align-items: center; gap: 2rem; }
+.home-logo { display:flex; align-items:center; flex:none; text-decoration:none; }
 .logo { height: 48px; width: auto; object-fit: contain; }
 .station-info {
   border-left: 2px solid rgba(38, 34, 98, 0.2);
@@ -245,18 +246,13 @@ footer {
 <script src="platform-alterations.js" defer></script>
 
 
-<style id="mcv-no-logo">
-.logo,.northern-logo,.brand-logo,#logo{display:none!important}
-.station-info,.station{border-left:0!important;padding-left:0!important}
-.brand{gap:0!important}
-</style>
 </head>
 <body>
 
 <div class="screen-container">
   <header>
     <div class="brand">
-      
+      <a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a>
       <div class="station-info">
         <h1>Manchester Victoria</h1>
         <div class="platform-indicator">
