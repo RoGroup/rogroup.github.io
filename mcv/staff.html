@@ -39,6 +39,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .signal-panel .panel-title{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .signal-panel .panel-title a{color:var(--navy);font-size:12px;font-weight:800;text-decoration:none}
 .signal-panel .panel-title a:hover{text-decoration:underline}
+.signal-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.signal-control-btn{appearance:none;border:1px solid #c8d2e2;background:#fff;color:var(--navy);border-radius:7px;padding:7px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.signal-control-btn:hover{background:#f3f6fb}
+.signal-control-btn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
 .signal-frame-wrap{
   height:min(68vh,680px);
   min-height:520px;
@@ -448,7 +452,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
         <h2>Manchester Victoria signalling map</h2>
         <span class="minor">Live map supplied by Traksy</span>
       </div>
-      <a href="https://traksy.uk/live/M+22+MNCRVIC" target="_blank" rel="noopener noreferrer">Open in Traksy ↗</a>
+      <div class="signal-actions">
+        <button class="signal-control-btn" id="signal-controls" type="button" aria-pressed="false">Enable Traksy controls</button>
+        <a href="https://traksy.uk/live/M+22+MNCRVIC" target="_blank" rel="noopener noreferrer">Open in Traksy ↗</a>
+      </div>
     </div>
     <div class="signal-frame-wrap">
       <iframe
@@ -460,7 +467,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
         referrerpolicy="strict-origin-when-cross-origin">
       </iframe>
     </div>
-    <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If the embedded map is unavailable, use “Open in Traksy”.</div>
+    <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” temporarily; otherwise the embed stays horizontal-scroll only.</div>
   </section>
 
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
@@ -485,6 +492,18 @@ function centreSignalMap(){
   requestAnimationFrame(()=>{
     wrap.scrollLeft=Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2);
   });
+}
+
+function setSignalControls(enabled){
+  const wrap=document.querySelector('.signal-frame-wrap');
+  const frame=document.querySelector('.signal-frame');
+  const button=$('signal-controls');
+  if(!wrap||!frame||!button)return;
+  frame.setAttribute('scrolling',enabled?'yes':'no');
+  frame.style.touchAction=enabled?'auto':'pan-x';
+  wrap.style.touchAction=enabled?'auto':'pan-x';
+  button.setAttribute('aria-pressed',String(enabled));
+  button.textContent=enabled?'Lock map scrolling':'Enable Traksy controls';
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),previousStopsCache:new Map(),detailsBusy:new Set()};
@@ -1118,6 +1137,7 @@ $('sort-mode').addEventListener('change',e=>{state.sortMode=e.target.value;rende
 $('search').addEventListener('input',e=>{state.search=e.target.value.trim();renderTable()});
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
 $('theme-toggle').addEventListener('click',toggleTheme);
+$('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
