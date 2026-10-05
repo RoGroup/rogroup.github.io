@@ -38,6 +38,15 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
 .open{margin-top:auto;padding-top:27px;font-size:13px;font-weight:900;letter-spacing:.04em;position:relative;z-index:1}
 .card:hover{transform:translateY(-3px);border-color:var(--blue);box-shadow:0 14px 34px rgba(38,34,98,.11)}
 .card:focus-visible{outline:4px solid var(--blue);outline-offset:4px}
+.tools-access{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:16px 18px;display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.tools-copy{min-width:220px;flex:1}
+.tools-copy strong{display:block;color:var(--navy);font-size:14px}
+.tools-copy span{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.tools-form{display:flex;gap:7px;align-items:center}
+.tools-form input{width:150px;border:1px solid #bdc9d8;border-radius:6px;padding:9px 10px;font:inherit;color:var(--navy);text-transform:uppercase}
+.tools-form input:focus{outline:3px solid rgba(6,152,214,.18);border-color:var(--blue)}
+.tools-form button{border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:6px;padding:9px 12px;font:inherit;font-weight:800;cursor:pointer}
+.tools-error{font-size:11px;font-weight:800;color:#b00032;min-width:100px}
 .foot{border-top:1px solid var(--line);padding:19px 0;margin-top:28px;color:var(--muted);font-size:11px}
 @media(max-width:760px){
  .top-inner,.hero-inner,.main{width:calc(100% - 28px)}
@@ -49,6 +58,10 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
  .main{margin-top:17px}
  .cards{grid-template-columns:1fr;gap:11px}
  .card{min-height:190px;padding:23px;border-radius:8px}
+ .tools-access{align-items:stretch}
+ .tools-form{width:100%}
+ .tools-form input{flex:1;width:auto;min-width:0}
+ .tools-error{flex:1 0 100%}
 }
 @media(prefers-reduced-motion:reduce){.card{transition:none}}
 </style>
@@ -82,6 +95,14 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
       <span class="open">Open staff display →</span>
     </a>
   </div>
+  <section class="tools-access" aria-label="More tools access">
+    <div class="tools-copy"><strong>More MCV tools</strong><span>Enter the access code to open the full display launcher.</span></div>
+    <form class="tools-form" id="tools-form">
+      <input id="tools-code" type="password" placeholder="Access code" aria-label="More tools access code" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <button type="submit">Open tools</button>
+      <span class="tools-error" id="tools-error" aria-live="polite"></span>
+    </form>
+  </section>
   <div class="foot">Manchester Victoria · Live data supplied through the MCV departure feed</div>
 </main>
 <script>
@@ -90,6 +111,19 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
   const dateFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'long',day:'numeric',month:'long',year:'numeric'});
   function tick(){const now=new Date();document.getElementById('clock').textContent=timeFmt.format(now);document.getElementById('date').textContent=dateFmt.format(now)}
   tick();setInterval(tick,1000);
+  const toolsForm=document.getElementById('tools-form');
+  toolsForm.addEventListener('submit',function(e){
+    e.preventDefault();
+    const input=document.getElementById('tools-code');
+    const error=document.getElementById('tools-error');
+    if(input.value.trim().toUpperCase()==='MANVIC'){
+      location.href='tools.html';
+      return;
+    }
+    error.textContent='Incorrect code';
+    input.value='';
+    input.focus();
+  });
 })();
 </script>
 </body>
