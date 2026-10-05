@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Manchester Victoria | Staff Platform Operations Display</title>
+<style>
+@font-face{font-family:"Bunday Clean";src:url("bunday-clean-regular.woff") format("woff");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Bunday Clean";src:url("bunday-clean-bold.woff") format("woff");font-weight:700 900;font-display:swap}
+:root{
+  --navy:#262262;
+  --blue:#0698d6;
+  --amber:#ffbd1c;
+  --red:#eb0040;
+  --green:#007a33;
+  --white:#fff;
+  --muted:rgba(255,255,255,.76);
+  --line:rgba(255,255,255,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--navy);font-family:"Bunday Clean",Arial,Helvetica,sans-serif;color:#fff}
+body{user-select:none}
+.screen{width:100vw;height:100vh;display:flex;flex-direction:column;background:var(--navy)}
+.top{
+  flex:none;
+  min-height:78px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  padding:10px 24px;
+  background:#fff;
+  border-bottom:4px solid var(--blue);
+}
+.identity{display:flex;align-items:center;gap:18px;min-width:0}
+.logo{width:132px;height:48px;object-fit:contain}
+.station{padding-left:18px;border-left:1px solid #d5ddea;min-width:0}
+.station h1{margin:0;color:var(--navy);font-size:clamp(22px,2vw,32px);font-weight:900;letter-spacing:.02em;text-transform:uppercase}
+.station .sub{margin-top:3px;color:var(--blue);font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+.staff-badge{display:inline-flex;margin-left:8px;padding:4px 7px;border-radius:4px;background:var(--navy);color:#fff;font-size:9px;letter-spacing:.09em;vertical-align:2px}
+.clock-box{text-align:right;flex:none}
+.clock{color:var(--navy);font-size:clamp(28px,2.8vw,44px);font-weight:900;line-height:1;font-variant-numeric:tabular-nums}
+.date{margin-top:3px;color:#68778c;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+
+.workspace{
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(650px,1.08fr) minmax(620px,.92fr);
+  gap:12px;
+  padding:12px 16px;
+}
+.panel{min-width:0;min-height:0;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.board-panel{display:flex;flex-direction:column;background:var(--navy)}
+.panel-head{
+  flex:none;
+  min-height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:9px 14px;
+  background:#fff;
+  border-bottom:3px solid var(--blue);
+}
+.panel-head h2{margin:0;color:var(--navy);font-size:16px;font-weight:900;letter-spacing:.035em;text-transform:uppercase}
+.panel-head .minor{margin-top:2px;color:#68778c;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.counts{color:var(--navy);font-size:11px;font-weight:900;white-space:nowrap}
+
+.board-header,
+.service-main{
+  display:grid;
+  grid-template-columns:72px 74px minmax(180px,1fr) 66px 100px 68px;
+  gap:10px;
+  align-items:center;
+}
+.board-header{
+  flex:none;
+  padding:9px 12px;
+  background:#1f1b56;
+  border-bottom:1px solid rgba(255,255,255,.18);
+  color:rgba(255,255,255,.78);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.board-header div:last-child{text-align:center}
+.rows{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  scrollbar-width:none;
+  overscroll-behavior:contain;
+}
+.rows::-webkit-scrollbar{display:none}
+.service{
+  padding:10px 12px 8px;
+  border-bottom:1px solid rgba(255,255,255,.12);
+  background:var(--navy);
+}
+.service:nth-child(even){background:#2b2769}
+.service.ecs{box-shadow:inset 5px 0 0 var(--amber)}
+.service.cancelled{box-shadow:inset 5px 0 0 var(--red)}
+.service-main{min-height:47px}
+.time{font-size:22px;font-weight:900;font-variant-numeric:tabular-nums}
+.headcode{
+  display:inline-flex;
+  justify-content:center;
+  width:fit-content;
+  min-width:54px;
+  padding:5px 6px;
+  border:1px solid #92dcfb;
+  border-radius:4px;
+  background:#fff;
+  color:var(--navy);
+  font:900 14px ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.06em;
+}
+.move{min-width:0}
+.destination{font-size:17px;font-weight:900;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.operator{margin-top:2px;color:var(--muted);font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ecs-tag{display:inline-flex;margin-right:6px;padding:2px 5px;border-radius:3px;background:var(--amber);color:var(--navy);font-size:8px;font-weight:900;letter-spacing:.08em;vertical-align:1px}
+.form{text-align:center;color:#fff;font-size:11px;font-weight:900}
+.form small{display:block;margin-top:2px;color:var(--muted);font-size:8px;font-weight:700}
+.status{
+  width:fit-content;
+  max-width:100%;
+  padding:5px 7px;
+  border-radius:4px;
+  font-size:10px;
+  font-weight:900;
+  line-height:1.2;
+}
+.status.on-time{background:var(--green);color:#fff}
+.status.delayed{background:var(--amber);color:var(--navy)}
+.status.cancelled{background:var(--red);color:#fff}
+.platform{
+  justify-self:center;
+  min-width:46px;
+  padding:5px 7px;
+  border-radius:5px;
+  background:var(--blue);
+  color:var(--navy);
+  text-align:center;
+  font-size:18px;
+  font-weight:900;
+}
+.platform.tbc{background:#fff;color:var(--navy)}
+.stops{
+  display:flex;
+  gap:6px;
+  margin:3px 0 0 156px;
+  min-width:0;
+  max-width:calc(100% - 156px);
+  color:rgba(255,255,255,.78);
+  font-size:10px;
+  font-weight:700;
+  line-height:1.3;
+  white-space:nowrap;
+  overflow:hidden;
+}
+.stops .label{flex:none;color:#fff;font-size:9px;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.stops .copy{min-width:0;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+.reason{margin:4px 0 0 156px;color:#fff;font-size:10px;font-weight:700;line-height:1.3}
+.reason strong{font-size:9px;letter-spacing:.05em}
+.empty{padding:34px 20px;color:var(--muted);font-size:15px;font-weight:800;text-align:center}
+
+.map-panel{display:flex;flex-direction:column;background:#fff}
+.map-head{flex:none}
+.map-frame-wrap{
+  position:relative;
+  flex:1;
+  min-height:0;
+  overflow:hidden;
+  background:#fff;
+}
+.map-frame{
+  display:block;
+  width:2200px;
+  max-width:none;
+  height:900px;
+  border:0;
+  background:#fff;
+  transform:translateY(-72px);
+  pointer-events:none;
+}
+.map-foot{
+  flex:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:7px 10px;
+  border-top:1px solid #dce4ee;
+  background:#f7f9fc;
+  color:#5e6e83;
+  font-size:9px;
+  font-weight:700;
+}
+.map-foot strong{color:var(--navy)}
+
+.footer{
+  flex:none;
+  min-height:38px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:7px 16px;
+  border-top:1px solid rgba(6,152,214,.75);
+  background:#1f1b56;
+  color:rgba(255,255,255,.85);
+  font-size:10px;
+  font-weight:700;
+}
+.feed-dot{width:9px;height:9px;border-radius:50%;background:#8692a6;flex:none}
+.feed-dot.ok{background:#22a447}
+.feed-dot.warn{background:var(--amber)}
+.feed-dot.bad{background:var(--red)}
+.footer .push{margin-left:auto;color:rgba(255,255,255,.65)}
+@media(max-width:1200px){
+  html,body{height:auto;min-height:100%;overflow:auto}
+  .screen{min-height:100vh;height:auto}
+  .workspace{grid-template-columns:1fr;grid-template-rows:650px 520px}
+  .map-frame{width:1800px;height:760px;transform:none}
+}
+</style>
+</head>
+<body>
+<div class="screen">
+  <header class="top">
+    <div class="identity">
+      <img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub">
+      <div class="station">
+        <h1>Manchester Victoria <span class="staff-badge">STAFF ONLY</span></h1>
+        <div class="sub">Platform operations display · passenger + ECS departures</div>
+      </div>
+    </div>
+    <div class="clock-box">
+      <div class="clock" id="live-clock">--:--:--</div>
+      <div class="date" id="live-date">Connecting…</div>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="panel board-panel" aria-label="Staff departures and ECS movements">
+      <div class="panel-head">
+        <div>
+          <h2>Next staff movements</h2>
+          <div class="minor">Passenger departures and empty coaching stock from Manchester Victoria</div>
+        </div>
+        <div class="counts" id="movement-counts">Waiting for feed…</div>
+      </div>
+      <div class="board-header">
+        <div>Time</div>
+        <div>Headcode</div>
+        <div>Destination / movement</div>
+        <div style="text-align:center">Form</div>
+        <div>Status</div>
+        <div>Platform</div>
+      </div>
+      <div class="rows" id="rows">
+        <div class="empty">Connecting to live staff movements…</div>
+      </div>
+    </section>
+
+    <section class="panel map-panel" aria-label="Manchester Victoria Traksy signalling map">
+      <div class="panel-head map-head">
+        <div>
+          <h2>Manchester Victoria signalling map</h2>
+          <div class="minor">Live map supplied by Traksy</div>
+        </div>
+        <div class="counts">LIVE</div>
+      </div>
+      <div class="map-frame-wrap" id="map-wrap">
+        <iframe
+          class="map-frame"
+          id="traksy-map"
+          src="https://traksy.uk/live/M+22+MNCRVIC"
+          title="Live Traksy signalling map for Manchester Victoria"
+          loading="eager"
+          scrolling="no"
+          referrerpolicy="strict-origin-when-cross-origin">
+        </iframe>
+      </div>
+      <div class="map-foot"><span><strong>TRAKSY</strong> · Manchester Victoria area</span><span>Map is read-only on this unattended display</span></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="feed-dot" id="feed-dot"></span>
+    <span id="feed-status">Connecting to staff movements feed…</span>
+    <span class="push" id="feed-detail">Auto-refresh every 20 seconds</span>
+  </footer>
+</div>
+
+<script src="mcv-data.js?v=59a6cd6d"></script>
+<script>
+'use strict';
+
+const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
+const REFRESH_MS=20000;
+const MAX_MOVEMENTS=12;
+const rows=document.getElementById('rows');
+const counts=document.getElementById('movement-counts');
+const feedDot=document.getElementById('feed-dot');
+const feedStatus=document.getElementById('feed-status');
+const feedDetail=document.getElementById('feed-detail');
+const mapWrap=document.getElementById('map-wrap');
+const mapFrame=document.getElementById('traksy-map');
+const escapeHTML=MCVData.escapeHTML;
+const ukTime=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
+let services=[];
+let busy=false;
+let lastGood=0;
+let scrollTimer=0;
+
+function ms(value){
+  if(!value)return NaN;
+  const n=Date.parse(value);
+  return Number.isFinite(n)?n:NaN;
+}
+function fmt(value){
+  const n=typeof value==='number'?value:ms(value);
+  return Number.isFinite(n)?ukTime.format(n):'—';
+}
+function station(name,crs){
+  return MCVData.displayStationName(name,crs)||String(crs||'').trim().toUpperCase()||'Unknown';
+}
+function isEcs(raw){
+  const serviceClass=String(raw.service_class||'').toLowerCase();
+  return raw.is_passenger_service===false||serviceClass==='empty stock';
+}
+function statusClass(service){
+  if(service.cancelled)return 'cancelled';
+  if(service.delayed)return 'delayed';
+  return 'on-time';
+}
+function parseServices(json){
+  const legacy=MCVData.toLegacyBoard(json);
+  if(!legacy||!Array.isArray(legacy.results))throw new Error('Unexpected staff movements feed format');
+  return legacy.results.map(function(raw,index){
+    const bookedMs=ms(raw.departs);
+    const expectedMs=ms(raw.expected_departs);
+    const actualDepartureMs=ms(raw.actual_departs);
+    const statusCode=String(raw.status||'').toLowerCase();
+    const statusText=String(raw.status_text||'').trim();
+    const cancelled=statusCode==='cancelled'||/^cancelled/i.test(statusText);
+    const departed=Number.isFinite(actualDepartureMs)||statusCode==='departed'||/^departed/i.test(statusText);
+    const delayed=!cancelled&&!departed&&(
+      ['expected_late','delayed_no_estimate','delayed'].includes(statusCode)||
+      /^delayed/i.test(statusText)||
+      (Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)&&expectedMs-bookedMs>60000)
+    );
+    const destCrs=String(raw.destination?.crs||raw.destination_crs||'').trim().toUpperCase();
+    const destination=station(raw.destination?.name||raw.destination_name||'Unknown',destCrs);
+    const ecs=isEcs(raw);
+    const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
+    let stopNames=points.map(function(point){
+      return station(point.station?.name||point.name,point.station?.crs||point.crs);
+    }).filter(Boolean);
+    if(ecs&&!stopNames.length&&destination&&destination!=='Unknown')stopNames=[destination];
+    const coaches=Number.isInteger(Number(raw.coaches))&&Number(raw.coaches)>0?Number(raw.coaches):null;
+    let status='On time';
+    if(cancelled)status='Cancelled';
+    else if(delayed)status=statusText&&statusText!=='expected_late'?statusText:(Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):'Delayed');
+    else if(statusText&&statusText!=='on_time')status=statusText.replace(/_/g,' ');
+    const headcode=String(raw.headcode||'').trim().toUpperCase();
+    return {
+      key:String(raw.rid||raw.service_id||headcode||index)+'|'+String(raw.departs||''),
+      bookedMs:bookedMs,
+      booked:fmt(bookedMs),
+      expectedMs:expectedMs,
+      destination:destination,
+      destCrs:destCrs,
+      headcode:headcode,
+      operator:String(raw.operator||'Unknown'),
+      operatorCode:String(raw.operator_code||''),
+      platform:String(raw.platform||'').trim().toUpperCase().replace(/^PLATFORM\s+/,''),
+      coaches:coaches,
+      ecs:ecs,
+      cancelled:cancelled,
+      delayed:delayed,
+      departed:departed,
+      status:status,
+      lateReason:String(raw.late_reason||'').trim(),
+      cancelReason:String(raw.cancel_reason||'').trim(),
+      stops:stopNames
+    };
+  }).filter(function(service){
+    return Number.isFinite(service.bookedMs)&&!service.departed;
+  });
+}
+function selectMovements(){
+  const now=Date.now();
+  return services.slice().sort(function(a,b){
+    const ao=a.delayed&&a.bookedMs<now?1:0;
+    const bo=b.delayed&&b.bookedMs<now?1:0;
+    return bo-ao||a.bookedMs-b.bookedMs||a.key.localeCompare(b.key);
+  }).slice(0,MAX_MOVEMENTS);
+}
+function render(){
+  const list=selectMovements();
+  const ecsCount=list.filter(function(s){return s.ecs}).length;
+  counts.textContent=(list.length-ecsCount)+' passenger · '+ecsCount+' ECS';
+  if(!list.length){
+    rows.innerHTML='<div class="empty">No upcoming passenger or ECS departures are currently listed.</div>';
+    return;
+  }
+  rows.innerHTML=list.map(function(s){
+    const formation=s.coaches?String(s.coaches)+' cars':'—';
+    const detail=s.ecs?'EMPTY COACHING STOCK':s.operator;
+    const stops=s.ecs
+      ?('TO: '+(s.stops.join(' · ')||s.destination))
+      :(s.stops.length?s.stops.join(' · '):'Stopping pattern unavailable');
+    const reason=s.cancelled?s.cancelReason:(s.delayed?s.lateReason:'');
+    return '<article class="service '+(s.ecs?'ecs ':'')+(s.cancelled?'cancelled':'')+'">'+
+      '<div class="service-main">'+
+        '<div class="time">'+escapeHTML(s.booked)+'</div>'+
+        '<div><span class="headcode">'+escapeHTML(s.headcode||'—')+'</span></div>'+
+        '<div class="move">'+
+          '<div class="destination">'+(s.ecs?'<span class="ecs-tag">ECS</span>':'')+escapeHTML(s.destination)+'</div>'+
+          '<div class="operator">'+escapeHTML(detail)+'</div>'+
+        '</div>'+
+        '<div class="form">'+escapeHTML(formation)+(s.coaches?'<small>LIVE FEED</small>':'')+'</div>'+
+        '<div><span class="status '+statusClass(s)+'">'+escapeHTML(s.status)+'</span></div>'+
+        '<div class="platform '+(s.platform?'':'tbc')+'">'+escapeHTML(s.cancelled?'–':(s.platform||'TBC'))+'</div>'+
+      '</div>'+
+      '<div class="stops"><span class="label">'+(s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
+      (reason?'<div class="reason"><strong>'+(s.cancelled?'CANCELLATION: ':'DELAY: ')+'</strong>'+escapeHTML(reason)+'</div>':'')+
+    '</article>';
+  }).join('');
+}
+function setFeed(ok,message){
+  feedDot.className='feed-dot '+(ok?'ok':'bad');
+  feedStatus.textContent=message;
+  feedDetail.textContent=lastGood
+    ?('Last updated '+new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(lastGood)+' · auto-refresh every 20 seconds')
+    :'Auto-refresh every 20 seconds';
+}
+async function fetchMovements(){
+  if(busy)return;
+  busy=true;
+  try{
+    const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    const json=await response.json();
+    services=parseServices(json);
+    lastGood=Date.now();
+    render();
+    setFeed(true,'Live staff movements connected');
+  }catch(error){
+    console.warn('Staff platform feed:',error);
+    setFeed(false,'Staff movements feed unavailable');
+  }finally{
+    busy=false;
+  }
+}
+function updateClock(){
+  MCVData.updateClock('live-clock','live-date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});
+}
+function centreMap(){
+  requestAnimationFrame(function(){
+    mapWrap.scrollLeft=Math.max(0,(mapWrap.scrollWidth-mapWrap.clientWidth)/2);
+    mapWrap.scrollTop=0;
+  });
+}
+function advanceBoard(){
+  const bottom=Math.max(0,rows.scrollHeight-rows.clientHeight);
+  if(bottom<=2)return;
+  const next=rows.scrollTop>=bottom-3?0:Math.min(bottom,rows.scrollTop+Math.max(120,Math.floor(rows.clientHeight*.78)));
+  rows.scrollTo({top:next,behavior:'smooth'});
+}
+
+updateClock();
+fetchMovements();
+centreMap();
+mapFrame.addEventListener('load',function(){setTimeout(centreMap,400)});
+window.addEventListener('resize',centreMap);
+setInterval(updateClock,1000);
+setInterval(fetchMovements,REFRESH_MS);
+scrollTimer=setInterval(advanceBoard,7500);
+</script>
+</body>
+</html>
