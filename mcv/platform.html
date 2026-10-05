@@ -135,10 +135,22 @@ main {
 }
 .dep-operator { color: #ffffff; font-size: 15px; font-weight: 600; }
 .dep-status { font-size: 18px; font-weight: 800; }
+.dep-plat-wrap {
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  min-width:0;
+}
 .dep-plat {
   text-align: center; font-weight: 900; font-size: 22px; color: var(--navy);
   background: var(--blue); border: 1px solid var(--blue);
-  border-radius: 6px; padding: 4px 8px;
+  border-radius: 6px; padding: 4px 8px; min-width:54px;
+}
+.dep-plat.platform-changed {
+  background: var(--amber); border-color: #ffffff; color: var(--navy);
+}
+.platform-change-flag {
+  max-width:100%; color:var(--amber); font-size:9px; font-weight:900;
+  line-height:1.1; letter-spacing:.45px; text-align:center; text-transform:uppercase;
+  white-space:normal;
 }
 /* Fixed CALLING AT label; long calling-point strings travel across the available width. */
 .service-stops {
@@ -393,6 +405,13 @@ function renderBoard(services) {
     card.className = 'service-card';
     card.dataset.serviceKey = dep.key;
     currentKeys.add(dep.key);
+    const platformChange = platformChangeAlerts.get(dep.key);
+    const activePlatformChange = platformChange &&
+      Date.now() - platformChange.reportedAt <= CONFIG.platformChangeMemoryMs &&
+      dep.statusClass !== 'cancelled'
+        ? platformChange
+        : null;
+
     card.innerHTML = `
       <div class="service-main">
         <div class="dep-time">${escapeHTML(dep.time)}</div>
@@ -403,7 +422,10 @@ function renderBoard(services) {
         </div>
         <div class="dep-operator">${escapeHTML(dep.operator)}</div>
         <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
-        <div class="dep-plat">${escapeHTML(dep.statusClass === 'cancelled' ? '–' : (dep.platform || 'TBC'))}</div>
+        <div class="dep-plat-wrap">
+          <div class="dep-plat${activePlatformChange ? ' platform-changed' : ''}">${escapeHTML(dep.statusClass === 'cancelled' ? '–' : (dep.platform || 'TBC'))}</div>
+          ${activePlatformChange ? `<div class="platform-change-flag">PLATFORM CHANGED · WAS ${escapeHTML(activePlatformChange.from)}</div>` : ''}
+        </div>
       </div>
       ${dep.frontCarriages && dep.statusClass !== 'cancelled' ? `
         <div class="carriage-notice" role="note">
@@ -478,6 +500,8 @@ function recordPlatformChanges(services) {
     if (seenFirstDepartureFeed && before && platform && before !== platform) {
       platformChangeAlerts.set(service.key, {
         reportedAt: now,
+        from: before,
+        to: platform,
         message: `${service.time} to ${service.destination}: platform changed from ${before} to ${platform}.`
       });
     }
@@ -504,11 +528,6 @@ function buildServiceAlerts(services) {
       });
       continue;
     }
-    const platformChange = platformChangeAlerts.get(train.key);
-    if (platformChange && now - platformChange.reportedAt <= CONFIG.platformChangeMemoryMs) {
-      items.push({ type: 'warning', priority: 1, scheduledMs: train.scheduledMs,
-        text: platformChange.message });
-    }
     if (train.frontCarriages) {
       items.push({
         type: 'boarding', priority: 2, scheduledMs: train.scheduledMs,
@@ -524,10 +543,14 @@ function buildServiceAlerts(services) {
     }
   }
   items.sort((a,b) => a.priority - b.priority || a.scheduledMs - b.scheduledMs);
+  items.push({
+    type: 'normal', priority: 8, scheduledMs: Number.MAX_SAFE_INTEGER,
+    text: 'TRAIN DOORS CLOSE UP TO 30 SECONDS BEFORE DEPARTURE.'
+  });
   if (items.length) return items.slice(0, 10);
   return [{
     type: 'normal', priority: 9, scheduledMs: 0,
-    text: 'LIVE SERVICE INFORMATION  •  Please check your platform before boarding and listen for station announcements.'
+    text: 'TRAIN DOORS CLOSE UP TO 30 SECONDS BEFORE DEPARTURE.'
   }];
 }
 
