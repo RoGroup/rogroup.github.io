@@ -22,6 +22,13 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .table-area{max-height:690px;overflow:auto;overscroll-behavior:contain}.table{width:100%;border-collapse:separate;border-spacing:0;min-width:800px;text-align:left}.table th{position:sticky;top:0;background:var(--navy);color:#fff;padding:11px 11px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;z-index:1}.table td{padding:13px 11px;border-bottom:1px solid var(--line);font-size:13px;vertical-align:middle}.table tr:last-child td{border-bottom:0}.service-row{cursor:pointer}.service-row:hover{background:var(--pale)}.service-row.selected{background:#e7f4ff}.service-row.is-overdue{box-shadow:inset 4px 0 var(--amber)}.dest{font-size:14px;font-weight:800;color:var(--navy)}.detail-small{font-size:11px;color:var(--muted);margin-top:4px}.tabnum{font-variant-numeric:tabular-nums}.time-big{font-weight:800;color:var(--navy)}.late-min{color:#966700;font-weight:800}.plat-pill{display:inline-block;background:#e8f6fd;color:var(--navy);border:1px solid #ade0f6;border-radius:6px;padding:6px 8px;min-width:42px;text-align:center;font-weight:800}.plat-pill.unknown{background:#f2f4f7;border-color:#dce4ee;color:var(--muted)}.status-pill{display:inline-block;padding:5px 8px;border-radius:5px;font-weight:800;font-size:11px;background:#e7f6eb;color:#005b29;white-space:normal}.status-pill.delay{background:#fff0ba;color:#553b00}.status-pill.cancel{background:#ffe6ec;color:#930029}.status-pill.neutral{background:#e8edf4;color:#34445b}.status-pill.departed{background:#e1edff;color:#262262}.board-note{padding:14px 18px;background:#f5f7fb;color:var(--muted);border-top:1px solid var(--line);font-size:12px}
 .sidebar{display:flex;flex-direction:column;gap:16px;min-width:0}.details-content{padding:16px 18px 20px;max-height:660px;overflow:auto}.placeholder{color:var(--muted);line-height:1.55;padding:18px 0}.detail-heading{font-size:22px;font-weight:800;color:var(--navy);line-height:1.1}.detail-group{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}.detail-group h3{font-size:13px;letter-spacing:.55px;text-transform:uppercase;color:var(--navy);margin:0 0 12px}.keyvalues{display:grid;grid-template-columns:1fr 1fr;gap:14px}.kv-label{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:800}.kv-value{font-size:14px;font-weight:800;color:var(--navy);margin-top:4px;overflow-wrap:anywhere}.reason{background:#fff3c6;border-left:4px solid var(--amber);padding:12px 13px;border-radius:5px;margin-top:13px;font-size:13px;line-height:1.5}.reason.red{background:#ffe8ed;border-color:var(--red)}.reason.blue{background:#eefaff;border-color:var(--blue)}.stops{margin:0;padding:0;list-style:none}.stops li{padding:8px 0 8px 20px;position:relative;border-left:2px solid #b5dce9;margin-left:6px}.stops li:last-child{border-left-color:transparent}.stops li::before{content:"";position:absolute;left:-6px;top:14px;width:10px;height:10px;background:var(--blue);border-radius:50%}.stop-name{font-weight:800;font-size:13px;color:var(--navy)}.stop-sub{color:var(--muted);font-size:11px;margin-top:3px}.events{padding:0;margin:0;list-style:none;max-height:360px;overflow:auto}.events li{border-bottom:1px solid var(--line);padding:11px 17px 13px;font-size:12px;line-height:1.45}.events li:last-child{border-bottom:0}.event-time{display:block;color:var(--blue);font-weight:800;letter-spacing:.3px;margin-bottom:3px}.event-copy{overflow-wrap:anywhere}.event-foot{color:var(--muted);font-size:12px;padding:12px 17px;background:#f9fbfe;border-top:1px solid var(--line)}
 .caution{background:#fff8e5;border:1px solid #e8d69e;border-radius:9px;padding:13px 16px;font-size:12px;color:#514420;line-height:1.5;margin-top:17px}.caution strong{color:var(--navy)}.empty{padding:40px 18px;color:var(--muted);text-align:center}.mini-label{font-size:10px;letter-spacing:.75px;font-weight:800;color:var(--muted);text-transform:uppercase}.tag{padding:2px 6px;border-radius:4px;background:#e6edf7;color:var(--navy);font-size:10px;font-weight:800}.bottom{font-size:12px;color:var(--muted);padding:22px 0}.bottom a{color:var(--navy)}
+.signal-panel{margin-top:18px;overflow:hidden}
+.signal-panel .panel-title{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.signal-panel .panel-title a{color:var(--navy);font-size:12px;font-weight:800;text-decoration:none}
+.signal-panel .panel-title a:hover{text-decoration:underline}
+.signal-frame{display:block;width:100%;height:min(68vh,680px);min-height:520px;border:0;background:#fff}
+.signal-foot{padding:10px 16px;border-top:1px solid var(--line);background:#f9fbfe;color:var(--muted);font-size:11px;line-height:1.4}
+@media(max-width:700px){.signal-frame{height:520px;min-height:420px}.signal-panel .panel-title{align-items:flex-start;flex-direction:column;gap:5px}}
 @media(max-width:1450px){.platforms{grid-template-columns:repeat(3,minmax(0,1fr))}.workspace{grid-template-columns:minmax(0,1.35fr) minmax(285px,1fr)}}
 @media(max-width:970px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.workspace{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr}.table-area{max-height:620px}}
 @media(max-width:700px){.top{padding:12px 15px;gap:9px;flex-wrap:wrap}.identity{gap:10px}.logo{width:105px;height:40px}.titleblock{padding-left:10px}.top h1{font-size:18px}.subhead{font-size:9px}.clock{font-size:22px}.container{padding:14px 12px 30px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{padding:12px}.platforms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.platform-card{padding:12px}.feedbar{flex-wrap:wrap}.feedbar .push{margin-left:0}.sidebar{display:flex}.section-heading{align-items:start;flex-direction:column}.controls select{flex-grow:1}.top-right{margin-left:auto}}
@@ -194,6 +201,25 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       <div class="panel"><div class="panel-title"><h2>Recent feed changes</h2><span class="minor">This browser session only</span></div><ol class="events" id="events"><li><span class="event-time">SESSION START</span>Changes will appear here after the first successful refresh.</li></ol><div class="event-foot" id="event-feed-status">Live departure snapshots · changes observed in this browser session only</div></div>
     </div>
   </section>
+
+  <section class="panel signal-panel" aria-label="Manchester Victoria signalling map">
+    <div class="panel-title">
+      <div>
+        <h2>Manchester Victoria signalling map</h2>
+        <span class="minor">Live map supplied by Traksy</span>
+      </div>
+      <a href="https://traksy.uk/live/M+22+MNCRVIC" target="_blank" rel="noopener noreferrer">Open in Traksy ↗</a>
+    </div>
+    <iframe
+      class="signal-frame"
+      src="https://traksy.uk/live/M+22+MNCRVIC"
+      title="Live Traksy signalling map for Manchester Victoria"
+      loading="lazy"
+      referrerpolicy="strict-origin-when-cross-origin">
+    </iframe>
+    <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If the embedded map is unavailable, use “Open in Traksy”.</div>
+  </section>
+
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
