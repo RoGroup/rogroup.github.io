@@ -81,6 +81,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-chip{display:inline-flex;align-items:center;white-space:nowrap;border:1px solid #b9dff0;background:#f3fbff;color:var(--navy);border-radius:5px;padding:5px 7px;font-weight:800;font-size:11px}
 .formation-note{font-size:10px;color:var(--muted);font-weight:700;margin-top:4px;line-height:1.25}
 .ecs-chip{display:inline-flex;align-items:center;margin-right:5px;padding:2px 6px;border-radius:4px;background:#fff1bf;color:#5d4700;font-size:9px;font-weight:900;letter-spacing:.08em;vertical-align:1px}
+.headcode-chip{display:inline-flex;align-items:center;margin-right:6px;padding:4px 8px;border-radius:5px;background:var(--navy);color:#fff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;font-weight:900;letter-spacing:.08em;line-height:1;vertical-align:middle}
+.headcode-hero{display:inline-flex;align-items:center;margin-top:9px;padding:7px 10px;border-radius:6px;background:var(--navy);color:#fff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:18px;font-weight:900;letter-spacing:.1em;line-height:1}
 .details-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
 .mobile-only{display:none}
 
@@ -121,6 +123,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .sidebar{display:flex}
   .panel-title{padding:13px 14px}
   .panel-title h2{font-size:16px}
+  .headcode-chip{font-size:11px;padding:4px 7px}
+  .headcode-hero{font-size:16px;padding:6px 9px}
   .panel-title .mini-label{display:none}
   .controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
   .controls #search{grid-column:1/-1}
@@ -425,7 +429,7 @@ function renderTable(){
     const isOverdue=overdue(s);const diff=timeDiff(s);const delta=s.delayed&&diff?` <span class="late-min">+${diff}m</span>`:'';
     const statusCls=s.cancelled?'cancel':s.delayed?'delay':'neutral';
     const formation=s.coaches?`${s.coaches} ${s.coaches===1?'car':'cars'}`:'Not supplied';
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small">${s.ecs?'<span class="ecs-chip">ECS</span>':''}${s.headcode?`<strong>${escapeHTML(s.headcode)}</strong> · `:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span>`:'<span class="detail-small">Formation not supplied</span>'}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span></td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small">${s.ecs?'<span class="ecs-chip">ECS</span>':''}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span>`:'<span class="detail-small">Formation not supplied</span>'}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span></td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in the current feed.</td></tr>';
   scrollArea.scrollTop=scrollTop;
 }
@@ -436,7 +440,7 @@ function renderDetails(){
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s);
   const hist=state.platformHist.get(s.key)||[];
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
-  $('service-details').innerHTML=`<div class="detail-heading">${escapeHTML(s.dest)}</div><div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div><div style="margin-top:12px"><span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>${overdue(s)?' <span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
+  $('service-details').innerHTML=`<div class="detail-heading">${escapeHTML(s.dest)}</div><div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}<div style="margin-top:12px"><span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>${overdue(s)?' <span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
   <section class="detail-group"><h3>Departure information</h3><div class="keyvalues">${extra('Booked departure',s.booked)}${extra('Expected departure',s.expected)}${extra('Platform',s.platform|| (s.platformWithheld?'Withheld / TBC':'TBC'))}${extra('Delay against booked',diff===null?'Not available':`${diff} minutes`)}${extra('Operator',s.operator)}${extra('Headcode',s.headcode||'Not supplied')}${s.uid?extra('Train UID',s.uid):''}${s.rid?extra('RID',s.rid):''}${extra('Origin',s.origin==='Unknown'?'Not supplied':s.origin)}${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}${extra('Service type',s.ecs?'ECS / non-passenger':'Passenger service')}${extra('Service category',s.serviceClass||'Not supplied')}${extra('Source status code',s.statusCode||'Not provided')}${extra('Feed service ID',s.serviceId||'Not supplied')}</div>
   ${reason?`<div class="reason${s.cancelled?' red':''}"><strong>${s.cancelled?'Reported cancellation reason':'Reported delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="reason blue">No cause provided by the current feed for this service.</div>':'')}
   ${notice&&!s.cancelled?`<div class="reason"><strong>Locally configured carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}</section>
