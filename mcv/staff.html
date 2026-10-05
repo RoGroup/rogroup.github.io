@@ -260,7 +260,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=1b2ad814"></script>
+<script src="mcv-data.js?v=bc815fdc"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -300,7 +300,7 @@ function parseServices(json){
     const platform=rawPlatform.replace(/^platform\s+/i,'').toUpperCase().replace(/^(TBC|TBD|UNKNOWN|[-–—?])$/i,'');
     const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
     const mcvIndex=points.findIndex(p=>String(p.station?.crs||p.crs||'').toUpperCase()==='MCV'||String(p.station?.name||p.name||'').toUpperCase()==='MANCHESTER VICTORIA');
-    const onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(p=>({
+    let onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(p=>({
       name:station(p.station?.name||p.name,p.station?.crs||p.crs),crs:String(p.station?.crs||p.crs||''),booked:fmt(p.arrives||p.departs),expected:fmt(p.expected_arrives||p.expected_departs),platform:String(p.platform||'').trim()
     }));
     const headcode=String(raw.headcode||'').trim().toUpperCase();
@@ -314,6 +314,25 @@ function parseServices(json){
     const coaches=Number.isInteger(Number(raw.coaches))&&Number(raw.coaches)>0?Number(raw.coaches):null;
     const serviceClass=String(raw.service_class||'').toLowerCase();
     const ecs=raw.is_passenger_service===false||serviceClass==='empty stock';
+
+    const rawDestinationCode=String(
+      raw.destination?.crs||
+      raw.destination_crs||
+      raw.destination?.name||
+      raw.destination_name||
+      ''
+    ).trim().toUpperCase();
+
+    if(ecs&&!onward.length&&['NWTNHDD','ARDWTMD','MNCRVRS'].includes(rawDestinationCode)){
+      onward=[{
+        name:dest,
+        crs:destCrs||rawDestinationCode,
+        booked:'—',
+        expected:'—',
+        platform:''
+      }];
+    }
+
     const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,booked:fmt(bookedMs),expected:fmt(expectedMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,
       status,statusCode,delayed,cancelled,departed,lateReason:String(raw.late_reason||'').trim(),coaches,
