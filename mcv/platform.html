@@ -263,16 +263,12 @@ footer {
 
 <script>
 'use strict';
-// Unattended platform-display settings. Board data refreshes every 30 seconds;
-// actual-departure activity checks run every 10 seconds in between.
+// Unattended platform-display settings. Live RDM data is supplied through our
+// Cloudflare Worker so the Rail Data Marketplace API key never reaches the browser.
 const CONFIG = {
   maxDepartures: 12,
-  refreshIntervalMs: 30000,
-  activityIntervalMs: 10000,
-  departuresUrl: 'https://api.traini.ac/api/departures/MCV?limit=70',
-  activityUrl: 'https://api.traini.ac/api/stations/MCV/activity?limit=100',
-  cancellationsUrl: 'https://api.traini.ac/api/cancellations?limit=100',
-  cancellationsRefreshMs: 120000,
+  refreshIntervalMs: 20000,
+  departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
   alertRotationMs: 14000,
   platformChangeMemoryMs: 5 * 60 * 1000
 };
@@ -295,16 +291,12 @@ const tickerLabel = document.getElementById('ticker-label');
 let latestServices = [];
 let boardIsAvailable = false;
 let departuresBusy = false;
-let activityBusy = false;
-let cancellationsBusy = false;
-let cancellationReasons = new Map();
 let previousPlatforms = new Map();
 let platformChangeAlerts = new Map();
 let seenFirstDepartureFeed = false;
 let alertQueue = [];
 let activeAlertIndex = 0;
 let alertFingerprint = '';
-const departedTrainIds = new Map();
 let stopViewports = [];
 const stopStates = new Map();
 let lastOverdueDelayedKeys = new Set();
@@ -324,18 +316,59 @@ function updateClock() {
   });
 }
 
-function formatTrainiTime(value) {
-  if (value === null || value === undefined || value === '') return '--:--';
-  const date = new Date(value);
-  if (!Number.isNaN(date.getTime())) return date.toLocaleTimeString('en-GB', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London'
-  });
-  return String(value);
+function rdmTime(value) {
+  const text = String(value ?? '').trim();
+  return /^\d{2}:\d{2}$/.test(text) ? text : '--:--';
 }
 
-function epoch(value) {
-  const time = Date.parse(value || '');
-  return Number.isFinite(time) ? time : Number.POSITIVE_INFINITY;
+function londonClockParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).formatToParts(date);
+  const obj = Object.fromEntries(parts.map(p => [p.type, p.value]));
+  return {
+    year: Number(obj.year), month: Number(obj.month), day: Number(obj.day),
+    hour: Number(obj.hour), minute: Number(obj.minute)
+  };
+}
+
+// Convert a Manchester departure clock time into a comparable epoch value.
+// RDM boards are station-local. We anchor the service to the feed's generated date
+// and correct midnight crossings by choosing the occurrence closest to generatedAt.
+function rdmScheduledEpoch(hhmm, generatedAt) {
+  const match = /^(\d{2}):(\d{2})$/.exec(String(hhmm ?? '').trim());
+  if (!match) return Number.POSITIVE_INFINITY;
+  const base = new Date(generatedAt || Date.now());
+  const london = londonClockParts(base);
+  // Date.UTC is only a neutral first guess; the adjustment below aligns the result
+  // to the actual Europe/London clock shown by the feed.
+  let guess = Date.UTC(london.year, london.month - 1, london.day, Number(match[1]), Number(match[2]));
+  for (let i = 0; i < 2; i++) {
+    const shown = londonClockParts(new Date(guess));
+    const desiredMinutes = Number(match[1]) * 60 + Number(match[2]);
+    const shownMinutes = shown.hour * 60 + shown.minute;
+    let deltaMinutes = desiredMinutes - shownMinutes;
+    if (deltaMinutes > 720) deltaMinutes -= 1440;
+    if (deltaMinutes < -720) deltaMinutes += 1440;
+    guess += deltaMinutes * 60000;
+  }
+  const baseMs = base.getTime();
+  if (guess < baseMs - 12 * 60 * 60 * 1000) guess += 24 * 60 * 60 * 1000;
+  if (guess > baseMs + 12 * 60 * 60 * 1000) guess -= 24 * 60 * 60 * 1000;
+  return guess;
+}
+
+function expectedMinutesLate(std, etd) {
+  const booked = /^(\d{2}):(\d{2})$/.exec(String(std ?? '').trim());
+  const expected = /^(\d{2}):(\d{2})$/.exec(String(etd ?? '').trim());
+  if (!booked || !expected) return null;
+  const b = Number(booked[1]) * 60 + Number(booked[2]);
+  const e = Number(expected[1]) * 60 + Number(expected[2]);
+  let diff = e - b;
+  if (diff < -720) diff += 1440;
+  if (diff > 720) diff -= 1440;
+  return diff;
 }
 
 function escapeHTML(value) {
@@ -391,61 +424,67 @@ function isTransPennineExpress(operatorName) {
   return name === 'tpe' || name.includes('transpennine express');
 }
 
-// Prefer Traini's stable status codes; status_text is for the passenger-facing text.
+// Map the Rail Data Marketplace / Darwin departure-board response into the
+// board's internal service model. No timetable or formation values are guessed.
 function parseServices(data) {
-  const entries = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+  const entries = Array.isArray(data?.trainServices) ? data.trainServices : [];
+  const generatedAt = data?.generatedAt || new Date().toISOString();
+
   return entries.map(s => {
-    const statusCode = String(s.status || '').toLowerCase().trim();
-    const initialStatusText = String(s.status_text || '').trim();
-    const isDeparted = statusCode === 'departed' || (statusCode === '' && /^departed\b/i.test(initialStatusText));
-    const cancelled = statusCode === 'cancelled' || (statusCode === '' && /^cancelled\b/i.test(initialStatusText));
-    const isDelayed = statusCode === 'expected_late' || statusCode === 'delayed_no_estimate' ||
-      statusCode === 'delayed' || (statusCode === '' &&
-      (/^delayed\b/i.test(initialStatusText) ||
-       (Number.isFinite(epoch(s.expected_departs)) && Number.isFinite(epoch(s.departs)) &&
-        epoch(s.expected_departs) > epoch(s.departs) + 60000)));
-    let status = initialStatusText || (cancelled ? 'Cancelled' : isDelayed ? 'Delayed' : 'On time');
-    if (isDelayed && status.toLowerCase() === 'expected_late' && s.expected_departs) {
-      status = 'Expected ' + formatTrainiTime(s.expected_departs);
-    }
-    if (!initialStatusText && isDelayed && s.expected_departs) {
-      status = 'Expected ' + formatTrainiTime(s.expected_departs);
-    }
+    const std = String(s.std || '').trim();
+    const etdRaw = String(s.etd || '').trim();
+    const atdRaw = String(s.atd || '').trim();
+    const cancelled = s.isCancelled === true || s.filterLocationCancelled === true || /^cancelled$/i.test(etdRaw);
+    const reportedDeparted = /^\d{2}:\d{2}$/.test(atdRaw);
+    const minutesLate = expectedMinutesLate(std, etdRaw);
+    const isDelayed = !cancelled && (
+      /^delayed$/i.test(etdRaw) ||
+      (minutesLate !== null && minutesLate > 0)
+    );
+
+    let status = 'On time';
+    if (cancelled) status = 'Cancelled';
+    else if (/^delayed$/i.test(etdRaw)) status = 'Delayed';
+    else if (/^\d{2}:\d{2}$/.test(etdRaw) && etdRaw !== std) status = `Expected ${etdRaw}`;
+    else if (etdRaw && !/^on time$/i.test(etdRaw)) status = etdRaw;
+
     const statusClass = cancelled ? 'cancelled' : isDelayed ? 'delayed' : 'on-time';
-    const points = Array.isArray(s.calling_points) ? s.calling_points : [];
-    const isVictoria = p => String(p.station?.crs || p.crs || '').toUpperCase() === 'MCV' ||
-      String(p.station?.name || p.name || '').toLowerCase() === 'manchester victoria';
-    const mcvIndex = points.findIndex(isVictoria);
-    const onward = mcvIndex >= 0 ? points.slice(mcvIndex + 1) : points.filter(p => !isVictoria(p));
-    const stops = onward.map(p => displayStationName(
-      p.station?.name || p.name, p.station?.crs || p.crs
-    )).filter(Boolean).join(', ');
-    const departs = s.departs || null;
-    const trainId = s.train_id == null ? '' : String(s.train_id);
-    // Calendar date/time is part of the key, so the same service on a later day is distinct.
-    const serviceKey = [trainId || s.train_uid || s.headcode || 'service', departs || 'unknown',
-      s.destination?.crs || s.destination?.name || 'unknown', s.operator || 'unknown'].join('|');
+
+    const destinationEntries = Array.isArray(s.destination) ? s.destination : [];
+    const destinationNames = destinationEntries.map(d => displayStationName(d?.locationName, d?.crs)).filter(Boolean);
+    const destination = destinationNames.length ? destinationNames.join(' & ') : 'Unknown';
+    const destinationCrs = destinationEntries[0]?.crs || '';
+
+    const callingPointGroups = Array.isArray(s.subsequentCallingPoints) ? s.subsequentCallingPoints : [];
+    const callingPoints = callingPointGroups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
+    const stops = callingPoints
+      .filter(point => point?.isCancelled !== true)
+      .map(point => displayStationName(point?.locationName, point?.crs))
+      .filter(Boolean)
+      .join(', ');
+
+    const serviceId = String(s.serviceID || s.rsid || '').trim();
+    const serviceKey = serviceId || [std, s.operatorCode || s.operator || 'operator', destination].join('|');
+
     return {
       key: serviceKey,
-      trainId,
-      scheduledMs: epoch(departs),
-      time: formatTrainiTime(departs),
-      destination: displayStationName(
-        s.destination?.name || s.destination_name || 'Unknown',
-        s.destination?.crs || s.destination_crs
-      ),
+      trainId: serviceId,
+      scheduledMs: rdmScheduledEpoch(std, generatedAt),
+      time: rdmTime(std),
+      destination,
       operator: s.operator || 'National Rail',
-      coaches: coachCount(s.coaches),
-      frontCarriages: frontCarriagesNotice(
-        s.destination?.name || s.destination_name || '',
-        s.destination?.crs || s.destination_crs || ''
-      ),
-      status, statusClass, isDelayed, isDeparted,
-      platform: s.platform_withheld === true ? '' : String(s.platform ?? '').trim(),
+      coaches: coachCount(s.length),
+      frontCarriages: frontCarriagesNotice(destination, destinationCrs),
+      status,
+      statusClass,
+      isDelayed,
+      isDeparted: reportedDeparted,
+      platform: String(s.platform ?? '').trim(),
       stops,
-      lateReason: isDelayed ? String(s.late_reason || '').trim() : '',
-      notForDisplay: s.not_for_display === true,
-      serviceClass: String(s.service_class || '').toLowerCase()
+      lateReason: isDelayed ? String(s.delayReason || '').trim() : '',
+      cancellationReason: cancelled ? String(s.cancelReason || s.delayReason || '').trim() : '',
+      notForDisplay: String(s.serviceType || 'train').toLowerCase() !== 'train',
+      serviceClass: String(s.serviceType || 'train').toLowerCase()
     };
   });
 }
@@ -460,8 +499,7 @@ function selectDepartures() {
   const nowMs = Date.now();
   return latestServices.filter(s =>
     !s.isDeparted && !s.notForDisplay &&
-    (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass)) &&
-    (!s.trainId || !departedTrainIds.has(s.trainId))
+    (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass))
   )
   // Choose which services to show from their BOOKED times, not delay estimates.
   .sort((a, b) => a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key))
@@ -604,9 +642,7 @@ function buildServiceAlerts(services) {
   const now = Date.now();
   for (const train of services) {
     if (train.statusClass === 'cancelled') {
-      // Only join cancellation reasons on the exact train_id; the national feed
-      // doesn't contain enough route detail to safely guess any other match.
-      const reason = train.trainId ? cancellationReasons.get(train.trainId) : '';
+      const reason = train.cancellationReason || '';
       items.push({
         type: 'cancelled', priority: 0, scheduledMs: train.scheduledMs,
         text: `${train.time} to ${train.destination} is CANCELLED.${reason ? ' Reason: ' + reason : ' Please check station information for alternatives.'}`
@@ -675,45 +711,22 @@ function rotateServiceAlert() {
   showActiveAlert();
 }
 
-// The optional cancellations feed provides reason codes, not station alerts.
-// If it fails, the main board continues to show cancellation information.
-async function fetchCancellationReasons() {
-  if (cancellationsBusy) return;
-  cancellationsBusy = true;
-  try {
-    const response = await fetch(CONFIG.cancellationsUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Cancellations feed HTTP ' + response.status);
-    const json = await response.json();
-    if (!Array.isArray(json.results)) throw new Error('Unexpected cancellation data');
-    const next = new Map();
-    for (const entry of json.results) {
-      if (!entry.train_id || !entry.reason) continue;
-      next.set(String(entry.train_id), String(entry.reason).trim());
-    }
-    cancellationReasons = next;
-    updateServiceAlerts();
-  } catch (error) {
-    console.warn('Additional cancellation reasons unavailable:', error);
-  } finally {
-    cancellationsBusy = false;
-  }
-}
-
+// Fetch the consolidated RDM/Darwin board from our Cloudflare Worker.
+// The Worker holds the private RDM key and returns up to 30 Manchester Victoria departures.
 async function fetchDepartures() {
   if (departuresBusy) return;
   departuresBusy = true;
   try {
     const response = await fetch(CONFIG.departuresUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Departure feed HTTP ' + response.status);
+    if (!response.ok) throw new Error('RDM proxy HTTP ' + response.status);
     const json = await response.json();
-    if (!Array.isArray(json.results)) throw new Error('Unexpected departure data');
+    if (!Array.isArray(json?.trainServices)) throw new Error('Unexpected RDM departure data');
     latestServices = parseServices(json);
-    window.MCVPlatformAlerts?.observe(json.results);
     boardIsAvailable = true;
     recordPlatformChanges(latestServices);
     updateDisplayedServices();
   } catch (error) {
-    console.warn('Departure feed unavailable:', error);
+    console.warn('RDM departure feed unavailable:', error);
     boardIsAvailable = false;
     latestServices = [];
     // Never substitute invented train times on a public/platform display.
@@ -721,36 +734,6 @@ async function fetchDepartures() {
     setAlerts([{ type: 'unavailable', text: 'LIVE DEPARTURE INFORMATION UNAVAILABLE — Please refer to official station information.' }]);
   } finally {
     departuresBusy = false;
-  }
-}
-
-async function fetchDepartureActivity() {
-  if (activityBusy) return;
-  activityBusy = true;
-  try {
-    const response = await fetch(CONFIG.activityUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('Activity feed HTTP ' + response.status);
-    const json = await response.json();
-    if (!Array.isArray(json.results)) throw new Error('Unexpected activity data');
-    let newDeparture = false;
-    for (const event of json.results) {
-      if (String(event.event_type || '').toUpperCase() !== 'DEPARTURE' || !event.train_id) continue;
-      const id = String(event.train_id);
-      if (!departedTrainIds.has(id)) {
-        departedTrainIds.set(id, Date.now());
-        if (latestServices.some(service => service.trainId === id)) newDeparture = true;
-      }
-    }
-    // Keep memory bounded; train IDs are day-specific, only recent events matter.
-    for (const [id, firstSeen] of departedTrainIds) {
-      if (Date.now() - firstSeen > 5 * 60 * 60 * 1000) departedTrainIds.delete(id);
-    }
-    if (newDeparture) updateDisplayedServices();
-  } catch (error) {
-    // Normal board refresh still removes entries marked departed by the main feed.
-    console.warn('Departure activity unavailable:', error);
-  } finally {
-    activityBusy = false;
   }
 }
 
@@ -834,12 +817,8 @@ function autoScrollFrame(now) {
 updateClock();
 setInterval(updateClock, 1000);
 fetchDepartures();
-fetchDepartureActivity();
-fetchCancellationReasons();
 setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
 setInterval(promoteNewlyOverdueServices, 1000);
-setInterval(fetchDepartureActivity, CONFIG.activityIntervalMs);
-setInterval(fetchCancellationReasons, CONFIG.cancellationsRefreshMs);
 setInterval(rotateServiceAlert, CONFIG.alertRotationMs);
 setInterval(advanceBoardScroll, 40);
 requestAnimationFrame(autoScrollFrame);
