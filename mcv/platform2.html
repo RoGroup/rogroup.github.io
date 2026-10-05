@@ -528,12 +528,6 @@ function buildServiceAlerts(services) {
       });
       continue;
     }
-    if (train.frontCarriages) {
-      items.push({
-        type: 'boarding', priority: 2, scheduledMs: train.scheduledMs,
-        text: `${train.time} to ${train.destination}: ${train.frontCarriages.rowText}`
-      });
-    }
     if (train.isDelayed) {
       const status = /^expected\s/i.test(train.status) ? `now expected ${train.status.replace(/^expected\s*/i,'')}` : 'delayed';
       items.push({
@@ -561,10 +555,8 @@ function showActiveAlert() {
   tickerText.textContent = alert.text;
   tickerLabel.textContent = alert.type === 'cancelled' ? 'CANCELLATION' :
     alert.type === 'warning' ? 'SERVICE ALERT' :
-    alert.type === 'boarding' ? 'BOARDING INFO' :
     alert.type === 'unavailable' ? 'SERVICE UPDATE' : 'SERVICE UPDATE';
   tickerLabel.classList.toggle('alert-warning', alert.type === 'warning');
-  tickerLabel.classList.toggle('alert-boarding', alert.type === 'boarding');
   tickerLabel.classList.toggle('alert-cancelled', alert.type === 'cancelled');
   tickerLabel.classList.toggle('alert-unavailable', alert.type === 'unavailable');
 }
