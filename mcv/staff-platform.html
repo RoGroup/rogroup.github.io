@@ -34,6 +34,7 @@ body{user-select:none}
   border-bottom:4px solid var(--blue);
 }
 .identity{display:flex;align-items:center;gap:18px;min-width:0}
+.home-logo{display:flex;align-items:center;flex:none;text-decoration:none}
 .logo{width:132px;height:48px;object-fit:contain}
 .station{padding-left:18px;border-left:1px solid #d5ddea;min-width:0}
 .station h1{margin:0;color:var(--navy);font-size:clamp(22px,2vw,32px);font-weight:900;letter-spacing:.02em;text-transform:uppercase}
@@ -231,7 +232,7 @@ body{user-select:none}
 <div class="screen">
   <header class="top">
     <div class="identity">
-      <img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub">
+      <a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a>
       <div class="station">
         <h1>Manchester Victoria <span class="staff-badge">STAFF ONLY</span></h1>
         <div class="sub">Platform operations display · passenger + ECS departures</div>
