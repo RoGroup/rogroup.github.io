@@ -187,15 +187,15 @@ main {
 /* Carriage positioning instruction remains visible on the actual service row,
    independently of the rotating alert ticker and stopping-pattern marquee. */
 .carriage-notice {
-  margin: 7px 0 3px calc(100px + 1.5rem);
-  padding: 7px 11px;
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
-  border-left: 5px solid var(--blue); border-radius: 4px;
+  margin: 4px 0 2px calc(100px + 1.5rem);
+  padding: 4px 8px;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 7px;
+  border-left: 4px solid var(--blue); border-radius: 4px;
   background: var(--amber); color: var(--navy);
-  font-size: 15px; font-weight: 600; line-height: 1.4;
+  font-size: 13px; font-weight: 600; line-height: 1.25;
 }
 .carriage-notice-label {
-  font-size: 12px; font-weight: 900; letter-spacing: 0.75px;
+  font-size: 10px; font-weight: 900; letter-spacing: 0.55px;
   text-transform: uppercase;
 }
 .carriage-notice-copy strong { font-weight: 900; }
@@ -403,7 +403,7 @@ function renderBoard(services) {
         </div>
         <div class="dep-operator">${escapeHTML(dep.operator)}</div>
         <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
-        <div class="dep-plat">${escapeHTML(dep.platform || 'TBC')}</div>
+        <div class="dep-plat">${escapeHTML(dep.statusClass === 'cancelled' ? '–' : (dep.platform || 'TBC'))}</div>
       </div>
       ${dep.frontCarriages && dep.statusClass !== 'cancelled' ? `
         <div class="carriage-notice" role="note">
