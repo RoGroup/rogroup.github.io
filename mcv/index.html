@@ -1,192 +1,96 @@
 <!doctype html>
 <html lang="en-GB">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#262262">
-  <meta name="description" content="Manchester Victoria display selector for the main, platform and staff departure boards.">
-  <title>Manchester Victoria | Display Selection</title>
-  <style>
-    @font-face {
-      font-family: "Bunday Clean";
-      src: url("bunday-clean-regular.woff") format("woff");
-      font-weight: 400 600;
-      font-display: swap;
-    }
-    @font-face {
-      font-family: "Bunday Clean";
-      src: url("bunday-clean-bold.woff") format("woff");
-      font-weight: 700 900;
-      font-display: swap;
-    }
-    :root { --navy:#262262; --blue:#0698d6; --ink:#282849; --muted:#5d667e; --stroke:#dde4ed; --bg:#f3f6fb; --white:#fff; }
-    * { box-sizing: border-box; }
-    html { -webkit-text-size-adjust: 100%; }
-    body { margin: 0; background:var(--bg); font-family:"Bunday Clean", Arial, Helvetica, sans-serif; color:var(--ink); }
-    a { color:inherit; }
-    a:focus-visible { outline: 4px solid var(--blue); outline-offset: 5px; }
-    .top { background:#fff; border-bottom:4px solid var(--blue); }
-    .top-inner { width:min(1390px, calc(100% - 64px)); margin:auto; min-height:94px; display:flex; align-items:center; justify-content:space-between; gap:24px; }
-    .identity { display:flex; align-items:center; gap:29px; min-width:0; }
-    .northern-logo { width:201px; max-height:64px; object-fit:contain; display:block; }
-    .title-set { border-left:2px solid #d9deea; padding-left:28px; min-width:0; }
-    .title-set strong { display:block; font-size:clamp(17px,2vw,24px); font-weight:800; letter-spacing:.05em; color:var(--navy); }
-    .title-set span { display:block; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.14em; color:#56627e; margin-top:2px; }
-    .clock-wrap { text-align:right; font-variant-numeric:tabular-nums; color:var(--navy); min-width:175px; }
-    .clock { font-size:30px; font-weight:800; line-height:1.1; }
-    .date { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.11em; padding-top:3px; }
-    .hero { color:#fff; background: var(--navy); overflow:hidden; position:relative; }
-    .hero::before { content:""; position:absolute; width:clamp(340px,42vw,820px); height:230px; background:var(--blue); clip-path:polygon(0 0,83% 0,100% 50%,83% 100%,0 100%,13% 50%); opacity:.18; right:-100px; top:-25px; pointer-events:none; }
-    .hero::after { content:""; position:absolute; width:240px; height:110px; border:23px solid rgba(255,255,255,.055); transform:skew(-34deg); right:24%; bottom:-79px; pointer-events:none; }
-    .hero-inner { width:min(1390px, calc(100% - 64px)); padding:56px 0 60px; margin:auto; position:relative; }
-    .eyebrow { font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.17em; color:#83daff; }
-    h1 { font-size:clamp(35px,4.3vw,64px); line-height:1.05; letter-spacing:-.015em; margin:12px 0 17px; font-weight:900; }
-    .hero p { margin:0; max-width:620px; font-size:clamp(16px,1.65vw,21px); line-height:1.5; color:#e5e9f7; }
-    .content { width:min(1390px, calc(100% - 64px)); margin:38px auto 0; padding-bottom:60px; }
-    .section-heading { display:flex; align-items:baseline; justify-content:space-between; gap:15px; margin:0 0 17px; }
-    .section-heading h2 { font-size:19px; letter-spacing:.045em; color:var(--navy); text-transform:uppercase; font-weight:900; margin:0; }
-    .section-heading p { font-size:14px; color:var(--muted); margin:0; }
-    .featured { display:grid; grid-template-columns: 1.6fr 1fr; gap:20px; margin-bottom:35px; }
-    .feature-card { display:flex; align-items:center; gap:24px; min-height:185px; padding:30px; text-decoration:none; background:var(--navy); color:#fff; border-radius:13px; position:relative; overflow:hidden; box-shadow:0 10px 32px rgba(22,22,74,.10); transition:transform .15s ease, box-shadow .15s ease; }
-    .feature-card::after { content:""; position:absolute; right:-50px; top:-62px; width:250px; height:250px; border:31px solid rgba(255,255,255,.07); border-radius:100%; pointer-events:none; }
-    .feature-card.staff { background:#fff; border:1px solid var(--stroke); color:var(--navy); box-shadow:0 7px 24px rgba(34,43,80,.04); }
-    .feature-card.staff::after { border-color:rgba(38,34,98,.045); }
-    .feature-symbol { width:73px; height:73px; min-width:73px; display:grid; place-items:center; border-radius:12px; background:var(--blue); color:#fff; }
-    .staff .feature-symbol { background:var(--navy); }
-    .feature-symbol svg { width:37px; height:37px; }
-    .feature-copy { min-width:0; position:relative; z-index:1; }
-    .feature-tag { display:block; font-weight:800; font-size:12px; letter-spacing:.13em; text-transform:uppercase; color:#96e0fd; margin-bottom:6px; }
-    .staff .feature-tag { color:#4b6686; }
-    .feature-copy h3 { font-size:clamp(22px,2.3vw,33px); margin:0 0 5px; font-weight:900; line-height:1.13; }
-    .feature-copy p { font-size:15px; line-height:1.45; color:#e9ecfb; margin:0; max-width:430px; }
-    .staff .feature-copy p { color:var(--muted); }
-    .feature-arrow { margin-left:auto; flex:none; width:37px; height:37px; border:1px solid rgba(255,255,255,.45); display:grid; place-items:center; border-radius:50%; font-size:22px; line-height:1; position:relative; z-index:1; }
-    .staff .feature-arrow { border-color:#c4cbd7; }
-    .platforms { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
-    .platform-card { background:#fff; border:1px solid var(--stroke); border-radius:12px; padding:22px 24px; min-height:141px; display:flex; align-items:center; gap:19px; text-decoration:none; transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease; box-shadow:0 6px 22px rgba(34,43,80,.025); }
-    .platform-number { display:grid; place-items:center; min-width:79px; width:79px; height:88px; border-radius:9px; background:var(--navy); color:#fff; font-size:46px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; }
-    .platform-card.combined { border-color:rgba(6,152,214,.45); background:linear-gradient(105deg, #fff 72%, #f0faff); }
-    .platform-card.combined .platform-number { background:var(--blue); font-size:26px; letter-spacing:-.06em; }
-    .platform-info { flex:1; min-width:0; }
-    .platform-info strong { display:block; color:var(--navy); font-size:clamp(19px,1.65vw,25px); font-weight:900; }
-    .platform-info span { display:block; margin-top:5px; font-size:13px; color:var(--muted); font-weight:600; }
-    .platform-chevron { color:var(--blue); font-size:30px; font-family:Arial,sans-serif; font-weight:700; }
-    .feature-card:hover, .platform-card:hover { transform:translateY(-3px); box-shadow:0 14px 30px rgba(34,43,80,.14); }
-    .platform-card:hover { border-color:var(--blue); }
-    .foot { border-top:1px solid var(--stroke); padding:22px 0; font-size:13px; color:var(--muted); display:flex; gap:16px; justify-content:space-between; align-items:center; }
-    .foot strong { color:var(--navy); }
-    @media (max-width:1000px) { .featured { grid-template-columns:1fr 1fr; } .feature-card { align-items:flex-start; flex-direction:column; } .feature-arrow { position:absolute; right:25px; top:34px; } .platforms { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width:680px) {
-      .top-inner,.hero-inner,.content { width:calc(100% - 36px); }
-      .top-inner { min-height:86px; }
-      .identity { gap:10px; }
-      .northern-logo { width:122px; }
-      .title-set { padding-left:10px; }
-      .title-set strong { font-size:14px; }
-      .title-set span { font-size:10px; letter-spacing:.05em; }
-      .clock-wrap { display:none; }
-      .hero-inner { padding:40px 0 45px; }
-      .content { margin-top:30px; }
-      .section-heading { display:block; }
-      .section-heading p { margin-top:6px; }
-      .featured { grid-template-columns:1fr; gap:13px; }
-      .feature-card { min-height:168px; padding:25px; }
-      .platforms { grid-template-columns:1fr; gap:11px; }
-      .platform-card { min-height:113px; }
-      .platform-number { width:65px; min-width:65px; height:69px; font-size:38px; }
-      .foot { display:block; line-height:1.65; }
-    }
-    @media (prefers-reduced-motion:reduce) { .feature-card,.platform-card { transition:none; } }
-  </style>
-
-<style id="mcv-no-logo">
-.logo,.northern-logo,.brand-logo,#logo{display:none!important}
-.station-info,.station{border-left:0!important;padding-left:0!important}
-.brand{gap:0!important}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#262262">
+<title>Manchester Victoria | Displays</title>
+<style>
+@font-face{font-family:Bunday;src:url("bunday-clean-regular.woff") format("woff");font-weight:400 600;font-display:swap}
+@font-face{font-family:Bunday;src:url("bunday-clean-bold.woff") format("woff");font-weight:700 900;font-display:swap}
+:root{--navy:#262262;--blue:#0698d6;--ink:#29294b;--muted:#667187;--line:#dce4ee;--paper:#f3f6fb}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);font-family:Bunday,Arial,Helvetica,sans-serif;color:var(--ink)}
+.top{background:#fff;border-bottom:4px solid var(--blue)}
+.top-inner{width:min(1180px,calc(100% - 48px));min-height:90px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:22px}
+.station strong{display:block;color:var(--navy);font-size:clamp(20px,2.1vw,30px);font-weight:900;letter-spacing:.025em}
+.station span{display:block;margin-top:3px;color:var(--blue);font-size:11px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}
+.clock{text-align:right;color:var(--navy);font-variant-numeric:tabular-nums}
+.clock-time{font-size:27px;font-weight:900;line-height:1.05}
+.clock-date{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-top:4px;color:var(--muted)}
+.hero{background:var(--navy);color:#fff}
+.hero-inner{width:min(1180px,calc(100% - 48px));margin:auto;padding:52px 0 54px}
+.hero-kicker{color:#8edcff;font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-weight:900}
+.hero p{margin:0;color:#e7e9f5;font-size:17px;line-height:1.5;max-width:620px}
+.main{width:min(1180px,calc(100% - 48px));margin:28px auto 50px}
+.cards{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.card{min-height:245px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:30px;text-decoration:none;color:var(--navy);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 8px 26px rgba(38,34,98,.05);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+.card.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
+.card::after{content:"";position:absolute;width:180px;height:180px;border:28px solid rgba(6,152,214,.08);border-radius:50%;right:-70px;top:-70px}
+.card.primary::after{border-color:rgba(255,255,255,.08)}
+.tag{font-size:11px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;color:var(--blue)}
+.primary .tag{color:#8edcff}
+.card h2{font-size:clamp(25px,3vw,37px);line-height:1.08;margin:11px 0 10px;font-weight:900;position:relative;z-index:1}
+.card p{font-size:14px;line-height:1.5;color:var(--muted);margin:0;max-width:460px;position:relative;z-index:1}
+.primary p{color:#e6e8f4}
+.open{margin-top:auto;padding-top:27px;font-size:13px;font-weight:900;letter-spacing:.04em;position:relative;z-index:1}
+.card:hover{transform:translateY(-3px);border-color:var(--blue);box-shadow:0 14px 34px rgba(38,34,98,.11)}
+.card:focus-visible{outline:4px solid var(--blue);outline-offset:4px}
+.foot{border-top:1px solid var(--line);padding:19px 0;margin-top:28px;color:var(--muted);font-size:11px}
+@media(max-width:760px){
+ .top-inner,.hero-inner,.main{width:calc(100% - 28px)}
+ .top-inner{min-height:78px}
+ .clock-date{display:none}
+ .clock-time{font-size:21px}
+ .hero-inner{padding:39px 0 42px}
+ .hero p{font-size:15px}
+ .main{margin-top:17px}
+ .cards{grid-template-columns:1fr;gap:11px}
+ .card{min-height:190px;padding:23px;border-radius:8px}
+}
+@media(prefers-reduced-motion:reduce){.card{transition:none}}
 </style>
 </head>
 <body>
-  <header class="top">
-    <div class="top-inner">
-      <div class="identity">
-        
-        <div class="title-set"><strong>MANCHESTER VICTORIA</strong><span>Display control</span></div>
-      </div>
-      <div class="clock-wrap" aria-label="Current UK time"><div class="clock" id="clock">--:--:--</div><div class="date" id="date">--</div></div>
-    </div>
-  </header>
-
-  <section class="hero" aria-labelledby="hero-title"><div class="hero-inner">
-    <div class="eyebrow">Station information screens</div>
-    <h1 id="hero-title">Select a display.</h1>
-    <p>Choose the main departures board, an individual or shared platform screen, the staff display, or mobile and desktop passenger assistance.</p>
-  </div></section>
-
-  <main class="content">
-    <section aria-labelledby="general-heading">
-      <div class="section-heading"><h2 id="general-heading">Station displays</h2><p>Choose a screen to open it in a new tab</p></div>
-      <div class="featured">
-        <a class="feature-card" href="platform.html" target="_blank" rel="noopener" aria-label="Open Main Departures Display">
-          <div class="feature-symbol" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="6" width="30" height="22" rx="2"/><path d="M5 14h30M14 6v22M14 21h21M11 33h18M20 28v5"/></svg></div>
-          <div class="feature-copy"><span class="feature-tag">All platforms</span><h3>Main Departures</h3><p>Full station departure board with live information across the platforms.</p></div>
-          <div class="feature-arrow" aria-hidden="true">↗</div>
-        </a>
-        <a class="feature-card staff" href="staff.html" target="_blank" rel="noopener" aria-label="Open Staff Display">
-          <div class="feature-symbol" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="7" width="30" height="26" rx="3"/><circle cx="16" cy="17" r="4"/><path d="M9 28c0-4 3-6 7-6s7 2 7 6M26 15h5M26 21h5"/></svg></div>
-          <div class="feature-copy"><span class="feature-tag">Station team</span><h3>Staff Display</h3><p>Open the dedicated staff information screen.</p></div>
-          <div class="feature-arrow" aria-hidden="true">↗</div>
-        </a>
-        <a class="feature-card staff" href="control.html" target="_blank" rel="noopener" aria-label="Open display control room">
-          <div class="feature-symbol" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="32" height="25" rx="2"/><path d="M4 14h32M11 20h6M11 25h12M27 19l4 4-4 4M14 35h12M20 31v4"/></svg></div>
-          <div class="feature-copy"><span class="feature-tag">GitHub Pages · repository edit to publish</span><h3>Display Control Room</h3><p>Watch for feed-observed platform changes, draft staff announcements and prepare notices for GitHub publication.</p></div>
-          <div class="feature-arrow" aria-hidden="true">↗</div>
-        </a>
-        <a class="feature-card staff" href="assist.html" target="_blank" rel="noopener" aria-label="Open Passenger Assistance for staff mobiles">
-          <div class="feature-symbol" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="3" width="18" height="34" rx="4"/><path d="M17 8h6M17 32h6"/><circle cx="20" cy="20" r="6"/><path d="m24 24 5 5"/></svg></div>
-          <div class="feature-copy"><span class="feature-tag">Staff mobile</span><h3>Passenger Assist</h3><p>Look up journeys, platforms, calling points and live alerts while helping passengers.</p></div>
-          <div class="feature-arrow" aria-hidden="true">↗</div>
-        </a>
-        <a class="feature-card staff" href="assist-desktop.html" target="_blank" rel="noopener" aria-label="Open Desktop Passenger Assist">
-          <div class="feature-symbol" aria-hidden="true"><svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="6" width="32" height="23" rx="2"/><path d="M4 14h32M14 35h12M20 29v6M9 19h7M21 19h10M9 24h9M23 24h8"/></svg></div>
-          <div class="feature-copy"><span class="feature-tag">Staff desktop</span><h3>Desktop Passenger Assist</h3><p>Wider journey planner, live departures table, platform overview and service details.</p></div>
-          <div class="feature-arrow" aria-hidden="true">↗</div>
-        </a>
-      </div>
-    </section>
-
-    <section aria-labelledby="platforms-heading">
-      <div class="section-heading"><h2 id="platforms-heading">Platform displays</h2><p>Individual platforms 1–6, plus combined Platforms 1 &amp; 2 and 4 &amp; 5</p></div>
-      <nav class="platforms" aria-label="Platform displays">
-        <a class="platform-card" href="platform1.html" target="_blank" rel="noopener" aria-label="Open Platform 1 Display"><span class="platform-number">1</span><span class="platform-info"><strong>Platform 1</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card" href="platform2.html" target="_blank" rel="noopener" aria-label="Open Platform 2 Display"><span class="platform-number">2</span><span class="platform-info"><strong>Platform 2</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card" href="platform3.html" target="_blank" rel="noopener" aria-label="Open Platform 3 Display"><span class="platform-number">3</span><span class="platform-info"><strong>Platform 3</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card" href="platform4.html" target="_blank" rel="noopener" aria-label="Open Platform 4 Display"><span class="platform-number">4</span><span class="platform-info"><strong>Platform 4</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card" href="platform5.html" target="_blank" rel="noopener" aria-label="Open Platform 5 Display"><span class="platform-number">5</span><span class="platform-info"><strong>Platform 5</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card" href="platform6.html" target="_blank" rel="noopener" aria-label="Open Platform 6 Display"><span class="platform-number">6</span><span class="platform-info"><strong>Platform 6</strong><span>Open departures display</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card combined" href="platform12.html" target="_blank" rel="noopener" aria-label="Open combined Platforms 1 and 2 display"><span class="platform-number">1&amp;2</span><span class="platform-info"><strong>Platforms 1 &amp; 2</strong><span>Combined platform departures</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-        <a class="platform-card combined" href="platform45.html" target="_blank" rel="noopener" aria-label="Open combined Platforms 4 and 5 display"><span class="platform-number">4&amp;5</span><span class="platform-info"><strong>Platforms 4 &amp; 5</strong><span>Combined island platform departures</span></span><span class="platform-chevron" aria-hidden="true">›</span></a>
-      </nav>
-    </section>
-    <section aria-labelledby="nexttrain-heading">
-      <div class="section-heading"><h2 id="nexttrain-heading">Next train displays</h2><p>One large, live next-train screen for each individual platform</p></div>
-      <nav class="platforms" aria-label="Next train displays">
-        <a class="platform-card" href="nexttrain1.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 1"><span class="platform-number">1</span><span class="platform-info"><strong>Platform 1</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-        <a class="platform-card" href="nexttrain2.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 2"><span class="platform-number">2</span><span class="platform-info"><strong>Platform 2</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-        <a class="platform-card" href="nexttrain3.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 3"><span class="platform-number">3</span><span class="platform-info"><strong>Platform 3</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-        <a class="platform-card" href="nexttrain4.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 4"><span class="platform-number">4</span><span class="platform-info"><strong>Platform 4</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-        <a class="platform-card" href="nexttrain5.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 5"><span class="platform-number">5</span><span class="platform-info"><strong>Platform 5</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-        <a class="platform-card" href="nexttrain6.html" target="_blank" rel="noopener" aria-label="Open next train display for Platform 6"><span class="platform-number">6</span><span class="platform-info"><strong>Platform 6</strong><span>Next train only</span></span><span class="platform-arrow" aria-hidden="true">↗</span></a>
-      </nav>
-    </section>
-    <div style="margin:18px auto 8px;max-width:1500px;padding:0 4%;font-weight:700"><a href="control.html#announcements" target="_blank" rel="noopener" style="color:#262262;text-decoration:underline">Staff announcement assistant ↗</a></div>
-    <footer class="foot"><span><strong>Manchester Victoria</strong> · Screen selection</span><span>Keep this file in the same folder as platform.html, platform1.html–platform6.html, platform12.html, platform45.html, staff.html, assist.html, assist-desktop.html and nexttrain1.html–nexttrain6.html.</span></footer>
-  </main>
-  <script src="mcv-data.js?v=583633d3"></script>
+<header class="top">
+  <div class="top-inner">
+    <div class="station"><strong>MANCHESTER VICTORIA</strong><span>Station information</span></div>
+    <div class="clock"><div class="clock-time" id="clock">--:--:--</div><div class="clock-date" id="date">--</div></div>
+  </div>
+</header>
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-kicker">Manchester Victoria</div>
+    <h1>Select a display.</h1>
+    <p>Open the live station departures board or the staff operations display.</p>
+  </div>
+</section>
+<main class="main">
+  <div class="cards">
+    <a class="card primary" href="platform.html">
+      <span class="tag">Passenger information</span>
+      <h2>Main departures</h2>
+      <p>Live Manchester Victoria departures, calling points, platforms and service updates.</p>
+      <span class="open">Open departures →</span>
+    </a>
+    <a class="card" href="staff.html">
+      <span class="tag">Station team</span>
+      <h2>Staff display</h2>
+      <p>Responsive live operations overview with platform filters, formations and detailed service information.</p>
+      <span class="open">Open staff display →</span>
+    </a>
+  </div>
+  <div class="foot">Manchester Victoria · Live data supplied through the MCV departure feed</div>
+</main>
 <script>
-    function updateClock() {
-      MCVData.updateClock('clock', 'date', { dateOptions: { weekday:'short', day:'numeric', month:'short' } });
-    }
-    updateClock(); setInterval(updateClock, 1000);
-  </script>
+(function(){
+  const timeFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+  const dateFmt=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  function tick(){const now=new Date();document.getElementById('clock').textContent=timeFmt.format(now);document.getElementById('date').textContent=dateFmt.format(now)}
+  tick();setInterval(tick,1000);
+})();
+</script>
 </body>
 </html>
