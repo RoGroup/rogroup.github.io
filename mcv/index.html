@@ -25,7 +25,7 @@ body{margin:0;background:var(--paper);font-family:Bunday,Arial,Helvetica,sans-se
 h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-weight:900}
 .hero p{margin:0;color:#e7e9f5;font-size:17px;line-height:1.5;max-width:620px}
 .main{width:min(1180px,calc(100% - 48px));margin:28px auto 50px}
-.cards{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}
+.cards{display:grid;grid-template-columns:1.05fr .95fr .95fr;gap:18px}
 .card{min-height:245px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:30px;text-decoration:none;color:var(--navy);display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 8px 26px rgba(38,34,98,.05);transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
 .card.primary{background:var(--navy);color:#fff;border-color:var(--navy)}
 .card::after{content:"";position:absolute;width:180px;height:180px;border:28px solid rgba(6,152,214,.08);border-radius:50%;right:-70px;top:-70px}
@@ -77,7 +77,7 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
   <div class="hero-inner">
     <div class="hero-kicker">Manchester Victoria</div>
     <h1>Select a display.</h1>
-    <p>Open the live station departures board or the staff operations display.</p>
+    <p>Open the passenger departures board, the interactive staff operations view, or the unattended staff platform operations display.</p>
   </div>
 </section>
 <main class="main">
@@ -93,6 +93,12 @@ h1{font-size:clamp(35px,4.6vw,58px);line-height:1.04;margin:10px 0 12px;font-wei
       <h2>Staff display</h2>
       <p>Responsive live operations overview with platform filters, formations and detailed service information.</p>
       <span class="open">Open staff display →</span>
+    </a>
+    <a class="card" href="staff-platform.html">
+      <span class="tag">Platform staff</span>
+      <h2>Platform operations</h2>
+      <p>Unattended staff board with passenger and ECS movements, headcodes, formations and the live Traksy signalling map.</p>
+      <span class="open">Open platform operations →</span>
     </a>
   </div>
   <section class="tools-access" aria-label="More tools access">
