@@ -191,7 +191,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     </div>
     <div class="sidebar">
       <div class="panel"><div class="panel-title"><h2>Service details</h2><span class="tag">LIVE FEED</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
-      <div class="panel"><div class="panel-title"><h2>Recent feed changes</h2><span class="minor">This browser session only</span></div><ol class="events" id="events"><li><span class="event-time">SESSION START</span>Changes will appear here after the first successful refresh.</li></ol><div class="event-foot" id="event-feed-status">Recorded departure checks: waiting · additional cancellation reasons: waiting</div></div>
+      <div class="panel"><div class="panel-title"><h2>Recent feed changes</h2><span class="minor">This browser session only</span></div><ol class="events" id="events"><li><span class="event-time">SESSION START</span>Changes will appear here after the first successful refresh.</li></ol><div class="event-foot" id="event-feed-status">Live departure snapshots · changes observed in this browser session only</div></div>
     </div>
   </section>
   <div class="caution"><strong>Operational awareness only.</strong> This is a third-party data overview, not an authorised departure, dispatch, signalling, train-formation or safety system. Confirm allocations, boarding restrictions, reasons and actual departures against Northern’s official systems and current station instructions. A train missing from this feed is <strong>not</strong> proof it has departed. Any front-carriage notices are locally configured rules, not verified train formation data.</div>
@@ -201,15 +201,9 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script src="mcv-data.js?v=583633d3"></script>
 <script>
 'use strict';
-const API = Object.freeze({
-  departures:MCVData.CONFIG.departuresUrl,
-  activity:null,
-  cancellations:null
-});
-const REFRESH_MS=20000, ACTIVITY_MS=10000, CANCELLATION_MS=120000, STALE_MS=60000;
+const REFRESH_MS=20000, STALE_MS=60000;
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
-  lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],departed:new Map(),
-  cancellationReasons:new Map(),platformHist:new Map(),activityStatus:'waiting',cancelStatus:'waiting',activityBusy:false,cancelBusy:false};
+  lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
 const ukClock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
@@ -219,7 +213,6 @@ function ms(v){if(!v)return NaN;const n=Date.parse(v);return Number.isFinite(n)?
 function fmt(v){const n=typeof v==='number'?v:ms(v);return Number.isFinite(n)?ukTime.format(n):'—'}
 function station(name,crs=''){return MCVData.displayStationName(name,crs)||String(crs||'').trim().toUpperCase()||'Unknown'}
 function matchPlatform(value,num){return new RegExp('^'+num+'(?:[AB])?$','i').test(String(value||'').trim())}
-function validPlatform(v){return /^[1-6](?:[AB])?$/i.test(String(v||'').trim())}
 function timeDiff(s){return Number.isFinite(s.expectedMs)&&Number.isFinite(s.bookedMs)?Math.max(0,Math.round((s.expectedMs-s.bookedMs)/60000)):null}
 function trainNotice(s){const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
 
@@ -258,7 +251,7 @@ function parseServices(json){
     return service;
   }).filter(s=>!s.notForDisplay&&!['freight','empty stock','trip'].includes(s.serviceClass));
 }
-function visibleServices(){return state.services.filter(s=>!s.departed&&(!s.trainId||!state.departed.has(s.trainId)))}
+function visibleServices(){return state.services.filter(s=>!s.departed)}
 function sortedServices(){return visibleServices().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.key.localeCompare(b.key))}
 function overdue(s){return s.delayed&&Number.isFinite(s.bookedMs)&&s.bookedMs<Date.now()}
 function changed(message,type='info',key=''){
@@ -341,7 +334,7 @@ function renderTable(){
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in the current feed.</td></tr>';
   scrollArea.scrollTop=scrollTop;
 }
-function reasonFor(s){return s.cancelled?(s.note||state.cancellationReasons.get(s.trainId)||''):s.delayed?s.lateReason:''}
+function reasonFor(s){return s.cancelled?s.note:s.delayed?s.lateReason:''}
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){$('service-details').innerHTML='<div class="placeholder">Select a service in the departures table to see its full live information and calling points.</div>';return}
@@ -362,7 +355,6 @@ function renderEvents(){
   $('event-feed-status').textContent='Live departure snapshots · changes observed in this browser session only';
 }
 function render(){updateFeedBanner();renderStats();renderPlatforms();renderTable();renderDetails();renderEvents()}
-async function getJSON(url){const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw new Error('HTTP '+response.status);return response.json()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{const board=await MCVData.fetchBoard({allowStale:true});const json=board.raw;const next=parseServices(json);
     compareFeeds(next);state.services=next;state.lastGood=board.receivedAt||Date.now();state.lastError=board.fallback?'Live feed unavailable — showing last received data':'';
@@ -370,25 +362,6 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     render();
   }catch(err){state.lastError=String(err.message||err);console.warn('Departure feed:',err);updateFeedBanner();}
   finally{state.feedBusy=false;$('refresh').disabled=false}
-}
-async function fetchActivity(){if(state.activityBusy)return;state.activityBusy=true;
-  try{const json=await getJSON(API.activity);if(!Array.isArray(json.results))throw new Error('Unexpected activity feed');let changedServices=false;
-    for(const event of json.results){if(String(event.event_type||'').toUpperCase()!=='DEPARTURE'||!event.train_id)continue;
-      const id=String(event.train_id);if(state.departed.has(id))continue;
-      const matching=state.services.filter(s=>s.trainId===id&&!s.departed);
-      // Match only a train ID currently in the station departures feed.
-      state.departed.set(id,Date.now());
-      for(const s of matching){changed(`${s.booked} ${s.dest}: DEPARTURE event recorded by station activity feed`,'departed',s.key);changedServices=true;}
-    }
-    for(const [id,t] of state.departed)if(Date.now()-t>5*60*60*1000)state.departed.delete(id);
-    state.activityStatus='connected';if(changedServices){if(!visibleServices().some(s=>s.key===state.selectedKey))state.selectedKey='';render()}
-  }catch(err){state.activityStatus='unavailable';console.warn('Station activity:',err)}finally{state.activityBusy=false;renderEvents()}
-}
-async function fetchCancelReasons(){if(state.cancelBusy)return;state.cancelBusy=true;
-  try{const json=await getJSON(API.cancellations);if(!Array.isArray(json.results))throw new Error('Unexpected cancellations feed');const map=new Map();
-    for(const entry of json.results)if(entry.train_id&&entry.reason)map.set(String(entry.train_id),String(entry.reason).trim());
-    state.cancellationReasons=map;state.cancelStatus='connected';renderDetails();
-  }catch(err){state.cancelStatus='unavailable';console.warn('Cancellation reason feed:',err)}finally{state.cancelBusy=false;renderEvents()}
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
