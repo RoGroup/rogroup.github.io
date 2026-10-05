@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#262262"><title>Disruption & Alternative Journeys · Manchester Victoria</title><link rel="stylesheet" href="staff-hubs.css"><script defer src="staff-hubs.js"></script>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#262262"><title>Disruption & Alternative Journeys · Manchester Victoria</title><link rel="stylesheet" href="staff-hubs.css"><script src="mcv-data.js"></script><script defer src="staff-hubs.js"></script>
 <style id="mcv-no-logo">
 .logo,.northern-logo,.brand-logo,#logo{display:none!important}
 .station-info,.station{border-left:0!important;padding-left:0!important}
 .brand{gap:0!important}
 </style>
 </head>
-<body data-tool="disruption"><header class="top"><div class="top-inner"><div class="identity"><a href="index.html" aria-label="Back to Manchester Victoria launcher"></a><div class="brand-label"><small>Manchester Victoria · Station team</small>Disruption &amp; Alternatives</div></div><div class="time"><span id="clock">--:--</span><small id="date">UK time</small></div></div></header>
+<body data-tool="disruption"><header class="top"><div class="top-inner"><div class="identity"><a href="index.html" aria-label="Back to Manchester Victoria launcher"></a><div class="brand-label"><small>Manchester Victoria · Station team</small>Disruption &amp; Alternatives</div></div><div class="time"><span id="clock">--:--:--</span><small id="date">UK time</small></div></div></header>
 <nav class="navig" aria-label="Staff tools"><div class="inner"><a href="index.html">↖ Display launcher</a><a href="control.html">Control room</a><a href="staff.html">Staff departures</a><a href="accessibility.html" >Accessibility hub</a><a href="disruption.html" aria-current="page">Disruption assistant</a><a href="assist.html" class="right">Mobile Passenger Assist ↗</a></div></nav>
 <main class="shell"><section class="hero"><div><div class="eyebrow">Staff information · Manchester Victoria</div><h1>Find a way forward.</h1><p>Review reported delays and cancellations, investigate later services or one-change routes, and prepare clear guidance for staff review.</p></div><a class="hero-action" href="accessibility.html" data-to-sister="true">Open accessibility hub ↗</a></section>
 <div class="health" id="health" role="status"><div class="mark"><span class="orb" aria-hidden="true"></span><span id="health-text">Connecting to the live departures feed…</span></div><span class="small" id="health-age">Not yet updated</span><button class="btn light" type="button" id="refresh-feed">Refresh departures</button></div>
@@ -26,4 +26,12 @@
 <a href="https://www.northernrailway.co.uk/help/assisted-travel-support" target="_blank" rel="noopener"><strong>Northern Assisted Travel ↗</strong><span>Help with changes during disruption</span></a>
 <a href="https://www.nationalrail.co.uk/stations/" target="_blank" rel="noopener"><strong>Destination accessibility ↗</strong><span>Check facilities and lift status independently</span></a>
 </div></div></section>
-</div></div></main><footer class="filefooter">Northern · Manchester Victoria staff support tool · Information is not an authorised departure, dispatch, accessibility booking or ticket-acceptance system. No personal passenger details are collected or stored by this page.</footer></body></html>
+</div></div></main><footer class="filefooter">Northern · Manchester Victoria staff support tool · Information is not an authorised departure, dispatch, accessibility booking or ticket-acceptance system. No personal passenger details are collected or stored by this page.</footer><script>
+(function(){
+  function apply(){ if(window.MCVData) MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short'}}); }
+  apply(); setInterval(apply,1000);
+  const node=document.getElementById('clock');
+  if(node&&window.MutationObserver){new MutationObserver(function(){if(!/^\d{2}:\d{2}:\d{2}$/.test(node.textContent.trim()))apply();}).observe(node,{childList:true,subtree:true,characterData:true});}
+})();
+</script>
+</body></html>
