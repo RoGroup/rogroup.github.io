@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
@@ -310,8 +310,13 @@
     const callingPoints = parseCallingPoints(raw);
     const activeCallingPoints = callingPoints.filter(function (point) { return !point.cancelled; });
 
-    const serviceId = text(raw.serviceID || raw.rsid);
-    const key = serviceId || [
+    const serviceId = text(raw.serviceID);
+    const rid = text(raw.rid);
+    const rsid = text(raw.rsid);
+    const uid = text(raw.uid);
+    const headcode = text(raw.trainid || raw.trainId || raw.headcode).toUpperCase();
+
+    const key = serviceId || rid || rsid || [
       text(raw.std),
       text(raw.operatorCode || raw.operator || 'operator'),
       destination,
@@ -321,8 +326,12 @@
     const parsed = {
       key: key,
       serviceId: serviceId,
-      trainId: serviceId,
-      rsid: text(raw.rsid),
+      trainId: headcode || serviceId || rid || rsid,
+      headcode: headcode,
+      uid: uid,
+      rid: rid,
+      rsid: rsid,
+      scheduledDepartureDate: text(raw.sdd),
 
       scheduledMs: scheduledEpoch(raw.std, generatedAt),
       time: rdmTime(raw.std),
@@ -760,9 +769,11 @@
         });
 
         return {
-          train_id: text(service.serviceID || service.rsid || ('rdm-' + index)),
-          train_uid: '',
-          headcode: '',
+          train_id: text(service.trainid || service.serviceID || service.rid || service.rsid || ('rdm-' + index)),
+          train_uid: text(service.uid),
+          headcode: text(service.trainid),
+          uid: text(service.uid),
+          rid: text(service.rid),
           service_id: text(service.serviceID),
           rsid: text(service.rsid),
           departs: booked,
@@ -793,6 +804,7 @@
           cancel_reason: text(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
           service_class: text(service.serviceType || 'train').toLowerCase(),
+          train_category: text(service.category),
           is_reverse_formation: service.isReverseFormation === true
         };
       })
