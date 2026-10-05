@@ -57,7 +57,7 @@ main{padding-top:18px}.section{padding-bottom:30px}.eyebrow{font-size:10px;color
 <body>
 <header class="top"><div class="wrap header-row">
  <div class="brand"><div class="brand-copy"><strong>Manchester Victoria</strong><span>Passenger Assist · Staff Only</span></div></div>
- <div class="clock" id="clock" aria-label="Current UK time">--:--</div>
+ <div class="clock" id="clock" aria-label="Current UK time">--:--:--</div>
 </div></header>
 <div class="feed"><div class="wrap feed-inner"><div class="connection" role="status"><span id="feed-light" class="light"></span><span id="feed-status">Connecting to live departures…</span></div><button type="button" class="link-button" id="refresh">Refresh</button></div></div>
 <main class="wrap">
@@ -102,9 +102,10 @@ main{padding-top:18px}.section{padding-bottom:30px}.eyebrow{font-size:10px;color
  <div class="sheet-body" id="sheet-body"></div>
 </div></div>
 
+<script src="mcv-data.js"></script>
 <script>
 'use strict';
-const API=null, DEPARTURES='https://mcv-rdm-proxy.baileykendall432.workers.dev/departures', ACTIVITY=null, CANCELLATIONS=null;
+const API=null, DEPARTURES=MCVData.CONFIG.departuresUrl, ACTIVITY=null, CANCELLATIONS=null;
 const REFRESH=30000, STALE=90000;
 const state={services:[],lastGood:0,error:'',feedBusy:false,activityBusy:false,reasonBusy:false,departed:new Map(),cancelReasons:new Map(),destination:null,query:'',suggest:[],searchSeq:0,searchTimer:0,journeySeq:0,journeyController:null,searchController:null,journeys:null,journeyError:'',journeyUpdated:0,view:'journey',platform:'all',limit:24,selectedTrain:null,changes:[],prev:new Map()};
 const $=id=>document.getElementById(id);
@@ -112,6 +113,7 @@ const ukTime=new Intl.DateTimeFormat('en-GB',{hour:'2-digit',minute:'2-digit',ho
 const esc=s=>String(s??'').replace(/[&<>"']/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[x]));
 const instant=v=>{if(!v)return NaN;const x=Date.parse(v);return Number.isFinite(x)?x:NaN};
 const fmt=v=>Number.isFinite(typeof v==='number'?v:instant(v))?ukTime.format(typeof v==='number'?v:instant(v)):'—';
+const liveStamp=ms=>MCVData.formatLiveClock(ms);
 const name=(v,crs='')=>{const n=String(v||'').trim(),c=String(crs||'').trim().toUpperCase();return c==='SFD'||(n.toUpperCase()==='SALFORD'&&c!=='SLD')?'SALFORD CENTRAL':n||c||'Unknown'};
 const plat=(v,withheld=false)=>withheld?'':String(v??'').trim().replace(/^platform\s+/i,'').toUpperCase().replace(/^(TBC|TBD|UNKNOWN|[-–—?])$/i,'');
 const platMatches=(v,n)=>new RegExp('^'+n+'(?:[AB])?$','i').test(String(v||''));
@@ -120,100 +122,7 @@ const minutes=s=>msMin(s.bookedMs,s.expectedMs);
 const overdue=s=>s.delayed&&Number.isFinite(s.bookedMs)&&s.bookedMs<Date.now();
 function carriage(s){const d=String(s.dest||'').toUpperCase();if(d==='CLITHEROE'||s.destCrs==='CLH')return 'Front two carriages for Langho, Whalley and Clitheroe';if(d==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Front two carriages for Upholland, Rainford and Headbolt Lane';return ''}
 
-function rdmClockToIso(clock, generatedAt) {
-  const text = String(clock || '').trim();
-  if (!/^\d{2}:\d{2}$/.test(text)) return null;
-  const source = String(generatedAt || new Date().toISOString());
-  const datePart = /^\d{4}-\d{2}-\d{2}/.exec(source)?.[0] || new Date().toISOString().slice(0,10);
-  const tz = /(Z|[+-]\d{2}:\d{2})$/.exec(source)?.[1] || 'Z';
-  const anchor = new Date(source);
-  let candidate = new Date(`${datePart}T${text}:00${tz}`);
-  if (!Number.isFinite(candidate.getTime())) return null;
-  if (Number.isFinite(anchor.getTime())) {
-    const twelveHours = 12 * 60 * 60 * 1000;
-    const diff = candidate.getTime() - anchor.getTime();
-    if (diff < -twelveHours) candidate = new Date(candidate.getTime() + 24*60*60*1000);
-    else if (diff > twelveHours) candidate = new Date(candidate.getTime() - 24*60*60*1000);
-  }
-  return candidate.toISOString();
-}
-function rdmExpectedIso(value, booked, generatedAt) {
-  const raw = String(value || '').trim();
-  if (/^\d{2}:\d{2}$/.test(raw)) return rdmClockToIso(raw, generatedAt);
-  if (/^on time$/i.test(raw) || /^early$/i.test(raw)) return rdmClockToIso(booked, generatedAt);
-  return null;
-}
-function rdmStatusFor(service) {
-  const etd = String(service?.etd || '').trim();
-  if (/^\d{2}:\d{2}$/.test(String(service?.atd || '').trim())) return ['departed','Departed'];
-  if (service?.isCancelled === true || service?.filterLocationCancelled === true || /^cancelled$/i.test(etd)) return ['cancelled','Cancelled'];
-  if (/^delayed$/i.test(etd)) return ['delayed_no_estimate','Delayed'];
-  if (/^on time$/i.test(etd) || !etd) return ['on_time','On time'];
-  if (/^\d{2}:\d{2}$/.test(etd)) {
-    const std = String(service?.std || '').trim();
-    if (/^\d{2}:\d{2}$/.test(std)) {
-      const [sh,sm]=std.split(':').map(Number), [eh,em]=etd.split(':').map(Number);
-      let s=sh*60+sm,e=eh*60+em; if(e < s-720)e+=1440; if(s < e-720)s+=1440;
-      if (e > s) return ['expected_late',`Expected ${etd}`];
-      if (e < s) return ['expected_early',`Expected ${etd}`];
-    }
-    return ['on_time',`Expected ${etd}`];
-  }
-  return ['', etd || 'Status not supplied'];
-}
-function rdmCallingPoints(service, generatedAt) {
-  const groups = Array.isArray(service?.subsequentCallingPoints) ? service.subsequentCallingPoints : [];
-  const points = groups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
-  return points.map(point => {
-    const booked = rdmClockToIso(point?.st, generatedAt);
-    const expected = rdmExpectedIso(point?.et, point?.st, generatedAt);
-    return {
-      station: {name:String(point?.locationName || ''), crs:String(point?.crs || '')},
-      name:String(point?.locationName || ''), crs:String(point?.crs || ''),
-      scheduled: booked, arrives: booked, departs: booked,
-      expected: expected || booked, expected_arrives: expected || booked, expected_departs: expected || booked,
-      platform: String(point?.platform || ''), platform_withheld: !String(point?.platform || '').trim(),
-      is_cancelled: point?.isCancelled === true
-    };
-  });
-}
-function rdmToLegacyBoard(data) {
-  if (!data || !Array.isArray(data.trainServices)) return data;
-  const generatedAt = data.generatedAt || new Date().toISOString();
-  return {
-    generated_at: generatedAt,
-    results: data.trainServices.map((service, index) => {
-      const [status, statusText] = rdmStatusFor(service);
-      const destination = Array.isArray(service?.destination) ? service.destination[0] : service?.destination;
-      const origin = Array.isArray(service?.origin) ? service.origin[0] : service?.origin;
-      const booked = rdmClockToIso(service?.std, generatedAt);
-      const expected = rdmExpectedIso(service?.etd, service?.std, generatedAt);
-      const length = Number(service?.length);
-      return {
-        train_id: String(service?.serviceID || service?.rsid || `rdm-${index}`),
-        train_uid: '', headcode: '',
-        service_id: String(service?.serviceID || ''), rsid: String(service?.rsid || ''),
-        departs: booked, expected_departs: expected,
-        arrives: booked, expected_arrives: expected,
-        status, status_text: statusText,
-        destination: {name:String(destination?.locationName || destination?.name || 'Unknown'), crs:String(destination?.crs || '')},
-        destination_name:String(destination?.locationName || destination?.name || 'Unknown'), destination_crs:String(destination?.crs || ''),
-        origin: {name:String(origin?.locationName || origin?.name || ''), crs:String(origin?.crs || '')},
-        origin_name:String(origin?.locationName || origin?.name || ''), origin_crs:String(origin?.crs || ''),
-        operator:String(service?.operator || 'National Rail'), operator_code:String(service?.operatorCode || ''),
-        platform:String(service?.platform || ''), platform_withheld:!String(service?.platform || '').trim(),
-        calling_points: rdmCallingPoints(service, generatedAt),
-        coaches:Number.isInteger(length) && length > 0 ? length : null,
-        late_reason:String(service?.delayReason || ''), cancel_reason:String(service?.cancelReason || ''),
-        not_for_display:String(service?.serviceType || 'train').toLowerCase() !== 'train',
-        service_class:String(service?.serviceType || 'train').toLowerCase(),
-        is_reverse_formation:service?.isReverseFormation === true
-      };
-    })
-  };
-}
-
-function parseServices(data){if(Array.isArray(data?.trainServices))data=rdmToLegacyBoard(data);if(!data||!Array.isArray(data.results))throw Error('Invalid departures response');return data.results.map(raw=>{
+function parseServices(data){data=MCVData.toLegacyBoard(data);if(!data||!Array.isArray(data.results))throw Error('Invalid departures response');return data.results.map(raw=>{
  const status=String(raw.status||'').toLowerCase(),text=String(raw.status_text||'').trim(),bookedMs=instant(raw.departs),expectedMs=instant(raw.expected_departs),diff=Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)?expectedMs-bookedMs:NaN;
  const cancelled=status==='cancelled'||/^cancelled\b/i.test(text),departed=status==='departed'||/^departed\b/i.test(text);
  const delayed=!cancelled&&!departed&&(['expected_late','delayed','delayed_no_estimate'].includes(status)||/^delayed\b/i.test(text)||Number.isFinite(diff)&&diff>60000);
@@ -228,11 +137,11 @@ function sorted(){return active().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.k
 function statusType(s){return s.cancelled?'red':s.delayed?'yellow':'green'}
 function statusMark(s){return s.cancelled?'Cancelled':s.delayed?(s.expected!=='—'?'Expected '+s.expected:'Delayed'):(s.statusText||'Status not supplied')}
 function pickPlatform(s){return s.platform?s.platform:'TBC'}
-function banner(){const lamp=$('feed-light'),s=$('feed-status'),age=Date.now()-state.lastGood;lamp.className='light';if(!state.lastGood){lamp.classList.add('bad');s.textContent=state.error?'Unable to load departures':'Connecting to live departures…'}else if(state.error||age>STALE){lamp.classList.add('warn');s.textContent='DATA MAY BE OUTDATED · Last update '+fmt(state.lastGood)}else{lamp.classList.add('ok');s.textContent='Live departures · Updated '+fmt(state.lastGood)}}
-function clock(){ $('clock').textContent=fmt(Date.now());banner();const age=$('journey-check-age');if(age&&state.journeyUpdated)age.textContent=Date.now()-state.journeyUpdated>90000?'Checked '+fmt(state.journeyUpdated)+' · Refresh before advising':'Checked '+fmt(state.journeyUpdated)+' · Live journey result';}
+function banner(){const lamp=$('feed-light'),s=$('feed-status'),age=Date.now()-state.lastGood;lamp.className='light';if(!state.lastGood){lamp.classList.add('bad');s.textContent=state.error?'Unable to load departures':'Connecting to live departures…'}else if(state.error||age>STALE){lamp.classList.add('warn');s.textContent='DATA MAY BE OUTDATED · Last update '+liveStamp(state.lastGood)}else{lamp.classList.add('ok');s.textContent='Live departures · Updated '+liveStamp(state.lastGood)}}
+function clock(){$('clock').textContent=MCVData.formatLiveClock(Date.now());banner();const age=$('journey-check-age');if(age&&state.journeyUpdated)age.textContent=Date.now()-state.journeyUpdated>90000?'Checked '+liveStamp(state.journeyUpdated)+' · Refresh before advising':'Checked '+liveStamp(state.journeyUpdated)+' · Live journey result';}
 async function getJSON(url,signal){const response=await fetch(url,{cache:'no-store',signal});let data;try{data=await response.json()}catch{throw Error('Invalid response from live service')}if(!response.ok)throw Error(data.message||('Service temporarily unavailable ('+response.status+')'));return data}
-function recordChanges(next){if(!state.lastGood)return;const prev=state.prev;for(const s of next){const before=prev.get(s.key);if(!before||before.platform===s.platform||!before.platform||!s.platform)continue;state.changes.unshift({message:`${s.booked} ${s.dest}: platform ${before.platform} → ${s.platform}`,time:fmt(Date.now())})}state.changes=state.changes.slice(0,12)}
-async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;try{const raw=await getJSON(DEPARTURES);const next=parseServices(raw);recordChanges(next);state.services=next;state.prev=new Map(next.map(s=>[s.key,s]));state.lastGood=Date.now();state.error='';renderAll()}catch(e){state.error=e.message||String(e);banner();if(!state.lastGood)renderAll()}finally{state.feedBusy=false;$('refresh').disabled=false}}
+function recordChanges(next){if(!state.lastGood)return;const prev=state.prev;for(const s of next){const before=prev.get(s.key);if(!before||before.platform===s.platform||!before.platform||!s.platform)continue;state.changes.unshift({message:`${s.booked} ${s.dest}: platform ${before.platform} → ${s.platform}`,time:liveStamp(Date.now())})}state.changes=state.changes.slice(0,12)}
+async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;try{const board=await MCVData.fetchBoard({allowStale:true});const raw=board.raw;const next=parseServices(raw);recordChanges(next);state.services=next;state.prev=new Map(next.map(s=>[s.key,s]));state.lastGood=board.receivedAt||Date.now();state.error=board.fallback?'Live feed unavailable — showing last received data':'';renderAll()}catch(e){state.error=e.message||String(e);banner();if(!state.lastGood)renderAll()}finally{state.feedBusy=false;$('refresh').disabled=false}}
 async function fetchActivity(){if(state.activityBusy)return;state.activityBusy=true;try{const data=await getJSON(ACTIVITY);if(Array.isArray(data.results)){let didChange=false;for(const e of data.results){if(String(e.event_type||'').toUpperCase()!=='DEPARTURE'||!e.train_id)continue;const id=String(e.train_id);if(state.departed.has(id))continue;state.departed.set(id,Date.now());if(state.services.some(s=>s.trainId===id))didChange=true}for(const[id,t]of state.departed)if(Date.now()-t>18000000)state.departed.delete(id);if(didChange)renderAll()}}catch(e){console.warn('Station movement checks:',e.message)}finally{state.activityBusy=false}}
 async function fetchReasons(){if(state.reasonBusy)return;state.reasonBusy=true;try{const data=await getJSON(CANCELLATIONS);const map=new Map();if(Array.isArray(data.results))for(const x of data.results)if(x.train_id&&x.reason)map.set(String(x.train_id),String(x.reason));state.cancelReasons=map;if(state.view==='alerts')renderAlerts()}catch(e){console.warn('Cancellation reasons:',e.message)}finally{state.reasonBusy=false}}
 function reason(s){return s.cancelled?(s.cancelReason||state.cancelReasons.get(s.trainId)||''):s.delayed?s.lateReason:''}
@@ -259,7 +168,7 @@ function itinerary(j,i){const changes=Number(j.changes)||0,cancelled=String(j.st
  const warn=isOne&&cstate==='at risk',unknown=isOne&&(!cstate||cstate==='unknown');const heading=isOne?'1 change at '+via:'Direct service';const op=isOne?String(j.leg1_operator||'Operator not supplied'):String(j.operator||'Operator not supplied');let body='';
  if(isOne){body=`<div class="card-bottom"><strong>Change at ${esc(via)}</strong> · ${Number.isFinite(Number(j.connection_minutes))?esc(String(j.connection_minutes))+' min connection':'Interchange time unknown'}${warn?'<div style="color:#972b2b;font-weight:850">Connection at risk · Check before advising travel</div>':unknown?'<div style="color:#8a5c00;font-weight:750">Connection not verified · Check official information</div>':''}<div style="margin-top:6px">First train ${esc(j.leg1_headcode||'—')} · ${esc(op)} → ${esc(via)}</div><div>Arrive ${esc(fmt(j.interchange_arrives))} · Next train ${esc(fmt(j.interchange_departs))} (${esc(j.leg2_headcode||'—')})</div>${j.interchange_departure_platform&&!j.interchange_departure_platform_withheld?'<div>Interchange departure platform '+esc(plat(j.interchange_departure_platform))+'</div>':''}</div>`}else{body=`<div class="card-bottom"><strong>Arrive ${esc(name(j.arrival_station?.name||state.destination?.name,j.arrival_station?.crs))}</strong> · ${esc(arrive)}${j.duration_minutes?' · '+esc(j.duration_minutes)+' minutes':''}</div>`}
  const notice=carriage({dest,destCrs:j.destination?.crs||''});return `<article class="card train-card ${warn?'delayed':''}"><div class="card-main" role="group" aria-label="Journey option ${i+1}"><div class="train-top"><div class="times"><div class="time">${esc(depart)}</div>${expect!=='—'&&expect!==depart?`<div class="changed-time">→ ${esc(expect)}</div>`:''}</div><div class="train-info"><div class="train-dest">${esc(dest)}</div><div class="train-sub">${esc(op)}${j.headcode?' · '+esc(j.headcode):''}</div></div><div class="plat ${firstPlatform?'':'tbc'}">${esc(firstPlatform||'TBC')}</div></div><div class="tagline"><span class="tag ${isOne?'blue':'green'}">${esc(heading)}</span>${warn?'<span class="tag red">At-risk connection</span>':''}${unknown?'<span class="tag yellow">Connection unverified</span>':''}${cancelled?'<span class="tag red">Cancellation reported</span>':''}${j.status_text&&!cancelled?'<span class="tag gray">'+esc(j.status_text)+'</span>':''}</div></div>${body}${notice&&!cancelled?`<div class="help-notice">⚠ ${esc(notice)} · Confirm current instructions</div>`:''}</article>`}
-function renderJourneys(){const n=state.destination?.name||'destination';let out=`<div class="section-head"><div><div class="eyebrow">Manchester Victoria → ${esc(n)}</div><h2>Journey options</h2><p><span id="journey-check-age">${state.journeyUpdated&&!state.journeyError?'Checked '+esc(fmt(state.journeyUpdated))+' · ':''}</span> Direct services and up to one change</p></div></div>`;
+function renderJourneys(){const n=state.destination?.name||'destination';let out=`<div class="section-head"><div><div class="eyebrow">Manchester Victoria → ${esc(n)}</div><h2>Journey options</h2><p><span id="journey-check-age">${state.journeyUpdated&&!state.journeyError?'Checked '+esc(liveStamp(state.journeyUpdated))+' · ':''}</span> Direct services and up to one change</p></div></div>`;
  if(state.journeyError){const local=findDirectLocal(state.destination.crs,n);out+=`<div class="notice amber"><strong>Live journey planner unavailable.</strong> ${esc(state.journeyError)}. ${local.length?'The services below are from the last available departures feed only.':'No local journey matches can be confirmed.'}</div>`;if(local.length)out+=local.slice(0,8).map(x=>card(x.s,{arrival:x.arr})).join('')}else if(state.journeys?.length){out+=state.journeys.map(itinerary).join('');out+=`<div class="notice">Connection estimates are not guaranteed, especially if a train is delayed. Confirm interchange times, platform allocations and ticket validity with official systems.</div>`}else out+='<div class="empty"><strong>No journeys returned</strong>The live journey search has no upcoming matching journeys. This does not necessarily mean there is no route. Check the official journey planner.</div>';
  $('journey-results').innerHTML=out}
 function openSheet(key){const s=active().find(x=>x.key===key);if(!s)return;state.selectedTrain=key;$('overlay').hidden=false;document.body.style.overflow='hidden';refreshSheet();$('close-sheet').focus()}
