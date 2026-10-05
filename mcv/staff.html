@@ -116,6 +116,14 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-source{font-size:9px;font-weight:900;letter-spacing:.05em;color:#16723a}
 .conflict-chip{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:4px;background:#fff0ba;color:#553b00;font-size:9px;font-weight:900;line-height:1.2}
 .conflict-chip.danger{background:#ffe6ec;color:#930029}
+.movement-tabs{display:flex;gap:0;border-bottom:1px solid var(--line);background:#f8fbfe;padding:0 16px}
+.movement-tabs button{border:0;border-bottom:3px solid transparent;background:transparent;color:var(--muted);padding:12px 14px 10px;font-size:11px;font-weight:900;letter-spacing:.06em;cursor:pointer}
+.movement-tabs button.active{color:var(--navy);border-bottom-color:var(--blue);background:#fff}
+.movement-tabs button:hover{color:var(--navy)}
+.turnaround-card{margin-top:12px;padding:11px;border:1px solid #cddfed;border-radius:7px;background:#f4faff}
+.turnaround-title{font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.turnaround-main{margin-top:5px;font-size:12px;font-weight:900;color:var(--navy);line-height:1.35}
+.turnaround-sub{margin-top:4px;font-size:10px;color:var(--muted);line-height:1.4}
 .type-segment{display:inline-flex;border:1px solid #cbd5e1;border-radius:7px;overflow:hidden;background:#fff}
 .type-segment button{border:0;border-right:1px solid #d9e1eb;background:#fff;color:var(--navy);padding:10px 11px;font-size:10px;font-weight:900;letter-spacing:.05em;cursor:pointer}
 .type-segment button:last-child{border-right:0}.type-segment button.active{background:var(--navy);color:#fff}
@@ -182,6 +190,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .ops-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ops-move{grid-template-columns:48px 52px minmax(0,1fr)}
   .ops-move .move-status{display:none}
+  .movement-tabs{padding:0;overflow-x:auto}
+  .movement-tabs button{flex:1;min-width:max-content;padding:11px 10px 9px;font-size:10px}
   .type-segment{width:100%}
   .type-segment button{flex:1}
   .alert-items{display:grid;grid-template-columns:1fr}
@@ -295,9 +305,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   </section>
   <section class="workspace" aria-label="Detailed operations">
     <div class="panel">
-      <div class="panel-title"><div><h2>Detailed departures</h2><span class="minor" id="results-note">Waiting for departures feed</span></div><span class="mini-label">Select a service for details →</span></div>
+      <div class="panel-title"><div><h2 id="movement-panel-title">Detailed departures</h2><span class="minor" id="results-note">Waiting for staff movements feed</span></div><span class="mini-label">Select a service for details →</span></div>
+      <div class="movement-tabs" id="movement-tabs" role="tablist" aria-label="Choose movements view"><button type="button" class="active" data-view="departures">DEPARTURES</button><button type="button" data-view="arrivals">ARRIVALS</button><button type="button" data-view="all">ALL MOVEMENTS</button></div>
       <div class="controls"><input id="search" type="search" placeholder="Search headcode, destination, operator, station, platform or service ID…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
-      <div class="table-area" id="table-area"><table class="table"><thead><tr><th>Booked</th><th>Destination / operator</th><th>Formation</th><th>Platform</th><th>Expected</th><th>Status</th></tr></thead><tbody id="departures"><tr><td colspan="6" class="empty">Waiting for live departure information…</td></tr></tbody></table></div>
+      <div class="table-area" id="table-area"><table class="table"><thead><tr><th id="movement-time-heading">Booked dep</th><th id="movement-place-heading">To / operator</th><th>Formation</th><th>Platform</th><th id="movement-expected-heading">Expected dep</th><th>Status</th></tr></thead><tbody id="departures"><tr><td colspan="6" class="empty">Waiting for live staff movement information…</td></tr></tbody></table></div>
       <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · formation is labelled live only when supplied · use ALL / PASSENGER / ECS and Booked time / Platform order to change the operational view.</div>
     </div>
     <div class="sidebar">
@@ -343,7 +354,7 @@ function centreSignalMap(){
     wrap.scrollLeft=Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2);
   });
 }
-const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',search:'',overdueFirst:false,
+const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
