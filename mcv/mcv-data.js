@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.2';
+  const VERSION = '1.1.3';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
@@ -166,9 +166,13 @@
   }
 
   // Locally configured MCV boarding information.
-  function frontCarriagesNotice(destinationName, destinationCrs) {
+  function frontCarriagesNotice(destinationName, destinationCrs, coaches) {
     const name = text(destinationName).replace(/\s+/g, ' ').toUpperCase();
     const code = text(destinationCrs).toUpperCase();
+
+    // These local boarding notices only apply when the live feed confirms
+    // the service is formed of exactly 4 carriages.
+    if (coachCount(coaches) !== 4) return null;
 
     if (name === 'CLITHEROE' || code === 'CLH') {
       return {
@@ -323,6 +327,7 @@
 
     const callingPoints = parseCallingPoints(raw);
     const activeCallingPoints = callingPoints.filter(function (point) { return !point.cancelled; });
+    const coaches = coachCount(raw.length);
 
     const serviceId = text(raw.serviceID);
     const rid = text(raw.rid);
@@ -375,7 +380,7 @@
       platform: text(raw.platform),
       platformBase: platformBase(raw.platform),
 
-      coaches: coachCount(raw.length),
+      coaches: coaches,
       reverseFormation: Boolean(raw.isReverseFormation),
       detachFront: Boolean(raw.detachFront),
 
@@ -399,7 +404,7 @@
       stops: activeCallingPoints.map(function (point) { return point.name; }),
       stopsText: activeCallingPoints.map(function (point) { return point.name; }).join(', '),
 
-      frontCarriages: frontCarriagesNotice(destination, destinationCrs),
+      frontCarriages: frontCarriagesNotice(destination, destinationCrs, coaches),
 
       futureCancellation: Boolean(raw.futureCancellation),
       futureDelay: Boolean(raw.futureDelay),
