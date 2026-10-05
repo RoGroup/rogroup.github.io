@@ -905,7 +905,7 @@ function renderDetails(){
     </div>
     <div class="data-fresh"><strong>Data freshness:</strong> feed generated ${escapeHTML(state.feedGeneratedAt?fmt(state.feedGeneratedAt):'not supplied')} (${escapeHTML(ageText(state.feedGeneratedAt))}) · received by this page ${escapeHTML(state.lastGood?ukClock.format(state.lastGood):'—')} · auto-refresh every 20 seconds.</div></section>
 
-    <div class="detail-small" style="margin-top:18px">Live staff feed information. Verify against current operational instructions before acting.</div>`;
+`;
 }
 function renderEvents(){
   const rows=state.changes.slice(0,22);
