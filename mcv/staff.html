@@ -811,7 +811,7 @@ function renderDetails(){
     <section class="detail-group">
       <div class="calling-points-head">
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
-        ${beforeStops.length?`<button type="button" class="button calling-toggle" data-calling-view="${showBefore?'after':'before'}">${showBefore?'Show stops after Victoria':'Show stops before Victoria'}</button>`:''}
+        <button type="button" class="button calling-toggle" data-calling-view="${showBefore?'after':'before'}">${showBefore?'Show stops after Victoria':'Show stops before Victoria'}</button>
       </div>
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?'<div class="placeholder">No calling points before Manchester Victoria are supplied for this service.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>')}
     </section>
