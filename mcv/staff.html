@@ -109,6 +109,30 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .ops-move .move-status{font-size:9px;font-weight:800;color:var(--muted);text-align:right}
 .data-fresh{margin-top:8px;padding:10px;border:1px dashed #cdd8e5;border-radius:7px;background:#fbfcfe;font-size:10px;line-height:1.45;color:var(--muted)}
 .category-chip{display:inline-flex;padding:3px 6px;border-radius:4px;background:#e8f4fb;color:var(--navy);font-size:9px;font-weight:900;letter-spacing:.04em}
+.movement-chip{display:inline-flex;align-items:center;margin-right:5px;padding:3px 6px;border-radius:4px;background:#eef1f7;color:var(--navy);font-size:9px;font-weight:900;letter-spacing:.06em;white-space:nowrap}
+.movement-chip.origin{background:#e4f4ff;color:#005c86}.movement-chip.terminate{background:#eee9ff;color:#46309a}.movement-chip.through{background:#edf7ee;color:#1e6635}.movement-chip.ecs{background:#fff1bf;color:#5d4700}
+.countdown-chip{display:inline-block;margin-top:5px;padding:2px 5px;border-radius:4px;background:#eaf5fb;color:var(--navy);font-size:9px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+.countdown-chip.due{background:#fff0ba;color:#553b00}.countdown-chip.over{background:#ffe6ec;color:#930029}
+.formation-source{font-size:9px;font-weight:900;letter-spacing:.05em;color:#16723a}
+.conflict-chip{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:4px;background:#fff0ba;color:#553b00;font-size:9px;font-weight:900;line-height:1.2}
+.conflict-chip.danger{background:#ffe6ec;color:#930029}
+.type-segment{display:inline-flex;border:1px solid #cbd5e1;border-radius:7px;overflow:hidden;background:#fff}
+.type-segment button{border:0;border-right:1px solid #d9e1eb;background:#fff;color:var(--navy);padding:10px 11px;font-size:10px;font-weight:900;letter-spacing:.05em;cursor:pointer}
+.type-segment button:last-child{border-right:0}.type-segment button.active{background:var(--navy);color:#fff}
+.alert-strip{margin:0 0 20px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.alert-strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);background:#f8fbfe}
+.alert-strip-head strong{color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.alert-strip-head span{font-size:10px;color:var(--muted)}
+.alert-items{display:flex;gap:7px;flex-wrap:wrap;padding:10px 12px}
+.alert-item{display:inline-flex;align-items:center;gap:5px;padding:6px 8px;border-radius:6px;background:#f3f9fd;border:1px solid #d6e8f2;color:var(--navy);font-size:10px;font-weight:800;line-height:1.25}
+.alert-item.warn{background:#fff8e7;border-color:#f0d996;color:#634800}.alert-item.danger{background:#fff0f3;border-color:#efc0cb;color:#8d1030}
+.alert-empty{padding:10px 12px;color:var(--muted);font-size:11px}
+.stops li.cancelled-call{border-left-color:#e3a4b4;opacity:.78}.stops li.cancelled-call::before{background:var(--red)}
+.stops li.cancelled-call .stop-name{text-decoration:line-through;color:#7b3a4b}
+.stops li.altered-call{background:#fffaf0;border-radius:5px}
+.stop-flag{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:4px;background:#fff0ba;color:#553b00;font-size:9px;font-weight:900;vertical-align:1px}
+.stop-flag.cancel{background:#ffe6ec;color:#930029}
+
 
 .details-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
 .mobile-only{display:none}
@@ -158,6 +182,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .ops-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   .ops-move{grid-template-columns:48px 52px minmax(0,1fr)}
   .ops-move .move-status{display:none}
+  .type-segment{width:100%}
+  .type-segment button{flex:1}
+  .alert-items{display:grid;grid-template-columns:1fr}
+
   .panel-title .mini-label{display:none}
   .controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
   .controls #search{grid-column:1/-1}
@@ -250,6 +278,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="stat"><div class="stat-title">ECS moves</div><div class="stat-value" id="stat-ecs">—</div><div class="stat-sub">Non-passenger movements</div></div>
     <div class="stat small"><div class="stat-title">Next booked departure</div><div class="stat-value" id="stat-next">—</div><div class="stat-sub" id="stat-next-dest">Awaiting data</div></div>
   </section>
+  <section class="alert-strip" aria-label="Operational alerts">
+    <div class="alert-strip-head"><strong>Operational alerts</strong><span>Derived from current staff feed · advisory only</span></div>
+    <div id="operational-alerts" class="alert-empty">Waiting for live data…</div>
+  </section>
   <section aria-label="Platform overview">
     <div class="section-heading"><h2>Platform overview</h2><p>Click a platform to filter the departure list · A/B allocations included</p></div>
     <div class="platforms" id="platforms">
@@ -264,9 +296,9 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <section class="workspace" aria-label="Detailed operations">
     <div class="panel">
       <div class="panel-title"><div><h2>Detailed departures</h2><span class="minor" id="results-note">Waiting for departures feed</span></div><span class="mini-label">Select a service for details →</span></div>
-      <div class="controls"><input id="search" type="search" placeholder="Search headcode, destination, operator, station, platform or service ID…" aria-label="Search departures"><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
+      <div class="controls"><input id="search" type="search" placeholder="Search headcode, destination, operator, station, platform or service ID…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
       <div class="table-area" id="table-area"><table class="table"><thead><tr><th>Booked</th><th>Destination / operator</th><th>Formation</th><th>Platform</th><th>Expected</th><th>Status</th></tr></thead><tbody id="departures"><tr><td colspan="6" class="empty">Waiting for live departure information…</td></tr></tbody></table></div>
-      <div class="board-note">Booked-time order by default · formation is shown only when supplied by the live feed · enable “Overdue first” to prioritise delayed services past booked time.</div>
+      <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · formation is labelled live only when supplied · use ALL / PASSENGER / ECS and Booked time / Platform order to change the operational view.</div>
     </div>
     <div class="sidebar">
       <div class="panel"><div class="panel-title"><h2>Service details</h2><span class="tag">LIVE FEED</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
@@ -298,7 +330,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=5ccd1792"></script>
+<script src="mcv-data.js?v=d5e6492b"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -311,7 +343,7 @@ function centreSignalMap(){
     wrap.scrollLeft=Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2);
   });
 }
-const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
+const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -350,9 +382,74 @@ function platformState(s){
 function sameExactPlatform(a,b){return String(a||'').trim().toUpperCase()===String(b||'').trim().toUpperCase()}
 function nextPlatformMovements(s){
   if(!s.platform)return [];
-  return sortedServices().filter(x=>x.key!==s.key&&sameExactPlatform(x.platform,s.platform)&&x.bookedMs>=s.bookedMs).slice(0,3);
+  return chronologicalServices().filter(x=>x.key!==s.key&&sameExactPlatform(x.platform,s.platform)&&x.bookedMs>=s.bookedMs).slice(0,3);
 }
 function ageText(ts){if(!Number.isFinite(ts)||!ts)return 'Not supplied';const sec=Math.max(0,Math.round((Date.now()-ts)/1000));return sec<60?sec+'s ago':Math.floor(sec/60)+'m '+(sec%60)+'s ago'}
+
+function relativeAge(ts){if(!Number.isFinite(ts)||!ts)return 'unknown';const sec=Math.max(0,Math.floor((Date.now()-ts)/1000));if(sec<60)return sec+'s';if(sec<3600)return Math.floor(sec/60)+'m';return Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m'}
+function isMCV(name,crs){return String(crs||'').toUpperCase()==='MCV'||String(name||'').trim().toUpperCase()==='MANCHESTER VICTORIA'}
+function movementType(s){
+  if(s.ecs)return {key:'ecs',label:'ECS'};
+  if(isMCV(s.origin,s.originCrs))return {key:'origin',label:'ORIGINATES HERE'};
+  if(isMCV(s.dest,s.destCrs))return {key:'terminate',label:'TERMINATES HERE'};
+  return {key:'through',label:'THROUGH'};
+}
+function countdownInfo(s){
+  if(!Number.isFinite(s.bookedMs))return {text:'—',className:''};
+  const minutes=(s.bookedMs-Date.now())/60000;
+  if(minutes<-0.5)return {text:'T+'+Math.floor(Math.abs(minutes))+'m',className:'over'};
+  if(minutes<=0.5)return {text:'DUE',className:'due'};
+  const m=Math.ceil(minutes);
+  return m>=60?{text:'T−'+Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m',className:''}:{text:'T−'+m+'m',className:m<=5?'due':''};
+}
+function chronologicalServices(){return visibleServices().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.key.localeCompare(b.key))}
+function platformSortValue(p){
+  const raw=String(p||'').toUpperCase().trim(),m=raw.match(/^(\d+)([AB])?$/);
+  if(!m)return [999,'',raw];
+  return [Number(m[1]),m[2]||'',raw];
+}
+function sortByPlatform(a,b){
+  const pa=platformSortValue(a.platform),pb=platformSortValue(b.platform);
+  return pa[0]-pb[0]||pa[1].localeCompare(pb[1])||a.bookedMs-b.bookedMs||a.key.localeCompare(b.key);
+}
+function inwardRisk(s){
+  if(isMCV(s.origin,s.originCrs)||!Number.isFinite(s.expectedArrivalMs)||!Number.isFinite(s.bookedMs))return null;
+  const margin=Math.round((s.bookedMs-s.expectedArrivalMs)/60000);
+  const inwardLate=Number.isFinite(s.bookedArrivalMs)?Math.round((s.expectedArrivalMs-s.bookedArrivalMs)/60000):null;
+  if(margin<0)return {level:'danger',text:`Expected inward arrival ${Math.abs(margin)}m after booked departure`,margin,inwardLate};
+  if(margin<=3)return {level:'warn',text:`Only ${margin}m expected arrival-to-booked-departure margin`,margin,inwardLate};
+  return null;
+}
+function platformSequenceRisks(){
+  const groups=new Map();
+  for(const s of chronologicalServices()){
+    if(!s.platform||s.cancelled)continue;
+    const key=String(s.platform).toUpperCase();
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(s);
+  }
+  const risks=[];
+  for(const [platform,list] of groups){
+    for(let i=0;i<list.length-1;i++){
+      const a=list[i],b=list[i+1];
+      if(!Number.isFinite(a.bookedMs)||!Number.isFinite(b.bookedMs))continue;
+      const gap=Math.round((b.bookedMs-a.bookedMs)/60000);
+      const aLive=Number.isFinite(a.expectedMs)?a.expectedMs:a.bookedMs;
+      const clearance=Math.round((b.bookedMs-aLive)/60000);
+      if(gap<=10||clearance<=5){
+        risks.push({
+          platform,a,b,gap,clearance,
+          level:clearance<=0?'danger':'warn',
+          text:clearance<=0?`P${platform}: ${a.headcode||a.dest} expected at/after ${b.headcode||b.dest} booked departure`:`P${platform}: departures ${gap}m apart${a.delayed?` · first currently ${timeDiff(a)||0}m late`:''}`
+        });
+      }
+    }
+  }
+  return risks;
+}
+function platformRiskFor(s){return platformSequenceRisks().find(r=>r.a.key===s.key||r.b.key===s.key)||null}
+function latestPlatformChange(s){const h=state.platformHist.get(s.key)||[];return h[0]||null}
+
 
 
 function parseServices(json){
@@ -369,7 +466,8 @@ function parseServices(json){
     const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
     const mcvIndex=points.findIndex(p=>String(p.station?.crs||p.crs||'').toUpperCase()==='MCV'||String(p.station?.name||p.name||'').toUpperCase()==='MANCHESTER VICTORIA');
     let onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(p=>({
-      name:station(p.station?.name||p.name,p.station?.crs||p.crs),crs:String(p.station?.crs||p.crs||''),booked:fmt(p.arrives||p.departs),expected:fmt(p.expected_arrives||p.expected_departs),platform:String(p.platform||'').trim()
+      name:station(p.station?.name||p.name,p.station?.crs||p.crs),crs:String(p.station?.crs||p.crs||''),booked:fmt(p.arrives||p.departs),expected:fmt(p.expected_arrives||p.expected_departs),platform:String(p.platform||'').trim(),
+      cancelled:p.is_cancelled===true,affectedByDiversion:p.affected_by_diversion===true,rerouteDelay:Number(p.reroute_delay)||0,delayReason:String(p.delay_reason||'').trim()
     }));
     const headcode=String(raw.headcode||'').trim().toUpperCase();
     const uid=String(raw.uid||raw.train_uid||'').trim();
@@ -397,7 +495,11 @@ function parseServices(json){
         crs:destCrs||rawDestinationCode,
         booked:'—',
         expected:'—',
-        platform:''
+        platform:'',
+        cancelled:false,
+        affectedByDiversion:false,
+        rerouteDelay:0,
+        delayReason:''
       }];
     }
 
@@ -410,7 +512,7 @@ function parseServices(json){
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
       arrivalType:String(raw.arrival_type||'').trim(),departureType:String(raw.departure_type||'').trim(),
-      origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),
+      origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),originCrs:String(raw.origin?.crs||raw.origin_crs||'').trim().toUpperCase(),
       note:String(raw.cancel_reason||'').trim()};
     service.firstClassNotice=MCVData.firstClassNotice({
       coaches:service.coaches,operator:service.operator,operatorCode:service.operatorCode,
@@ -420,7 +522,7 @@ function parseServices(json){
   }).filter(s=>!s.notForDisplay&&!['freight','trip'].includes(s.serviceClass));
 }
 function visibleServices(){return state.services.filter(s=>!s.departed)}
-function sortedServices(){return visibleServices().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.key.localeCompare(b.key))}
+function sortedServices(){const list=chronologicalServices();return state.sortMode==='platform'?list.sort(sortByPlatform):list}
 function overdue(s){return s.delayed&&Number.isFinite(s.bookedMs)&&s.bookedMs<Date.now()}
 function changed(message,type='info',key=''){
   const now=Date.now();const sig=type+'|'+key+'|'+message;
@@ -454,7 +556,7 @@ function updateFeedBanner(){
 }
 function renderStats(){
   if(!state.lastGood)return;
-  const arr=visibleServices(),next=sortedServices().find(s=>!s.cancelled&&Number.isFinite(s.bookedMs));
+  const arr=visibleServices(),next=chronologicalServices().find(s=>!s.cancelled&&Number.isFinite(s.bookedMs));
   const ecsCount=arr.filter(s=>s.ecs).length,passengerCount=arr.length-ecsCount;
   $('stat-total').textContent=arr.length;$('stat-total-split').textContent=`${passengerCount} passenger | ${ecsCount} ECS`;$('stat-delay').textContent=arr.filter(s=>s.delayed).length;
   $('stat-overdue').textContent=`${arr.filter(overdue).length} delayed past booked time`;
@@ -464,7 +566,7 @@ function renderStats(){
   $('stat-next').textContent=next?next.booked:'—';$('stat-next-dest').textContent=next?`${next.headcode?next.headcode+' · ':''}${next.dest} · ${next.platform||'TBC'}`:'No upcoming service in feed';
 }
 function renderPlatforms(){
-  const all=sortedServices();
+  const all=chronologicalServices();
   for(let n=1;n<=6;n++){
     const el=document.querySelector(`.platform-card[data-platform="${n}"]`);const list=all.filter(s=>matchPlatform(s.platform,n));const s=list.find(x=>!x.cancelled)||list[0];
     el.classList.toggle('is-selected',state.chosenPlatform===String(n));
@@ -478,6 +580,8 @@ function selectFilter(){
   const q=state.search.toLowerCase();
   const filtered=sortedServices().filter(s=>{
     const platform=state.chosenPlatform;
+    if(state.serviceTypeFilter==='passenger'&&s.ecs)return false;
+    if(state.serviceTypeFilter==='ecs'&&!s.ecs)return false;
     if(platform==='tbc'&&s.platform)return false;
     if(/^[1-6]$/.test(platform)&&!matchPlatform(s.platform,platform))return false;
     if(state.statusFilter==='delayed'&&!s.delayed)return false;
@@ -487,20 +591,23 @@ function selectFilter(){
     if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
     return true;
   });
-  if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||a.bookedMs-b.bookedMs);
+  if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||(state.sortMode==='platform'?sortByPlatform(a,b):a.bookedMs-b.bookedMs));
   return filtered;
 }
 function badge(s){return s.cancelled?'cancel':s.delayed?'delay':'ok'}
 function renderTable(){
   if(!state.lastGood){$('departures').innerHTML='<tr><td class="empty" colspan="6">Waiting for live departures. No times are being simulated.</td></tr>';return}
-  const rows=selectFilter();const allVisible=visibleServices(),ecsCount=allVisible.filter(s=>s.ecs).length;$('results-note').textContent=`Showing ${rows.length} of ${allVisible.length} services · ${allVisible.length-ecsCount} passenger · ${ecsCount} ECS`;
+  const rows=selectFilter(),allVisible=visibleServices(),ecsCount=allVisible.filter(s=>s.ecs).length;
+  $('results-note').textContent=`Showing ${rows.length} of ${allVisible.length} services · ${allVisible.length-ecsCount} passenger · ${ecsCount} ECS · ${state.sortMode==='platform'?'platform':'booked-time'} order`;
   const scrollArea=$('table-area'),scrollTop=scrollArea.scrollTop;
   $('departures').innerHTML=rows.length?rows.map(s=>{
     const cls=s.key===state.selectedKey?' selected':'';
-    const isOverdue=overdue(s);const diff=timeDiff(s);const delta=s.delayed&&diff?` <span class="late-min">+${diff}m</span>`:'';
+    const isOverdue=overdue(s),diff=timeDiff(s),delta=s.delayed&&diff?` <span class="late-min">+${diff}m</span>`:'';
     const statusCls=s.cancelled?'cancel':s.delayed?'delay':'neutral';
     const formation=s.coaches?`${s.coaches} ${s.coaches===1?'car':'cars'}`:'Not supplied';
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small">${s.ecs?'<span class="ecs-chip">ECS</span>':''}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span>`:'<span class="detail-small">Formation not supplied</span>'}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span></td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
+    const movement=movementType(s),countdown=countdownInfo(s),risk=platformRiskFor(s);
+    const formationHtml=s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">LIVE FEED</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Formation not supplied</span>';
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${risk?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in the current feed.</td></tr>';
   scrollArea.scrollTop=scrollTop;
 }
@@ -510,13 +617,13 @@ function renderDetails(){
   if(!s){$('service-details').innerHTML='<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>';return}
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
-  const nextCall=s.stops[0]||null;
-  const platformMoves=nextPlatformMovements(s);
+  const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
+  const platformMoves=nextPlatformMovements(s),movement=movementType(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s);
   const cat=categoryName(s.trainCategory);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
   const metric=(label,value,sub='')=>`<div class="ops-metric"><div class="label">${escapeHTML(label)}</div><div class="value">${escapeHTML(value||'—')}</div>${sub?`<div class="sub">${escapeHTML(sub)}</div>`:''}</div>`;
   const statusBadge=`<span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>`;
-  const typeBadge=s.ecs?'<span class="ecs-chip">ECS / NON-PASSENGER</span>':'<span class="category-chip">PASSENGER</span>';
+  const typeBadge=`<span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>`;
   const charterBadge=s.isCharter?'<span class="category-chip">CHARTER</span>':'';
   const categoryBadge=s.trainCategory?`<span class="category-chip">${escapeHTML(s.trainCategory)} · ${escapeHTML(cat)}</span>`:'';
   const arrivalDisplay=s.actualArrival!=='—'?s.actualArrival:s.expectedArrival;
@@ -528,7 +635,7 @@ function renderDetails(){
     <div class="detail-heading">${escapeHTML(s.dest)}</div>
     <div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>
     ${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}
-    <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
+    <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
     <div class="ops-route">
       <div class="place"><small>Origin</small>${escapeHTML(s.origin==='Unknown'?'Not supplied':s.origin)}</div>
@@ -553,6 +660,9 @@ function renderDetails(){
       ${s.futureCancellation?'<div class="ops-alert danger"><strong>Future cancellation:</strong> A cancellation is flagged at a later location.</div>':''}
       ${s.futureDelay?'<div class="ops-alert warn"><strong>Future delay:</strong> A delay is flagged at a later location.</div>':''}
       ${s.uncertainty?`<div class="ops-alert warn"><strong>Uncertainty:</strong> ${escapeHTML(s.uncertainty)}</div>`:''}
+      ${inward?`<div class="ops-alert ${inward.level}"><strong>Inward / dwell risk:</strong> ${escapeHTML(inward.text)}.</div>`:''}
+      ${platformRisk?`<div class="ops-alert ${platformRisk.level}"><strong>Potential platform sequencing risk:</strong> ${escapeHTML(platformRisk.text)}. Derived from listed departure times only.</div>`:''}
+      ${lastPlatformChange?`<div class="ops-alert warn"><strong>Latest platform change:</strong> ${escapeHTML(lastPlatformChange.from)} → ${escapeHTML(lastPlatformChange.to)} · ${escapeHTML(relativeAge(lastPlatformChange.at))} ago.</div>`:''}
       ${notice&&!s.cancelled?`<div class="ops-alert"><strong>Local carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}
     </div>
 
@@ -561,7 +671,7 @@ function renderDetails(){
       ${extra('Headcode',s.headcode||'Not supplied')}
       ${s.uid?extra('Train UID',s.uid):''}
       ${extra('Train category',s.trainCategory?(s.trainCategory+' · '+cat):'Not supplied')}
-      ${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}
+      ${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'} · live staff feed`:'Not supplied by live feed')}
       ${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}
       ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
       ${extra('Service type',s.ecs?'ECS / non-passenger':(s.isCharter?'Passenger charter':'Passenger service'))}
@@ -578,10 +688,10 @@ function renderDetails(){
     </section>
 
     <section class="detail-group"><h3>Calling points after Manchester Victoria · ${s.stops.length}</h3>
-      ${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li><div class="stop-name">${escapeHTML(p.name)}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}
+      ${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}
     </section>
 
-    ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)}</div>`).join('')}</section>`:''}
+    ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)} · ${escapeHTML(relativeAge(h.at))} ago</div>`).join('')}</section>`:''}
 
     <section class="detail-group"><h3>Technical identifiers</h3><div class="keyvalues">
       ${s.rid?extra('RID',s.rid):''}
@@ -599,7 +709,27 @@ function renderEvents(){
   $('events').innerHTML=rows.length?rows.map(e=>`<li><span class="event-time">${escapeHTML(ukClock.format(e.at))} · ${escapeHTML(e.type.toUpperCase())}</span><div class="event-copy">${escapeHTML(e.message)}</div></li>`).join(''):'<li><span class="event-time">SESSION START</span>No changes observed yet. This log starts when you open the page.</li>';
   $('event-feed-status').textContent='Live departure snapshots · changes observed in this browser session only';
 }
-function render(){updateFeedBanner();renderStats();renderPlatforms();renderTable();renderDetails();renderEvents()}
+function renderOperationalAlerts(){
+  const target=$('operational-alerts');
+  if(!state.lastGood){target.className='alert-empty';target.textContent='Waiting for live data…';return}
+  const alerts=[];
+  for(const s of chronologicalServices()){
+    if(s.cancelled)alerts.push({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: cancelled`});
+    else if(overdue(s))alerts.push({level:'warn',text:`${s.headcode||s.dest}: delayed past booked departure`});
+    if(s.reverseFormation)alerts.push({level:'warn',text:`${s.headcode||s.dest}: reverse formation reported`});
+    if(s.futureCancellation)alerts.push({level:'danger',text:`${s.headcode||s.dest}: future cancellation flagged`});
+    if(s.futureDelay)alerts.push({level:'warn',text:`${s.headcode||s.dest}: future delay flagged`});
+    const inward=inwardRisk(s);if(inward)alerts.push({level:inward.level,text:`${s.headcode||s.dest}: ${inward.text}`});
+    const change=latestPlatformChange(s);if(change&&Date.now()-change.at<15*60*1000)alerts.push({level:'warn',text:`${s.headcode||s.dest}: platform ${change.from}→${change.to} · ${relativeAge(change.at)} ago`});
+  }
+  for(const r of platformSequenceRisks())alerts.push({level:r.level,text:r.text});
+  const unique=[];const seen=new Set();
+  for(const a of alerts){if(seen.has(a.text))continue;seen.add(a.text);unique.push(a);if(unique.length>=10)break}
+  if(!unique.length){target.className='alert-empty';target.textContent='No current alerts derived from the live staff feed.';return}
+  target.className='alert-items';
+  target.innerHTML=unique.map(a=>`<div class="alert-item ${a.level}">${escapeHTML(a.text)}</div>`).join('');
+}
+function render(){updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
     const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
@@ -627,6 +757,8 @@ $('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')r
 $('platforms').addEventListener('click',e=>{const card=e.target.closest('[data-platform]');if(!card)return;const num=card.dataset.platform;state.chosenPlatform=state.chosenPlatform===num?'all':num;$('platform-filter').value=state.chosenPlatform;renderPlatforms();renderTable()});
 $('platform-filter').addEventListener('change',e=>{state.chosenPlatform=e.target.value;renderPlatforms();renderTable()});
 $('status-filter').addEventListener('change',e=>{state.statusFilter=e.target.value;renderTable()});
+$('service-type-filter').addEventListener('click',e=>{const btn=e.target.closest('button[data-type]');if(!btn)return;state.serviceTypeFilter=btn.dataset.type;document.querySelectorAll('#service-type-filter button').forEach(b=>b.classList.toggle('active',b===btn));renderTable()});
+$('sort-mode').addEventListener('change',e=>{state.sortMode=e.target.value;renderTable()});
 $('search').addEventListener('input',e=>{state.search=e.target.value.trim();renderTable()});
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
 $('refresh').addEventListener('click',()=>fetchDepartures());
@@ -634,7 +766,7 @@ $('export').addEventListener('click',exportCSV);
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
-setInterval(()=>{if(state.lastGood){renderStats();renderPlatforms();if(state.statusFilter==='overdue'||state.overdueFirst)renderTable();renderDetails()}},15000);
+setInterval(()=>{if(state.lastGood){renderStats();renderOperationalAlerts();renderPlatforms();renderTable();renderDetails()}},15000);
 </script>
 </body>
 </html>
