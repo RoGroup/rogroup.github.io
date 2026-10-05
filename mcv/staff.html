@@ -464,6 +464,12 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script src="mcv-data.js?v=59a6cd6d"></script>
 <script>
 'use strict';
+if ('scrollRestoration' in history) history.scrollRestoration='manual';
+function resetPageScroll(){
+  if(!location.hash) window.scrollTo({top:0,left:0,behavior:'auto'});
+}
+window.addEventListener('pageshow',resetPageScroll);
+
 const REFRESH_MS=20000, STALE_MS=60000;
 const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
 const STAFF_DETAILS_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-details';
@@ -1110,6 +1116,7 @@ $('theme-toggle').addEventListener('click',toggleTheme);
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
+resetPageScroll();
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
