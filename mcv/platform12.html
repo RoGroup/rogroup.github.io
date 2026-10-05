@@ -267,15 +267,16 @@ footer {
 </div>
 
 
+<script src="mcv-data.js"></script>
 <script>
 'use strict';
 // Unattended platform-display settings. Live RDM data is supplied through our
 // Cloudflare Worker so the Rail Data Marketplace API key never reaches the browser.
 const CONFIG = {
   maxDepartures: 12,
-  refreshIntervalMs: 20000,
-  departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
-  alertRotationMs: 14000,
+  platformFilter: ["1", "2"],
+  refreshIntervalMs: MCVData.CONFIG.refreshIntervalMs,
+    alertRotationMs: 14000,
   platformChangeMemoryMs: 5 * 60 * 1000
 };
 
@@ -315,205 +316,26 @@ let verticalTransition = null;
 let previousAnimationTime = null;
 
 function updateClock() {
-  const now = new Date();
-  document.getElementById('live-clock').textContent = now.toLocaleTimeString('en-GB', { hour12: false, timeZone: 'Europe/London' });
-  document.getElementById('live-date').textContent = now.toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/London'
-  });
+  MCVData.updateClock('live-clock', 'live-date');
 }
 
-function rdmTime(value) {
-  const text = String(value ?? '').trim();
-  return /^\d{2}:\d{2}$/.test(text) ? text : '--:--';
-}
-
-function londonClockParts(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hour12: false
-  }).formatToParts(date);
-  const obj = Object.fromEntries(parts.map(p => [p.type, p.value]));
-  return {
-    year: Number(obj.year), month: Number(obj.month), day: Number(obj.day),
-    hour: Number(obj.hour), minute: Number(obj.minute)
-  };
-}
-
-// Convert a Manchester departure clock time into a comparable epoch value.
-// RDM boards are station-local. We anchor the service to the feed's generated date
-// and correct midnight crossings by choosing the occurrence closest to generatedAt.
-function rdmScheduledEpoch(hhmm, generatedAt) {
-  const match = /^(\d{2}):(\d{2})$/.exec(String(hhmm ?? '').trim());
-  if (!match) return Number.POSITIVE_INFINITY;
-  const base = new Date(generatedAt || Date.now());
-  const london = londonClockParts(base);
-  // Date.UTC is only a neutral first guess; the adjustment below aligns the result
-  // to the actual Europe/London clock shown by the feed.
-  let guess = Date.UTC(london.year, london.month - 1, london.day, Number(match[1]), Number(match[2]));
-  for (let i = 0; i < 2; i++) {
-    const shown = londonClockParts(new Date(guess));
-    const desiredMinutes = Number(match[1]) * 60 + Number(match[2]);
-    const shownMinutes = shown.hour * 60 + shown.minute;
-    let deltaMinutes = desiredMinutes - shownMinutes;
-    if (deltaMinutes > 720) deltaMinutes -= 1440;
-    if (deltaMinutes < -720) deltaMinutes += 1440;
-    guess += deltaMinutes * 60000;
-  }
-  const baseMs = base.getTime();
-  if (guess < baseMs - 12 * 60 * 60 * 1000) guess += 24 * 60 * 60 * 1000;
-  if (guess > baseMs + 12 * 60 * 60 * 1000) guess -= 24 * 60 * 60 * 1000;
-  return guess;
-}
-
-function expectedMinutesLate(std, etd) {
-  const booked = /^(\d{2}):(\d{2})$/.exec(String(std ?? '').trim());
-  const expected = /^(\d{2}):(\d{2})$/.exec(String(etd ?? '').trim());
-  if (!booked || !expected) return null;
-  const b = Number(booked[1]) * 60 + Number(booked[2]);
-  const e = Number(expected[1]) * 60 + Number(expected[2]);
-  let diff = e - b;
-  if (diff < -720) diff += 1440;
-  if (diff > 720) diff -= 1440;
-  return diff;
-}
-
-function escapeHTML(value) {
-  return String(value ?? '').replace(/[&<>"']/g, char => ({
-    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
-  }[char]));
-}
-
-// Local presentation-only station name correction. Does not alter the live feed.
-// SFD is Salford Central; SLD is Salford Crescent and must remain unchanged.
-function displayStationName(name, crs = '') {
-  const rawName = String(name ?? '').trim();
-  const code = String(crs ?? '').trim().toUpperCase();
-  if (code === 'SFD') return 'SALFORD CENTRAL';
-  if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'SALFORD CENTRAL';
-  return rawName || code;
-}
-
-// Local display rule supplied by station staff; never apply it to other destinations.
-// Check the current station operating notice before putting these instructions on a live screen.
-// Matching CRS codes are a backup in case the API varies the displayed name.
-function frontCarriagesNotice(destinationName, destinationCrs = '') {
-  const name = String(destinationName ?? '').trim().replace(/\s+/g, ' ').toUpperCase();
-  const code = String(destinationCrs ?? '').trim().toUpperCase();
-  if (name === 'CLITHEROE' || code === 'CLH') {
-    return {
-      stops: 'LANGHO, WHALLEY & CLITHEROE',
-      rowText: 'For LANGHO, WHALLEY & CLITHEROE, travel in the FRONT 2 CARRIAGES ONLY.'
-    };
-  }
-  if (name === 'HEADBOLT LANE' || code === 'HBL') {
-    return {
-      stops: 'UPHOLLAND, RAINFORD & HEADBOLT LANE',
-      rowText: 'For UPHOLLAND, RAINFORD & HEADBOLT LANE, travel in the FRONT 2 CARRIAGES ONLY.'
-    };
-  }
-  return null;
-}
-
-// Uses the same nullable Darwin-supplied coach count as the next-train screens.
-// A boarding notice (e.g. FRONT 2 CARRIAGES) is not a train formation.
-function coachCount(raw) {
-  if (raw === null || raw === undefined || typeof raw === 'boolean' || raw === '') return null;
-  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
-  return Number.isInteger(n) && n > 0 && n <= 30 ? n : null;
-}
-
-// Local customer-information rule: never infer First Class placement from coach count alone.
-// Only apply the staff-supplied Coach E notice to TransPennine Express services
-// when the live feed *also* supplies exactly 5 coaches.
-function isTransPennineExpress(operatorName) {
-  const name = String(operatorName ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-  return name === 'tpe' || name.includes('transpennine express');
-}
-
-// Map the Rail Data Marketplace / Darwin departure-board response into the
-// board's internal service model. No timetable or formation values are guessed.
-function parseServices(data) {
-  const entries = Array.isArray(data?.trainServices) ? data.trainServices : [];
-  const generatedAt = data?.generatedAt || new Date().toISOString();
-
-  return entries.map(s => {
-    const std = String(s.std || '').trim();
-    const etdRaw = String(s.etd || '').trim();
-    const atdRaw = String(s.atd || '').trim();
-    const cancelled = s.isCancelled === true || s.filterLocationCancelled === true || /^cancelled$/i.test(etdRaw);
-    const reportedDeparted = /^\d{2}:\d{2}$/.test(atdRaw);
-    const minutesLate = expectedMinutesLate(std, etdRaw);
-    const isDelayed = !cancelled && (
-      /^delayed$/i.test(etdRaw) ||
-      (minutesLate !== null && minutesLate > 0)
-    );
-
-    let status = 'On time';
-    if (cancelled) status = 'Cancelled';
-    else if (/^delayed$/i.test(etdRaw)) status = 'Delayed';
-    else if (/^\d{2}:\d{2}$/.test(etdRaw) && etdRaw !== std) status = `Expected ${etdRaw}`;
-    else if (etdRaw && !/^on time$/i.test(etdRaw)) status = etdRaw;
-
-    const statusClass = cancelled ? 'cancelled' : isDelayed ? 'delayed' : 'on-time';
-
-    const destinationEntries = Array.isArray(s.destination) ? s.destination : [];
-    const destinationNames = destinationEntries.map(d => displayStationName(d?.locationName, d?.crs)).filter(Boolean);
-    const destination = destinationNames.length ? destinationNames.join(' & ') : 'Unknown';
-    const destinationCrs = destinationEntries[0]?.crs || '';
-
-    const callingPointGroups = Array.isArray(s.subsequentCallingPoints) ? s.subsequentCallingPoints : [];
-    const callingPoints = callingPointGroups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
-    const stops = callingPoints
-      .filter(point => point?.isCancelled !== true)
-      .map(point => displayStationName(point?.locationName, point?.crs))
-      .filter(Boolean)
-      .join(', ');
-
-    const serviceId = String(s.serviceID || s.rsid || '').trim();
-    const serviceKey = serviceId || [std, s.operatorCode || s.operator || 'operator', destination].join('|');
-
-    return {
-      key: serviceKey,
-      trainId: serviceId,
-      scheduledMs: rdmScheduledEpoch(std, generatedAt),
-      time: rdmTime(std),
-      destination,
-      operator: s.operator || 'National Rail',
-      coaches: coachCount(s.length),
-      frontCarriages: frontCarriagesNotice(destination, destinationCrs),
-      status,
-      statusClass,
-      isDelayed,
-      isDeparted: reportedDeparted,
-      platform: String(s.platform ?? '').trim(),
-      stops,
-      lateReason: isDelayed ? String(s.delayReason || '').trim() : '',
-      cancellationReason: cancelled ? String(s.cancelReason || s.delayReason || '').trim() : '',
-      notForDisplay: String(s.serviceType || 'train').toLowerCase() !== 'train',
-      serviceClass: String(s.serviceType || 'train').toLowerCase()
-    };
-  });
-}
+const escapeHTML = MCVData.escapeHTML;
 
 // A reported delay only gains top-of-board priority AFTER booked departure time.
 // Until then the service retains its normal chronological place in the next twelve.
 function isOverdueDelayedService(service, nowMs = Date.now()) {
-  return service.isDelayed && Number.isFinite(service.scheduledMs) && service.scheduledMs < nowMs;
+  return MCVData.isOverdueDelayed(service, nowMs);
 }
 
 function selectDepartures() {
-  const nowMs = Date.now();
-  return latestServices.filter(s =>
-    !s.isDeparted && !s.notForDisplay &&
-    (!s.serviceClass || !['freight', 'empty stock', 'trip'].includes(s.serviceClass)) &&
-    /^(?:platform\s*)?[12]\s*[ab]?$/i.test(String(s.platform ?? '').trim())
-  )
-  // Choose which services to show from their BOOKED times, not delay estimates.
-  .sort((a, b) => a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key))
-  .slice(0, CONFIG.maxDepartures)
-  // Only an overdue delayed train rises to the top. Preserve booked order otherwise.
-  .sort((a, b) => Number(isOverdueDelayedService(b, nowMs)) - Number(isOverdueDelayedService(a, nowMs)) ||
-    a.scheduledMs - b.scheduledMs || a.key.localeCompare(b.key));
+  return MCVData.selectDepartures(latestServices, {
+    limit: CONFIG.maxDepartures,
+    platform: CONFIG.platformFilter,
+    includeCancelled: true,
+    includeDeparted: false,
+    overdueFirst: true,
+    nowMs: Date.now()
+  });
 }
 
 function emptyMessage(text) {
@@ -558,7 +380,7 @@ function renderBoard(services) {
         <div class="dep-destination-wrap">
           <div class="dep-dest">${escapeHTML(dep.destination)}</div>
           ${dep.coaches === null ? '' : `<span class="formation-badge" aria-label="Train formation: ${dep.coaches} ${dep.coaches === 1 ? 'carriage' : 'carriages'}">${dep.coaches} ${dep.coaches === 1 ? 'CARRIAGE' : 'CARRIAGES'}</span>`}
-          ${dep.coaches === 5 && isTransPennineExpress(dep.operator) && dep.statusClass !== 'cancelled' ? '<span class="first-class-badge" role="note">FIRST CLASS: COACH E</span>' : ''}
+          ${dep.firstClassNotice ? `<span class="first-class-badge" role="note">${escapeHTML(dep.firstClassNotice)}</span>` : ''}
         </div>
         <div class="dep-operator">${escapeHTML(dep.operator)}</div>
         <div class="dep-status ${dep.statusClass}">${escapeHTML(dep.status)}</div>
@@ -724,19 +546,22 @@ async function fetchDepartures() {
   if (departuresBusy) return;
   departuresBusy = true;
   try {
-    const response = await fetch(CONFIG.departuresUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error('RDM proxy HTTP ' + response.status);
-    const json = await response.json();
-    if (!Array.isArray(json?.trainServices)) throw new Error('Unexpected RDM departure data');
-    latestServices = parseServices(json);
+    const board = await MCVData.fetchBoard({ allowStale: true });
+    latestServices = board.services;
     boardIsAvailable = true;
     recordPlatformChanges(latestServices);
     updateDisplayedServices();
+    if (board.fallback || board.stale) {
+      const age = MCVData.ageLabel(board.ageMs);
+      setAlerts([{
+        type: 'warning', priority: 0, scheduledMs: 0,
+        text: `LIVE FEED TEMPORARILY UNAVAILABLE — showing last received departure information (${age}).`
+      }, ...buildServiceAlerts(selectDepartures()).slice(0, 9)]);
+    }
   } catch (error) {
     console.warn('RDM departure feed unavailable:', error);
     boardIsAvailable = false;
     latestServices = [];
-    // Never substitute invented train times on a public/platform display.
     emptyMessage('Live departure information is temporarily unavailable. Please check station screens.');
     setAlerts([{ type: 'unavailable', text: 'LIVE DEPARTURE INFORMATION UNAVAILABLE — Please refer to official station information.' }]);
   } finally {
