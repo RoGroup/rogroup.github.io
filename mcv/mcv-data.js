@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.8';
+  const VERSION = '1.1.9';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -240,9 +240,9 @@
     });
   }
 
-  function parseCallingPoints(service) {
-    const groups = Array.isArray(service && service.subsequentCallingPoints)
-      ? service.subsequentCallingPoints
+  function parseCallingPointGroups(service, property) {
+    const groups = Array.isArray(service && service[property])
+      ? service[property]
       : [];
 
     const points = groups.flatMap(function (group) {
@@ -264,6 +264,14 @@
         delayReason: text(point && point.delayReason)
       };
     });
+  }
+
+  function parseCallingPoints(service) {
+    return parseCallingPointGroups(service, 'subsequentCallingPoints');
+  }
+
+  function parsePreviousCallingPoints(service) {
+    return parseCallingPointGroups(service, 'previousCallingPoints');
   }
 
   function statusForService(service) {
@@ -788,7 +796,7 @@
         const actualArrival = clockToIso(service.ata, generatedAt);
         const actualDeparture = clockToIso(service.atd, generatedAt);
 
-        const points = parseCallingPoints(service).map(function (point) {
+        function legacyPoint(point) {
           const scheduled = clockToIso(point.scheduled, generatedAt);
           const expectedPoint =
             expectedClockToIso(point.expected, point.scheduled, generatedAt) || scheduled;
@@ -810,7 +818,10 @@
             reroute_delay: Number(point.rerouteDelay) || 0,
             delay_reason: text(point.delayReason)
           };
-        });
+        }
+
+        const points = parseCallingPoints(service).map(legacyPoint);
+        const previousPoints = parsePreviousCallingPoints(service).map(legacyPoint);
 
         return {
           train_id: text(service.trainid || service.serviceID || service.rid || service.rsid || ('rdm-' + index)),
@@ -848,6 +859,7 @@
           platform_withheld: !text(service.platform),
           platform_hidden: service.platformIsHidden === true,
           calling_points: points,
+          previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
           late_reason: text(service.delayReason),
           cancel_reason: text(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
@@ -889,6 +901,7 @@
     platformBase: platformBase,
     platformMatches: platformMatches,
     parseCallingPoints: parseCallingPoints,
+    parsePreviousCallingPoints: parsePreviousCallingPoints,
     statusForService: statusForService,
     parseService: parseService,
     parseBoard: parseBoard,
