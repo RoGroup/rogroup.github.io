@@ -788,8 +788,9 @@ function renderDetails(){
   const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before';
   const displayedStops=showBefore?beforeStops:s.stops;
   const detailsLoading=state.detailsBusy.has(detailCacheKey(s));
+  const flow=serviceFlow(s),movement=movementType(s);
   const canShowPriorStops=flow.key!=='origin'&&(!s.previousStopsLoaded||beforeStops.length>0||detailsLoading||Boolean(s.previousStopsError));
-  const platformMoves=nextPlatformMovements(s),movement=movementType(s),flow=serviceFlow(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
+  const platformMoves=nextPlatformMovements(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
   const cat=categoryName(s.trainCategory);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
   const metric=(label,value,sub='')=>`<div class="ops-metric"><div class="label">${escapeHTML(label)}</div><div class="value">${escapeHTML(value||'—')}</div>${sub?`<div class="sub">${escapeHTML(sub)}</div>`:''}</div>`;
