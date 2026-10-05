@@ -37,9 +37,9 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 }
 .signal-frame{
   display:block;
-  width:1600px;
+  width:max(2200px,140vw);
   max-width:none;
-  height:calc(100% + 72px);
+  height:900px;
   border:0;
   background:#fff;
   transform:translateY(-72px);
@@ -53,7 +53,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   }
   .signal-frame{
     width:1100px;
-    height:100%;
+    height:760px;
     transform:none
   }
   .signal-panel .panel-title{
@@ -249,6 +249,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
         src="https://traksy.uk/live/M+22+MNCRVIC"
         title="Live Traksy signalling map for Manchester Victoria"
         loading="lazy"
+        scrolling="no"
         referrerpolicy="strict-origin-when-cross-origin">
       </iframe>
     </div>
@@ -263,6 +264,14 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
 const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
+
+function centreSignalMap(){
+  const wrap=document.querySelector('.signal-frame-wrap');
+  if(!wrap)return;
+  requestAnimationFrame(()=>{
+    wrap.scrollLeft=Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2);
+  });
+}
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
   lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
@@ -449,7 +458,8 @@ $('search').addEventListener('input',e=>{state.search=e.target.value.trim();rend
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
-updateClock();renderEvents();fetchDepartures();
+updateClock();renderEvents();fetchDepartures();centreSignalMap();
+window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
 setInterval(()=>{if(state.lastGood){renderStats();renderPlatforms();if(state.statusFilter==='overdue'||state.overdueFirst)renderTable();renderDetails()}},15000);
 </script>
