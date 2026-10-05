@@ -18,7 +18,7 @@ button,input{font:inherit}button{cursor:pointer;-webkit-tap-highlight-color:tran
 .wrap{max-width:780px;margin:0 auto;padding:0 16px}
 .top{background:#fff;border-bottom:3px solid var(--blue);padding:10px 0 9px}
 .header-row{display:flex;align-items:center;justify-content:space-between;gap:9px}
-.brand{display:flex;align-items:center;gap:12px;min-width:0}.logo{width:112px;height:44px;object-fit:contain;flex-shrink:0}.brand-copy{border-left:1px solid var(--line);padding-left:11px;min-width:0}.brand-copy strong{display:block;font-size:14px;color:var(--navy);line-height:1.18}.brand-copy span{display:block;color:var(--blue);text-transform:uppercase;letter-spacing:1px;font-size:9px;font-weight:800;margin-top:4px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}.home-logo{display:flex;align-items:center;flex:none;text-decoration:none}.logo{width:112px;height:44px;object-fit:contain;flex-shrink:0}.brand-copy{border-left:1px solid var(--line);padding-left:11px;min-width:0}.brand-copy strong{display:block;font-size:14px;color:var(--navy);line-height:1.18}.brand-copy span{display:block;color:var(--blue);text-transform:uppercase;letter-spacing:1px;font-size:9px;font-weight:800;margin-top:4px}
 .clock{font-size:21px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;white-space:nowrap}
 .feed{background:#fff;border-bottom:1px solid var(--line);min-height:34px}.feed-inner{display:flex;align-items:center;justify-content:space-between;gap:9px;padding-top:8px;padding-bottom:8px;color:#465269;font-size:11px}.connection{display:flex;align-items:center;gap:7px;min-width:0}.connection span:last-child{min-width:0}.light{height:8px;width:8px;border-radius:50%;background:#a6b0bc;flex-shrink:0}.light.ok{background:var(--green)}.light.warn{background:#c48300}.light.bad{background:var(--red)}.link-button{border:0;background:transparent;color:var(--navy);font-weight:800;white-space:nowrap;text-decoration:underline;text-underline-offset:2px;padding:0}
 main{padding-top:18px}.section{padding-bottom:30px}.eyebrow{font-size:10px;color:var(--blue);letter-spacing:1.4px;font-weight:900;text-transform:uppercase}
@@ -130,15 +130,10 @@ main{padding-top:18px}.section{padding-bottom:30px}.eyebrow{font-size:10px;color
 
 </style>
 
-<style id="mcv-no-logo">
-.logo,.northern-logo,.brand-logo,#logo{display:none!important}
-.station-info,.station{border-left:0!important;padding-left:0!important}
-.brand{gap:0!important}
-</style>
 </head>
 <body>
 <header class="top"><div class="wrap header-row">
- <div class="brand"><div class="brand-copy"><strong>Manchester Victoria</strong><span>Passenger Assist · Staff Only</span></div></div>
+ <div class="brand"><a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a><div class="brand-copy"><strong>Manchester Victoria</strong><span>Passenger Assist · Staff Only</span></div></div>
  <div class="clock" id="clock" aria-label="Current UK time">--:--:--</div>
 </div></header>
 <div class="feed"><div class="wrap feed-inner"><div class="connection" role="status"><span id="feed-light" class="light"></span><span id="feed-status">Connecting to live departures…</span></div><button type="button" class="link-button" id="refresh">Refresh</button></div></div>
