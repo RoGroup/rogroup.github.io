@@ -400,6 +400,40 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .table tr.service-row{grid-template-columns:61px minmax(0,1fr) auto;gap:5px 7px;padding:10px 9px}
   .keyvalues{grid-template-columns:1fr}
 }
+
+/* Mobile service cards need explicit dark surfaces because the responsive
+   card rules are declared after the main dark-theme block. */
+@media(max-width:760px){
+  :root[data-theme="dark"] .table-area{
+    background:#11172f;
+  }
+  :root[data-theme="dark"] .table tr.service-row{
+    background:#171c3d;
+    color:#eef2ff;
+    border-color:#343b64;
+    box-shadow:0 2px 8px rgba(0,0,0,.18);
+  }
+  :root[data-theme="dark"] .table tr.service-row:hover{
+    background:#1d2448;
+  }
+  :root[data-theme="dark"] .table tr.service-row.selected{
+    background:#203959;
+    border-color:#3f91ba;
+    box-shadow:inset 3px 0 var(--blue);
+  }
+  :root[data-theme="dark"] .table tr.service-row.is-overdue{
+    box-shadow:inset 4px 0 var(--amber);
+  }
+  :root[data-theme="dark"] .table tr.service-row.selected.is-overdue{
+    box-shadow:inset 4px 0 var(--amber),inset 7px 0 var(--blue);
+  }
+  :root[data-theme="dark"] .service-formation{
+    border-top-color:#343b64!important;
+  }
+  :root[data-theme="dark"] .service-expected::before{
+    color:#8f9db5;
+  }
+}
 </style>
 
 </head>
