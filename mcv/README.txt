@@ -1,15 +1,21 @@
-MANCHESTER VICTORIA — STAFF LAUNCHER
+Manchester Victoria display update
 
-1. Place index.html and full.html in the same folder as:
-   staff.html, assist.html, assist-desktop.html, platform.html, platform1.html etc.
-2. Keep your existing Bunday font files beside them. The Northern logo is embedded.
-3. Upload both index.html and full.html to your GitHub Pages repository.
-4. index.html opens the three staff tools. Enter the access code at the bottom to open full.html.
+Live MCV departure data source:
+https://mcv-rdm-proxy.baileykendall432.workers.dev/departures
 
-This is a CLIENT-SIDE NAVIGATION GATE, NOT AUTHENTICATION. GitHub Pages is
-public static hosting. Visitors can examine the HTML/JavaScript and access
-other published display URLs directly. Do not put confidential information,
-operational credentials, or sensitive passenger information in these pages.
-Use authenticated hosting if you need genuine staff-only access.
+Updated to RDM Worker:
+- platform.html
+- platform1.html through platform6.html
+- platform12.html and platform45.html
+- nexttrain1.html through nexttrain6.html
+- staff.html
+- assist.html
+- assist-desktop.html
+- control.html
+- index.html live departures panel
 
-All existing boards and staff tools remain unchanged.
+Logo removed from every HTML file in this package. Northern visual system retained: Bunday Clean, #262262 navy, #0698d6 blue, existing accessible colour hierarchy and layouts.
+
+journey.html keeps its existing Traini station-search/journey engine because the RDM Live Departure Board product does not supply the arbitrary station search / journey-planning interface that page uses. Its Northern logo has still been removed.
+
+Keep your existing bunday-clean-regular.woff, bunday-clean-bold.woff, static-notices.js, platform-alterations.js and notices.json files in the GitHub Pages repository.
