@@ -3,6 +3,9 @@
   'use strict';
   const screen=location.pathname.split('/').pop().toLowerCase();
   const isPassenger=/^(?:platform(?:[1-6]|12|45)?|nexttrain[1-6])\.html$/.test(screen);
+  // Platform changes are now shown inline on the affected service, never as a
+  // floating overlay that can cover passenger information.
+  const SHOW_OVERLAY=false;
   const MAX_AGE=6*60*1000;
   const memory=new Map(), changes=[];
   let firstSnapshot=false, visibleId='', rotateAt=0, panel, title, message;
@@ -63,7 +66,7 @@
     show();
   }
   function ensureUI(){
-    if(!isPassenger||panel||!document.body)return;
+    if(!isPassenger||!SHOW_OVERLAY||panel||!document.body)return;
     const css=document.createElement('style');
     css.textContent=`#mcv-observed-alteration{position:fixed;left:50%;transform:translateX(-50%);bottom:190px;width:min(1100px,calc(100vw - 36px));z-index:2147483590;box-sizing:border-box;background:#fff;color:#262262;border:2px solid #262262;border-left:12px solid #ffbd1c;box-shadow:0 7px 32px #0005;border-radius:7px;padding:13px 19px;display:flex;gap:15px;align-items:center;pointer-events:none;font:700 clamp(16px,1.5vw,25px)/1.3 'Bunday Clean',Arial,sans-serif}#mcv-observed-alteration[hidden]{display:none!important}#mcv-observed-alteration strong{font-size:.68em;letter-spacing:.04em;background:#ffbd1c;color:#262262;padding:7px 9px;border-radius:3px;white-space:nowrap}#mcv-observed-alteration span{overflow-wrap:anywhere}@media(max-width:700px){#mcv-observed-alteration{bottom:155px;width:calc(100vw - 16px);gap:8px;padding:10px;font-size:15px;flex-wrap:wrap}}`;
     document.head.appendChild(css);
@@ -72,7 +75,7 @@
     message=document.createElement('span');panel.append(title,message);document.body.appendChild(panel);
   }
   function show(){
-    if(!isPassenger)return;
+    if(!isPassenger||!SHOW_OVERLAY)return;
     ensureUI();if(!panel)return;
     const relevant=readChanges().filter(c=>c.targets.includes(screen));
     if(!relevant.length){panel.hidden=true;visibleId='';return;}
