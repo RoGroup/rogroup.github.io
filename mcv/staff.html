@@ -43,6 +43,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .signal-control-btn{appearance:none;border:1px solid #c8d2e2;background:#fff;color:var(--navy);border-radius:7px;padding:7px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .signal-control-btn:hover{background:#f3f6fb}
 .signal-control-btn[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+.signal-controls-exit{display:none;position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:1002;appearance:none;border:0;border-radius:999px;background:#fff;color:#262262;padding:10px 15px;font:inherit;font-size:13px;font-weight:900;box-shadow:0 3px 14px rgba(0,0,0,.24);cursor:pointer}
+.signal-frame-wrap.controls-enabled{position:fixed;inset:0;z-index:1000;width:100vw;height:100dvh;min-height:0;overflow:hidden;touch-action:auto;background:#fff}
+.signal-frame-wrap.controls-enabled .signal-frame{width:100vw;height:100dvh;min-width:0;transform:none;touch-action:auto}
+.signal-frame-wrap.controls-enabled .signal-controls-exit{display:block}
 .signal-frame-wrap{
   height:min(68vh,680px);
   min-height:520px;
@@ -458,6 +462,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       </div>
     </div>
     <div class="signal-frame-wrap">
+      <button class="signal-controls-exit" id="signal-controls-exit" type="button">Done</button>
       <iframe
         class="signal-frame"
         src="https://traksy.uk/live/M+22+MNCRVIC"
@@ -467,7 +472,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
         referrerpolicy="strict-origin-when-cross-origin">
       </iframe>
     </div>
-    <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” temporarily; otherwise the embed stays horizontal-scroll only.</div>
+    <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” to open the embed full-screen, then tap “Done” when finished.</div>
   </section>
 
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
@@ -499,11 +504,14 @@ function setSignalControls(enabled){
   const frame=document.querySelector('.signal-frame');
   const button=$('signal-controls');
   if(!wrap||!frame||!button)return;
+  wrap.classList.toggle('controls-enabled',enabled);
   frame.setAttribute('scrolling',enabled?'yes':'no');
   frame.style.touchAction=enabled?'auto':'pan-x';
   wrap.style.touchAction=enabled?'auto':'pan-x';
+  document.body.style.overflow=enabled?'hidden':'';
   button.setAttribute('aria-pressed',String(enabled));
-  button.textContent=enabled?'Lock map scrolling':'Enable Traksy controls';
+  button.textContent=enabled?'Traksy controls enabled':'Enable Traksy controls';
+  if(!enabled)centreSignalMap();
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),previousStopsCache:new Map(),detailsBusy:new Set()};
@@ -1138,6 +1146,7 @@ $('search').addEventListener('input',e=>{state.search=e.target.value.trim();rend
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
 $('theme-toggle').addEventListener('click',toggleTheme);
 $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
+$('signal-controls-exit').addEventListener('click',()=>setSignalControls(false));
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
