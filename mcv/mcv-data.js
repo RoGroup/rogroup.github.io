@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.9';
+  const VERSION = '1.1.10';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -831,6 +831,7 @@
           rid: text(service.rid),
           service_id: text(service.serviceID),
           rsid: text(service.rsid),
+          scheduled_departure_date: text(service.sdd),
           departs: booked,
           expected_departs: expected,
           actual_departs: actualDeparture,
