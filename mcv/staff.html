@@ -140,6 +140,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .stops li.altered-call{background:#fffaf0;border-radius:5px}
 .stop-flag{display:inline-block;margin-left:6px;padding:2px 5px;border-radius:4px;background:#fff0ba;color:#553b00;font-size:9px;font-weight:900;vertical-align:1px}
 .stop-flag.cancel{background:#ffe6ec;color:#930029}
+.calling-points-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.calling-points-head h3{margin:0}
+.calling-toggle{padding:7px 9px;font-size:10px}
+@media(max-width:760px){.calling-points-head{align-items:flex-start;flex-direction:column}.calling-toggle{width:100%}}
+
 
 
 .details-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
@@ -341,7 +346,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=d5e6492b"></script>
+<script src="mcv-data.js?v=c5bd0c42"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -354,7 +359,7 @@ function centreSignalMap(){
     wrap.scrollLeft=Math.max(0,(wrap.scrollWidth-wrap.clientWidth)/2);
   });
 }
-const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',search:'',overdueFirst:false,
+const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
@@ -549,10 +554,21 @@ function parseServices(json){
     const platform=rawPlatform.replace(/^platform\s+/i,'').toUpperCase().replace(/^(TBC|TBD|UNKNOWN|[-–—?])$/i,'');
     const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
     const mcvIndex=points.findIndex(p=>String(p.station?.crs||p.crs||'').toUpperCase()==='MCV'||String(p.station?.name||p.name||'').toUpperCase()==='MANCHESTER VICTORIA');
-    let onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(p=>({
-      name:station(p.station?.name||p.name,p.station?.crs||p.crs),crs:String(p.station?.crs||p.crs||''),booked:fmt(p.arrives||p.departs),expected:fmt(p.expected_arrives||p.expected_departs),platform:String(p.platform||'').trim(),
-      cancelled:p.is_cancelled===true,affectedByDiversion:p.affected_by_diversion===true,rerouteDelay:Number(p.reroute_delay)||0,delayReason:String(p.delay_reason||'').trim()
-    }));
+    const mapCallingPoint=p=>({
+      name:station(p.station?.name||p.name,p.station?.crs||p.crs),
+      crs:String(p.station?.crs||p.crs||''),
+      booked:fmt(p.arrives||p.departs),
+      expected:fmt(p.expected_arrives||p.expected_departs),
+      platform:String(p.platform||'').trim(),
+      cancelled:p.is_cancelled===true,
+      affectedByDiversion:p.affected_by_diversion===true,
+      rerouteDelay:Number(p.reroute_delay)||0,
+      delayReason:String(p.delay_reason||'').trim()
+    });
+    let onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(mapCallingPoint);
+    const previousStops=(Array.isArray(raw.previous_calling_points)?raw.previous_calling_points:[])
+      .filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')
+      .map(mapCallingPoint);
     const headcode=String(raw.headcode||'').trim().toUpperCase();
     const uid=String(raw.uid||raw.train_uid||'').trim();
     const rid=String(raw.rid||'').trim();
@@ -598,7 +614,7 @@ function parseServices(json){
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,lateReason:String(raw.late_reason||'').trim(),coaches,
-      stops:onward,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
+      stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
@@ -725,6 +741,8 @@ function renderDetails(){
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
+  const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before'&&beforeStops.length>0;
+  const displayedStops=showBefore?beforeStops:s.stops;
   const platformMoves=nextPlatformMovements(s),movement=movementType(s),flow=serviceFlow(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
   const cat=categoryName(s.trainCategory);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
@@ -795,8 +813,12 @@ function renderDetails(){
       ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
     </section>
 
-    <section class="detail-group"><h3>${flow.key==='terminate'?'Service route / onward data':'Calling points after Manchester Victoria'} · ${s.stops.length}</h3>
-      ${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}
+    <section class="detail-group">
+      <div class="calling-points-head">
+        <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
+        ${beforeStops.length?`<button type="button" class="button calling-toggle" data-calling-view="${showBefore?'after':'before'}">${showBefore?'Show stops after Victoria':'Show stops before Victoria'}</button>`:''}
+      </div>
+      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?'<div class="placeholder">No calling points before Manchester Victoria are supplied for this service.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>')}
     </section>
 
     ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)} · ${escapeHTML(relativeAge(h.at))} ago</div>`).join('')}</section>`:''}
@@ -858,17 +880,17 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
-  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Next location','Calling points','UID','RID','Feed service ID'];
+  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,s.coaches||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId])];
+  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,s.coaches||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }
-$('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-key]');if(!tr)return;state.selectedKey=tr.dataset.key;renderTable();renderDetails();if(window.matchMedia('(max-width:760px)').matches){$('service-details').closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'})}});
-$('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;renderTable();renderDetails()});
+$('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-key]');if(!tr)return;state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails();if(window.matchMedia('(max-width:760px)').matches){$('service-details').closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'})}});
+$('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails()});
+$('service-details').addEventListener('click',e=>{const btn=e.target.closest('[data-calling-view]');if(!btn)return;state.callingPointView=btn.dataset.callingView==='before'?'before':'after';renderDetails()});
 $('platforms').addEventListener('click',e=>{const card=e.target.closest('[data-platform]');if(!card)return;const num=card.dataset.platform;state.chosenPlatform=state.chosenPlatform===num?'all':num;$('platform-filter').value=state.chosenPlatform;renderPlatforms();renderTable()});
 $('platform-filter').addEventListener('change',e=>{state.chosenPlatform=e.target.value;renderPlatforms();renderTable()});
-$('movement-tabs').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(!btn)return;state.viewMode=btn.dataset.view;document.querySelectorAll('#movement-tabs button').forEach(b=>b.classList.toggle('active',b===btn));if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';renderTable();renderDetails()});
 $('movement-tabs').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(!btn)return;state.viewMode=btn.dataset.view;document.querySelectorAll('#movement-tabs button').forEach(b=>b.classList.toggle('active',b===btn));if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';renderTable();renderDetails()});
 $('status-filter').addEventListener('change',e=>{state.statusFilter=e.target.value;renderTable()});
 $('service-type-filter').addEventListener('click',e=>{const btn=e.target.closest('button[data-type]');if(!btn)return;state.serviceTypeFilter=btn.dataset.type;document.querySelectorAll('#service-type-filter button').forEach(b=>b.classList.toggle('active',b===btn));renderTable()});
