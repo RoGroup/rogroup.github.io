@@ -3,7 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f5fa">
+<script>
+(function(){
+  try{
+    var saved=localStorage.getItem('mcv-staff-theme');
+    document.documentElement.dataset.theme=saved==='dark'?'dark':'light';
+  }catch(e){
+    document.documentElement.dataset.theme='light';
+  }
+})();
+</script>
 <title>Manchester Victoria | Staff Display</title>
 <style>
 @font-face{font-family:Bunday;src:url('bunday-clean-regular.woff') format('woff');font-weight:400 600;font-display:swap}
@@ -68,6 +79,113 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 @media(max-width:970px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}.workspace{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr}.table-area{max-height:620px}}
 @media(max-width:700px){.top{padding:12px 15px;gap:9px;flex-wrap:wrap}.identity{gap:10px}.logo{width:105px;height:40px}.titleblock{padding-left:10px}.top h1{font-size:18px}.subhead{font-size:9px}.clock{font-size:22px}.container{padding:14px 12px 30px}.stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.stat{padding:12px}.platforms{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.platform-card{padding:12px}.feedbar{flex-wrap:wrap}.feedbar .push{margin-left:0}.sidebar{display:flex}.section-heading{align-items:start;flex-direction:column}.controls select{flex-grow:1}.top-right{margin-left:auto}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+/* Northern-aligned dark theme: official navy/blue accents with deep blue-grey surfaces. */
+.theme-toggle{min-width:92px;padding:8px 10px;font-size:11px}
+:root[data-theme="dark"]{
+  --ink:#eef2ff;
+  --muted:#aebbd1;
+  --paper:#10142b;
+  --card:#171c3d;
+  --line:#343b64;
+  --pale:#1a3150;
+  color-scheme:dark;
+}
+:root[data-theme="dark"] body{background:var(--paper);color:var(--ink)}
+:root[data-theme="dark"] .top{background:#171a3b;border-bottom-color:var(--blue)}
+:root[data-theme="dark"] .logo{filter:brightness(0) invert(1);opacity:.96}
+:root[data-theme="dark"] .titleblock{border-left-color:#4a527b}
+:root[data-theme="dark"] .top h1,
+:root[data-theme="dark"] .clock,
+:root[data-theme="dark"] .feedbar strong,
+:root[data-theme="dark"] .stat-value,
+:root[data-theme="dark"] .section-heading h2,
+:root[data-theme="dark"] .platform-dest,
+:root[data-theme="dark"] .panel-title h2,
+:root[data-theme="dark"] .dest,
+:root[data-theme="dark"] .time-big,
+:root[data-theme="dark"] .detail-heading,
+:root[data-theme="dark"] .detail-group h3,
+:root[data-theme="dark"] .kv-value,
+:root[data-theme="dark"] .stop-name,
+:root[data-theme="dark"] .signal-panel .panel-title a,
+:root[data-theme="dark"] .ops-route .place,
+:root[data-theme="dark"] .ops-metric .value,
+:root[data-theme="dark"] .ops-alert strong,
+:root[data-theme="dark"] .ops-move .move-time,
+:root[data-theme="dark"] .turnaround-main,
+:root[data-theme="dark"] .alert-strip-head strong,
+:root[data-theme="dark"] .bottom a{color:#f3f5ff}
+:root[data-theme="dark"] .subhead,
+:root[data-theme="dark"] .event-time,
+:root[data-theme="dark"] .ops-route .arrow{color:#45b9e8}
+:root[data-theme="dark"] .feedbar,
+:root[data-theme="dark"] .stat,
+:root[data-theme="dark"] .platform-card,
+:root[data-theme="dark"] .panel,
+:root[data-theme="dark"] .alert-strip{background:var(--card);border-color:var(--line)}
+:root[data-theme="dark"] .platform-card{color:var(--ink);border-top-color:var(--blue)}
+:root[data-theme="dark"] .platform-card:hover{background:#1d2448;border-color:#45b9e8;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+:root[data-theme="dark"] .platform-card.is-selected{background:var(--navy);border-color:#5650a6}
+:root[data-theme="dark"] .controls input,
+:root[data-theme="dark"] .controls select,
+:root[data-theme="dark"] .button,
+:root[data-theme="dark"] .type-segment,
+:root[data-theme="dark"] .type-segment button{background:#20264b;color:#eef2ff;border-color:#465078}
+:root[data-theme="dark"] .button:hover,
+:root[data-theme="dark"] .type-segment button:hover{background:#28305a}
+:root[data-theme="dark"] .button.primary,
+:root[data-theme="dark"] .type-segment button.active{background:var(--navy);color:#fff;border-color:#5b55ad}
+:root[data-theme="dark"] .theme-toggle{background:#20264b;color:#fff;border-color:#59638c}
+:root[data-theme="dark"] .theme-toggle:hover{background:#2a3260}
+:root[data-theme="dark"] .rtt-button{background:#20264b;color:#fff;border-color:#59638c}
+:root[data-theme="dark"] .rtt-button:hover{background:#28305a;border-color:#0698d6}
+:root[data-theme="dark"] .movement-tabs,
+:root[data-theme="dark"] .alert-strip-head,
+:root[data-theme="dark"] .board-note,
+:root[data-theme="dark"] .event-foot,
+:root[data-theme="dark"] .signal-foot{background:#141a36;border-color:var(--line)}
+:root[data-theme="dark"] .movement-tabs button{color:var(--muted)}
+:root[data-theme="dark"] .movement-tabs button.active{background:#20264b;color:#fff;border-bottom-color:var(--blue)}
+:root[data-theme="dark"] .movement-tabs button:hover{color:#fff}
+:root[data-theme="dark"] .table td{border-bottom-color:var(--line)}
+:root[data-theme="dark"] .service-row:hover{background:#1b3150}
+:root[data-theme="dark"] .service-row.selected{background:#203959}
+:root[data-theme="dark"] .table th{background:var(--navy);color:#fff}
+:root[data-theme="dark"] .ops-route,
+:root[data-theme="dark"] .ops-metric,
+:root[data-theme="dark"] .data-fresh,
+:root[data-theme="dark"] .turnaround-card{background:#141a36;border-color:#394268}
+:root[data-theme="dark"] .ops-alert{background:#162d46;border-left-color:var(--blue)}
+:root[data-theme="dark"] .ops-alert.warn{background:#3b3217;border-left-color:var(--amber);color:#f4e7bc}
+:root[data-theme="dark"] .ops-alert.danger{background:#401827;border-left-color:var(--red);color:#ffd8e2}
+:root[data-theme="dark"] .reason{background:#3b3217;color:#f4e7bc}
+:root[data-theme="dark"] .reason.red{background:#401827;color:#ffd8e2}
+:root[data-theme="dark"] .reason.blue{background:#162d46;color:#d9f4ff}
+:root[data-theme="dark"] .formation-chip{background:#17334a;border-color:#2e7597;color:#e9f8ff}
+:root[data-theme="dark"] .plat-pill{background:#16384f;color:#eaf8ff;border-color:#28769a}
+:root[data-theme="dark"] .plat-pill.unknown{background:#242943;border-color:#454d70;color:var(--muted)}
+:root[data-theme="dark"] .status-pill.neutral{background:#2a314f;color:#d7deed}
+:root[data-theme="dark"] .status-pill.departed{background:#26315b;color:#d8dcff}
+:root[data-theme="dark"] .category-chip,
+:root[data-theme="dark"] .countdown-chip{background:#17334a;color:#e9f8ff}
+:root[data-theme="dark"] .movement-chip{background:#29304d;color:#eef2ff}
+:root[data-theme="dark"] .movement-chip.origin{background:#123850;color:#9fe0ff}
+:root[data-theme="dark"] .movement-chip.terminate{background:#30285a;color:#d9d2ff}
+:root[data-theme="dark"] .movement-chip.through{background:#173823;color:#bfe7ca}
+:root[data-theme="dark"] .movement-chip.ecs,
+:root[data-theme="dark"] .ecs-chip{background:#4a3d12;color:#ffe794}
+:root[data-theme="dark"] .alert-item{background:#162d46;border-color:#275777;color:#d9f4ff}
+:root[data-theme="dark"] .alert-item.warn{background:#3b3217;border-color:#6a5920;color:#ffe9a6}
+:root[data-theme="dark"] .alert-item.danger{background:#401827;border-color:#743149;color:#ffd8e2}
+:root[data-theme="dark"] .stops li{border-left-color:#386d84}
+:root[data-theme="dark"] .stops li.altered-call{background:#362f1a}
+:root[data-theme="dark"] .bottom{color:var(--muted)}
+:root[data-theme="dark"] .signal-frame-wrap,
+:root[data-theme="dark"] .signal-frame{background:#fff}
+@media(max-width:760px){
+  :root[data-theme="dark"] .table-area{background:#11172f}
+}
 </style>
 
 
@@ -278,7 +396,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub">
     <div class="titleblock"><h1>Manchester Victoria</h1><div class="subhead">Staff Display · Live Operations Overview</div></div>
   </div>
-  <div class="top-right"><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
+  <div class="top-right"><button type="button" id="theme-toggle" class="button theme-toggle" aria-pressed="false" title="Switch to dark mode">Dark mode</button><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
 </header>
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
@@ -360,6 +478,24 @@ function centreSignalMap(){
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),previousStopsCache:new Map(),detailsBusy:new Set()};
 const $ = id=>document.getElementById(id);
+const THEME_KEY='mcv-staff-theme';
+function applyTheme(theme){
+  const dark=theme==='dark';
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  const button=$('theme-toggle');
+  if(button){
+    button.textContent=dark?'Light mode':'Dark mode';
+    button.setAttribute('aria-pressed',String(dark));
+    button.setAttribute('title',dark?'Switch to light mode':'Switch to dark mode');
+  }
+  const themeMeta=document.querySelector('meta[name="theme-color"]');
+  if(themeMeta)themeMeta.setAttribute('content',dark?'#10142b':'#f2f5fa');
+}
+function toggleTheme(){
+  const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
+  try{localStorage.setItem(THEME_KEY,next)}catch(e){}
+  applyTheme(next);
+}
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
 const ukClock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
 const ukDate = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',weekday:'short',day:'numeric',month:'short',year:'numeric'});
@@ -970,8 +1106,10 @@ $('service-type-filter').addEventListener('click',e=>{const btn=e.target.closest
 $('sort-mode').addEventListener('change',e=>{state.sortMode=e.target.value;renderTable()});
 $('search').addEventListener('input',e=>{state.search=e.target.value.trim();renderTable()});
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
+$('theme-toggle').addEventListener('click',toggleTheme);
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
+applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
