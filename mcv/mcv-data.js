@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.5';
+  const VERSION = '1.1.6';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -145,10 +145,20 @@
   // SFD = Salford Central. SLD must remain Salford Crescent.
   function displayStationName(name, crs) {
     const rawName = text(name);
+    const rawUpper = rawName.toUpperCase();
     const code = text(crs).toUpperCase();
 
+    const operationalLocations = {
+      NWTNHDD: 'Newton Heath TMD',
+      ARDWTMD: 'Ardwick TMD',
+      MNCRVRS: 'Manchester Victoria Turnback'
+    };
+
+    if (operationalLocations[code]) return operationalLocations[code];
+    if (operationalLocations[rawUpper]) return operationalLocations[rawUpper];
+
     if (code === 'SFD') return 'Salford Central';
-    if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'Salford Central';
+    if (rawUpper === 'SALFORD' && code !== 'SLD') return 'Salford Central';
 
     return rawName || code;
   }
