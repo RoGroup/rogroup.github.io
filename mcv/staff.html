@@ -197,7 +197,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=103860ac"></script>
+<script src="mcv-data.js?v=a6b64063"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -214,7 +214,7 @@ function fmt(v){const n=typeof v==='number'?v:ms(v);return Number.isFinite(n)?uk
 function station(name,crs=''){return MCVData.displayStationName(name,crs)||String(crs||'').trim().toUpperCase()||'Unknown'}
 function matchPlatform(value,num){return new RegExp('^'+num+'(?:[AB])?$','i').test(String(value||'').trim())}
 function timeDiff(s){return Number.isFinite(s.expectedMs)&&Number.isFinite(s.bookedMs)?Math.max(0,Math.round((s.expectedMs-s.bookedMs)/60000)):null}
-function trainNotice(s){const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
+function trainNotice(s){if(!(s.coaches>2))return '';const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
 
 function parseServices(json){
   json=MCVData.toLegacyBoard(json);
