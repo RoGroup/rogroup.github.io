@@ -80,6 +80,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-cell{min-width:94px}
 .formation-chip{display:inline-flex;align-items:center;white-space:nowrap;border:1px solid #b9dff0;background:#f3fbff;color:var(--navy);border-radius:5px;padding:5px 7px;font-weight:800;font-size:11px}
 .formation-note{font-size:10px;color:var(--muted);font-weight:700;margin-top:4px;line-height:1.25}
+.ecs-chip{display:inline-flex;align-items:center;margin-right:5px;padding:2px 6px;border-radius:4px;background:#fff1bf;color:#5d4700;font-size:9px;font-weight:900;letter-spacing:.08em;vertical-align:1px}
 .details-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
 .mobile-only{display:none}
 
@@ -259,7 +260,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=6efd953d"></script>
+<script src="mcv-data.js?v=1b2ad814"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -311,10 +312,12 @@ function parseServices(json){
     let status=cancelled?'Cancelled':departed?'Departed':delayed?(statusText|| (Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):'Delayed')):(statusText|| (/^(on[_ -]?time|early|expected_early)$/i.test(statusCode)?'On time':'Status not supplied'));
     if(/^expected_late$/i.test(status))status=Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):'Delayed';
     const coaches=Number.isInteger(Number(raw.coaches))&&Number(raw.coaches)>0?Number(raw.coaches):null;
+    const serviceClass=String(raw.service_class||'').toLowerCase();
+    const ecs=raw.is_passenger_service===false||serviceClass==='empty stock';
     const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,booked:fmt(bookedMs),expected:fmt(expectedMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,
       status,statusCode,delayed,cancelled,departed,lateReason:String(raw.late_reason||'').trim(),coaches,
-      stops:onward,notForDisplay:raw.not_for_display===true,serviceClass:String(raw.service_class||'').toLowerCase(),
+      stops:onward,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||''),trainType:String(raw.train_type||''),origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),
       note:String(raw.cancel_reason||'').trim()};
     service.firstClassNotice=MCVData.firstClassNotice({
@@ -322,7 +325,7 @@ function parseServices(json){
       cancelled:service.cancelled,statusClass:service.cancelled?'cancelled':''
     });
     return service;
-  }).filter(s=>!s.notForDisplay&&!['freight','empty stock','trip'].includes(s.serviceClass));
+  }).filter(s=>!s.notForDisplay&&!['freight','trip'].includes(s.serviceClass));
 }
 function visibleServices(){return state.services.filter(s=>!s.departed)}
 function sortedServices(){return visibleServices().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.key.localeCompare(b.key))}
@@ -387,7 +390,7 @@ function selectFilter(){
     if(state.statusFilter==='cancelled'&&!s.cancelled)return false;
     if(state.statusFilter==='issues'&&!(s.delayed||s.cancelled))return false;
     if(state.statusFilter==='overdue'&&!overdue(s))return false;
-    if(q&&!([s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
+    if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
     return true;
   });
   if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||a.bookedMs-b.bookedMs);
@@ -403,7 +406,7 @@ function renderTable(){
     const isOverdue=overdue(s);const diff=timeDiff(s);const delta=s.delayed&&diff?` <span class="late-min">+${diff}m</span>`:'';
     const statusCls=s.cancelled?'cancel':s.delayed?'delay':'neutral';
     const formation=s.coaches?`${s.coaches} ${s.coaches===1?'car':'cars'}`:'Not supplied';
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small">${s.headcode?`<strong>${escapeHTML(s.headcode)}</strong> · `:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span>`:'<span class="detail-small">Formation not supplied</span>'}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span></td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(s.booked+' '+s.dest+' '+s.status)}"><td class="time-big tabnum service-booked">${escapeHTML(s.booked)}${isOverdue?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(s.dest)}</div><div class="detail-small">${s.ecs?'<span class="ecs-chip">ECS</span>':''}${s.headcode?`<strong>${escapeHTML(s.headcode)}</strong> · `:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span>`:'<span class="detail-small">Formation not supplied</span>'}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span></td><td class="tabnum service-expected">${escapeHTML(s.expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(s.status)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in the current feed.</td></tr>';
   scrollArea.scrollTop=scrollTop;
 }
@@ -415,7 +418,7 @@ function renderDetails(){
   const hist=state.platformHist.get(s.key)||[];
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
   $('service-details').innerHTML=`<div class="detail-heading">${escapeHTML(s.dest)}</div><div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div><div style="margin-top:12px"><span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>${overdue(s)?' <span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
-  <section class="detail-group"><h3>Departure information</h3><div class="keyvalues">${extra('Booked departure',s.booked)}${extra('Expected departure',s.expected)}${extra('Platform',s.platform|| (s.platformWithheld?'Withheld / TBC':'TBC'))}${extra('Delay against booked',diff===null?'Not available':`${diff} minutes`)}${extra('Operator',s.operator)}${extra('Headcode',s.headcode||'Not supplied')}${s.uid?extra('Train UID',s.uid):''}${s.rid?extra('RID',s.rid):''}${extra('Origin',s.origin==='Unknown'?'Not supplied':s.origin)}${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}${extra('Service category',s.serviceClass||'Not supplied')}${extra('Source status code',s.statusCode||'Not provided')}${extra('Feed service ID',s.serviceId||'Not supplied')}</div>
+  <section class="detail-group"><h3>Departure information</h3><div class="keyvalues">${extra('Booked departure',s.booked)}${extra('Expected departure',s.expected)}${extra('Platform',s.platform|| (s.platformWithheld?'Withheld / TBC':'TBC'))}${extra('Delay against booked',diff===null?'Not available':`${diff} minutes`)}${extra('Operator',s.operator)}${extra('Headcode',s.headcode||'Not supplied')}${s.uid?extra('Train UID',s.uid):''}${s.rid?extra('RID',s.rid):''}${extra('Origin',s.origin==='Unknown'?'Not supplied':s.origin)}${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}${extra('Service type',s.ecs?'ECS / non-passenger':'Passenger service')}${extra('Service category',s.serviceClass||'Not supplied')}${extra('Source status code',s.statusCode||'Not provided')}${extra('Feed service ID',s.serviceId||'Not supplied')}</div>
   ${reason?`<div class="reason${s.cancelled?' red':''}"><strong>${s.cancelled?'Reported cancellation reason':'Reported delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="reason blue">No cause provided by the current feed for this service.</div>':'')}
   ${notice&&!s.cancelled?`<div class="reason"><strong>Locally configured carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}</section>
   <section class="detail-group"><h3>Calling points after Manchester Victoria · ${s.stops.length}</h3>${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li><div class="stop-name">${escapeHTML(p.name)}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}</section>
@@ -443,9 +446,9 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
-  const cols=['Booked','Headcode','Destination','Destination CRS','Operator','Formation','First Class','Platform','Expected','Status','Delay minutes','Delay / cancellation reason','Calling points','Feed service ID'];
+  const cols=['Booked','Headcode','Service type','Destination','Destination CRS','Operator','Formation','First Class','Platform','Expected','Status','Delay minutes','Delay / cancellation reason','Calling points','Feed service ID'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[s.booked,s.headcode||'',s.dest,s.destCrs,s.operator,s.coaches||'',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.expected,s.status,timeDiff(s)??'',reasonFor(s),s.stops.map(x=>x.name).join(' > '),s.serviceId])];
+  const rows=[cols,...list.map(s=>[s.booked,s.headcode||'',s.ecs?'ECS':'Passenger',s.dest,s.destCrs,s.operator,s.coaches||'',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.expected,s.status,timeDiff(s)??'',reasonFor(s),s.stops.map(x=>x.name).join(' > '),s.serviceId])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }
