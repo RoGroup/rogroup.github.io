@@ -345,8 +345,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
-const STAFF_MOVEMENTS_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-movements';
-const STAFF_DEPARTURES_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
+const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
 
 function centreSignalMap(){
   const wrap=document.querySelector('.signal-frame-wrap');
@@ -841,18 +840,17 @@ function renderOperationalAlerts(){
 function render(){updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
-    let response=await fetch(STAFF_MOVEMENTS_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
-    let mode='movements';
-    if(!response.ok){
-      response=await fetch(STAFF_DEPARTURES_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
-      mode='departures';
-    }
+    const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
     if(!response.ok)throw new Error('Staff movements feed HTTP '+response.status);
     const json=await response.json();
     if(!json||!Array.isArray(json.trainServices))throw new Error('Unexpected staff movements feed format');
+    const hasArrivalData=json.trainServices.some(s=>s&&(
+      s.sta||s.eta||s.ata||
+      (Array.isArray(s.origin)&&s.origin.some(o=>String(o?.crs||'').toUpperCase()!=='MCV'))
+    ));
     const next=parseServices(json);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
-    compareFeeds(next);state.services=next;state.feedMode=mode;state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=Date.now();state.lastError='';
+    compareFeeds(next);state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=Date.now();state.lastError='';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
     render();
   }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();}
@@ -870,6 +868,7 @@ $('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-
 $('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;renderTable();renderDetails()});
 $('platforms').addEventListener('click',e=>{const card=e.target.closest('[data-platform]');if(!card)return;const num=card.dataset.platform;state.chosenPlatform=state.chosenPlatform===num?'all':num;$('platform-filter').value=state.chosenPlatform;renderPlatforms();renderTable()});
 $('platform-filter').addEventListener('change',e=>{state.chosenPlatform=e.target.value;renderPlatforms();renderTable()});
+$('movement-tabs').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(!btn)return;state.viewMode=btn.dataset.view;document.querySelectorAll('#movement-tabs button').forEach(b=>b.classList.toggle('active',b===btn));if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';renderTable();renderDetails()});
 $('movement-tabs').addEventListener('click',e=>{const btn=e.target.closest('button[data-view]');if(!btn)return;state.viewMode=btn.dataset.view;document.querySelectorAll('#movement-tabs button').forEach(b=>b.classList.toggle('active',b===btn));if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';renderTable();renderDetails()});
 $('status-filter').addEventListener('change',e=>{state.statusFilter=e.target.value;renderTable()});
 $('service-type-filter').addEventListener('click',e=>{const btn=e.target.closest('button[data-type]');if(!btn)return;state.serviceTypeFilter=btn.dataset.type;document.querySelectorAll('#service-type-filter button').forEach(b=>b.classList.toggle('active',b===btn));renderTable()});
