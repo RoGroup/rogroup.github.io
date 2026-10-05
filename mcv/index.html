@@ -112,7 +112,7 @@
         
         <div class="title-set"><strong>MANCHESTER VICTORIA</strong><span>Display control</span></div>
       </div>
-      <div class="clock-wrap" aria-label="Current UK time"><div class="clock" id="clock">--:--</div><div class="date" id="date">--</div></div>
+      <div class="clock-wrap" aria-label="Current UK time"><div class="clock" id="clock">--:--:--</div><div class="date" id="date">--</div></div>
     </div>
   </header>
 
@@ -181,13 +181,12 @@
     <div style="margin:18px auto 8px;max-width:1500px;padding:0 4%;font-weight:700"><a href="control.html#announcements" target="_blank" rel="noopener" style="color:#262262;text-decoration:underline">Staff announcement assistant ↗</a></div>
     <footer class="foot"><span><strong>Manchester Victoria</strong> · Screen selection</span><span>Keep this file in the same folder as platform.html, platform1.html–platform6.html, platform12.html, platform45.html, staff.html, assist.html, assist-desktop.html and nexttrain1.html–nexttrain6.html.</span></footer>
   </main>
-  <script>
+  <script src="mcv-data.js"></script>
+<script>
     function updateClock() {
-      const now = new Date();
-      document.getElementById('clock').textContent = new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/London', hour:'2-digit', minute:'2-digit', hour12:false }).format(now);
-      document.getElementById('date').textContent = new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/London', weekday:'short', day:'numeric', month:'short' }).format(now);
+      MCVData.updateClock('clock', 'date', { dateOptions: { weekday:'short', day:'numeric', month:'short' } });
     }
-    updateClock(); setInterval(updateClock, 15000);
+    updateClock(); setInterval(updateClock, 1000);
   </script>
 </body>
 </html>
