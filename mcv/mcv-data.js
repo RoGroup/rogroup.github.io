@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.3';
+  const VERSION = '1.1.4';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
@@ -170,9 +170,9 @@
     const name = text(destinationName).replace(/\s+/g, ' ').toUpperCase();
     const code = text(destinationCrs).toUpperCase();
 
-    // These local boarding notices only apply when the live feed confirms
-    // the service is formed of exactly 4 carriages.
-    if (coachCount(coaches) !== 4) return null;
+    // These local boarding notices apply when the live feed confirms
+    // the service is formed of more than 2 carriages.
+    if (!(coachCount(coaches) > 2)) return null;
 
     if (name === 'CLITHEROE' || code === 'CLH') {
       return {
