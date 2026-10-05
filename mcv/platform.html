@@ -86,7 +86,7 @@ main {
 }
 .board-container {
   flex: 1; background: var(--panel-navy);
-  border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 5px;
   display: flex; flex-direction: column; min-height: 0; overflow: hidden;
   box-shadow: none;
 }
@@ -106,7 +106,7 @@ main {
 .board-rows::-webkit-scrollbar { display: none; }
 .service-card {
   display: flex; flex-direction: column; padding: 0.85rem 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2); justify-content: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.13); justify-content: center;
   flex: 0 0 auto;
 }
 .service-card:nth-child(even) { background: rgba(255, 255, 255, 0.055); }
@@ -117,7 +117,7 @@ main {
 .dep-dest { font-size: 22px; font-weight: 800; color: #fff; text-transform: uppercase; }
 /* Live coach counts are shown only when explicitly supplied by the feed.
    Keep the number attached to the service and never infer it from boarding restrictions. */
-.dep-destination-wrap { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; min-width: 0; }
+.dep-destination-wrap { display: flex; align-items: center; gap: 10px 16px; flex-wrap: wrap; min-width: 0; }
 .dep-dest { min-width: 0; overflow-wrap: anywhere; }
 .formation-badge {
   flex: 0 0 auto; display: inline-flex; align-items: center; white-space: nowrap;
@@ -126,7 +126,7 @@ main {
   padding: 5px 8px;
 }
 
-/* Only display when the feed explicitly confirms a 5-carriage TPE service. */
+/* First Class coach information is supplied by the shared TPE formation rules. */
 .first-class-badge {
   flex: 0 0 auto; display: inline-flex; align-items: center; white-space: nowrap;
   border: 1px solid #ffffff; background: #ffffff; color: var(--navy); border-radius: 5px;
@@ -156,7 +156,7 @@ main {
 .service-stops {
   margin-top: 4px; margin-left: calc(100px + 1.5rem); padding: 2px 0 5px;
   display: flex; gap: 6px; min-width: 0; max-width: calc(100% - 100px - 1.5rem);
-  color: var(--text-muted); font-size: 14px; font-weight: 600; white-space: nowrap;
+  color: rgba(255, 255, 255, 0.76); font-size: 13.5px; font-weight: 600; letter-spacing: .08px; white-space: nowrap;
 }
 .service-stops .label {
   flex: none; color: #ffffff; font-weight: 700; text-transform: uppercase;
@@ -226,16 +226,16 @@ main {
 .delayed { background: var(--amber); color: var(--navy); }
 .cancelled { background: var(--red); color: #ffffff; }
 footer {
-  background: var(--navy); border-top: 2px solid var(--blue);
-  padding: 0.8rem 2.5rem; display: flex; align-items: center; gap: 1.5rem; font-size: 15px;
+  background: var(--navy); border-top: 1px solid rgba(6, 152, 214, 0.75);
+  padding: 0.65rem 2.5rem; display: flex; align-items: center; gap: 1.25rem; font-size: 14px;
 }
 .ticker-label {
-  background: var(--navy); color: #fff; border-left: 4px solid var(--blue); font-weight: 800; font-size: 12px;
-  padding: 4px 10px; border-radius: 3px; letter-spacing: 1px; white-space: nowrap;
+  background: var(--navy); color: #fff; border-left: 3px solid var(--blue); font-weight: 800; font-size: 11px;
+  padding: 4px 9px; border-radius: 3px; letter-spacing: .9px; white-space: nowrap;
 }
 /* Rotate one verified, relevant service alert at a time: no crawling text that
    passengers must chase or a 30-second empty gap before each announcement. */
-.ticker-content { flex: 1; min-width: 0; color: #ffffff; font-weight: 600; }
+.ticker-content { flex: 1; min-width: 0; color: rgba(255, 255, 255, 0.84); font-weight: 500; }
 .ticker-text { display: block; line-height: 1.35; white-space: normal; overflow-wrap: break-word; }
 .ticker-label.alert-warning, .ticker-label.alert-boarding { background: var(--amber); color: var(--navy); border-left-color: #ffffff; }
 .ticker-label.alert-cancelled { background: var(--red); color: #ffffff; border-left-color: #ffffff; }
@@ -438,8 +438,8 @@ function renderBoard(services) {
         <span class="label">Calling at:</span>
         <div class="stops-viewport" data-stop-count="${dep.activeCallingPoints?.length || 0}">
           <span class="stops-track">
-            <span class="stops-text">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span>
-            <span class="stops-repeat" aria-hidden="true">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span>
+            <span class="stops-text">${escapeHTML(dep.stopsText || 'Stopping pattern unavailable')}</span>
+            <span class="stops-repeat" aria-hidden="true">${escapeHTML(dep.stopsText || 'Stopping pattern unavailable')}</span>
           </span>
         </div>
       </div>
