@@ -569,6 +569,7 @@ async function loadPreviousStops(s){
     if(!match)throw new Error('Selected service was not found in the detailed board window');
     s.previousStops=Array.isArray(match.previousStops)?match.previousStops:[];
     s.previousStopsLoaded=true;
+    if(!s.previousStops.length&&state.callingPointView==='before')state.callingPointView='after';
     state.previousStopsCache.set(cacheKey,{stops:s.previousStops});
   }catch(err){
     s.previousStopsLoaded=true;
@@ -787,6 +788,7 @@ function renderDetails(){
   const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before';
   const displayedStops=showBefore?beforeStops:s.stops;
   const detailsLoading=state.detailsBusy.has(detailCacheKey(s));
+  const canShowPriorStops=flow.key!=='origin'&&(!s.previousStopsLoaded||beforeStops.length>0||detailsLoading||Boolean(s.previousStopsError));
   const platformMoves=nextPlatformMovements(s),movement=movementType(s),flow=serviceFlow(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
   const cat=categoryName(s.trainCategory);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
@@ -860,9 +862,9 @@ function renderDetails(){
     <section class="detail-group">
       <div class="calling-points-head">
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
-        <button type="button" class="button calling-toggle" data-calling-view="${showBefore?'after':'before'}" ${detailsLoading?'disabled':''}>${detailsLoading?'Loading prior stops…':(showBefore?'Show stops after Victoria':'Show stops before Victoria')}</button>
+        ${canShowPriorStops?`<button type="button" class="button calling-toggle" data-calling-view="${showBefore?'after':'before'}" ${detailsLoading?'disabled':''}>${detailsLoading?'Loading prior stops…':(showBefore?'Show stops after Victoria':'Show stops before Victoria')}</button>`:''}
       </div>
-      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>')}
+      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
     </section>
 
     ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)} · ${escapeHTML(relativeAge(h.at))} ago</div>`).join('')}</section>`:''}
