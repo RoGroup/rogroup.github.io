@@ -410,7 +410,8 @@ function renderBoard(services) {
           <span class="carriage-notice-label">BOARDING INFORMATION</span>
           <span class="carriage-notice-copy">${escapeHTML(dep.frontCarriages.rowText)}</span>
         </div>` : ''}
-      ${dep.lateReason ? `<div class="service-reason"><span class="label">DELAY REASON:</span>${escapeHTML(dep.lateReason)}</div>` : ''}
+      ${dep.statusClass === 'cancelled' && dep.cancellationReason ? `<div class="service-reason"><span class="label">CANCELLATION REASON:</span>${escapeHTML(dep.cancellationReason)}</div>` : ''}
+      ${dep.statusClass !== 'cancelled' && dep.lateReason ? `<div class="service-reason"><span class="label">DELAY REASON:</span>${escapeHTML(dep.lateReason)}</div>` : ''}
       <div class="service-stops">
         <span class="label">Calling at:</span>
         <div class="stops-viewport" data-stop-count="${dep.activeCallingPoints?.length || 0}">
