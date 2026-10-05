@@ -642,15 +642,11 @@ function configureCallingTickers() {
     if (!track || !primary || !repeat || viewport.clientWidth <= 0) continue;
 
     const primaryWidth = primary.getBoundingClientRect().width;
-    const stopCount = Number(viewport.dataset.stopCount || 0);
-    const textLength = (primary.textContent || '').trim().length;
 
-    // Longer patterns are a ticker even when they happen to fit at 100% zoom.
-    // This avoids browser zoom being the thing that decides whether animation runs.
-    const shouldTicker =
-      primaryWidth > viewport.clientWidth + 1 ||
-      stopCount >= 4 ||
-      textLength >= 52;
+    // Scroll only when the fully rendered calling pattern genuinely does not fit.
+    // Measure the text itself rather than viewport.scrollWidth so a late-loading
+    // custom font cannot leave the ticker in the wrong state until browser zoom.
+    const shouldTicker = primaryWidth > viewport.clientWidth + 1;
 
     track.classList.toggle('ticker-active', shouldTicker);
 
@@ -661,10 +657,9 @@ function configureCallingTickers() {
       continue;
     }
 
-    // Keep the repeated copy just beyond the right edge when the first copy fits,
-    // then travel exactly to the repeated copy. At the loop point both copies match,
-    // so the reset is visually seamless.
-    const gap = Math.max(48, viewport.clientWidth - primaryWidth + 48);
+    // The text is wider than the viewport here, so a fixed breathing-space gap
+    // is enough before the repeated copy begins.
+    const gap = 48;
     repeat.style.marginLeft = gap + 'px';
 
     const distance = primaryWidth + gap;
@@ -681,6 +676,15 @@ window.addEventListener('resize', () => {
   clearTimeout(callingTickerResizeTimer);
   callingTickerResizeTimer = setTimeout(configureCallingTickers, 120);
 });
+
+// Bunday may finish loading after the first render. Re-measure when the real
+// font is ready so scrolling works correctly at 100% zoom without a resize.
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => requestAnimationFrame(configureCallingTickers));
+}
+if (document.fonts && document.fonts.addEventListener) {
+  document.fonts.addEventListener('loadingdone', () => requestAnimationFrame(configureCallingTickers));
+}
 
 updateClock();
 setInterval(updateClock, 1000);
