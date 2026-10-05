@@ -99,6 +99,7 @@
  <footer class="foot"><strong>Manchester Victoria · Northern display management</strong> · This static control page can only read the same public departure feed as the boards. It cannot observe physical screen availability or publish notices without a GitHub commit. Confirm operating information using authorised railway systems.</footer>
 </main>
 <script src="platform-alterations.js"></script>
+<script src="mcv-data.js"></script>
 <script>
  'use strict';
 const $=id=>document.getElementById(id);
@@ -108,108 +109,15 @@ const passenger=['platform.html',...[1,2,3,4,5,6].map(n=>`platform${n}.html`),'p
 const staff=['staff.html','assist.html','assist-desktop.html'];
 const PRIORITY={urgent:0,warning:1,info:2};
 let notices=[],noticesLoaded=false,noticesError='',services=[],lastFeed=0,feedError='',tab='all',unsaved=false;
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=MCVData.escapeHTML;
 const clockFmt=ms=>Number.isFinite(ms)?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}).format(new Date(ms)):'—';
 const stamp=ms=>Number.isFinite(ms)?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date(ms)):'—';
 const dateValue=v=>{if(!v)return NaN;const ms=new Date(v).valueOf();return Number.isFinite(ms)?ms:NaN};
 const ago=ms=>{const delta=Math.max(0,Math.round((Date.now()-ms)/1000));return delta<3?'just now':delta<60?`${delta}s ago`:`${Math.floor(delta/60)}m ago`};
-function clock(){ $('clock').textContent=stamp(Date.now()); }clock();setInterval(clock,1000);
+function clock(){ $('clock').textContent=MCVData.formatLiveClock(Date.now()); }clock();setInterval(clock,1000);
 function stationName(name,crs){if(String(crs||'').toUpperCase()==='SFD'||String(name||'').trim().toUpperCase()==='SALFORD')return 'SALFORD CENTRAL';return String(name||'Unknown').trim().toUpperCase()}
 
-function rdmClockToIso(clock, generatedAt) {
-  const text = String(clock || '').trim();
-  if (!/^\d{2}:\d{2}$/.test(text)) return null;
-  const source = String(generatedAt || new Date().toISOString());
-  const datePart = /^\d{4}-\d{2}-\d{2}/.exec(source)?.[0] || new Date().toISOString().slice(0,10);
-  const tz = /(Z|[+-]\d{2}:\d{2})$/.exec(source)?.[1] || 'Z';
-  const anchor = new Date(source);
-  let candidate = new Date(`${datePart}T${text}:00${tz}`);
-  if (!Number.isFinite(candidate.getTime())) return null;
-  if (Number.isFinite(anchor.getTime())) {
-    const twelveHours = 12 * 60 * 60 * 1000;
-    const diff = candidate.getTime() - anchor.getTime();
-    if (diff < -twelveHours) candidate = new Date(candidate.getTime() + 24*60*60*1000);
-    else if (diff > twelveHours) candidate = new Date(candidate.getTime() - 24*60*60*1000);
-  }
-  return candidate.toISOString();
-}
-function rdmExpectedIso(value, booked, generatedAt) {
-  const raw = String(value || '').trim();
-  if (/^\d{2}:\d{2}$/.test(raw)) return rdmClockToIso(raw, generatedAt);
-  if (/^on time$/i.test(raw) || /^early$/i.test(raw)) return rdmClockToIso(booked, generatedAt);
-  return null;
-}
-function rdmStatusFor(service) {
-  const etd = String(service?.etd || '').trim();
-  if (/^\d{2}:\d{2}$/.test(String(service?.atd || '').trim())) return ['departed','Departed'];
-  if (service?.isCancelled === true || service?.filterLocationCancelled === true || /^cancelled$/i.test(etd)) return ['cancelled','Cancelled'];
-  if (/^delayed$/i.test(etd)) return ['delayed_no_estimate','Delayed'];
-  if (/^on time$/i.test(etd) || !etd) return ['on_time','On time'];
-  if (/^\d{2}:\d{2}$/.test(etd)) {
-    const std = String(service?.std || '').trim();
-    if (/^\d{2}:\d{2}$/.test(std)) {
-      const [sh,sm]=std.split(':').map(Number), [eh,em]=etd.split(':').map(Number);
-      let s=sh*60+sm,e=eh*60+em; if(e < s-720)e+=1440; if(s < e-720)s+=1440;
-      if (e > s) return ['expected_late',`Expected ${etd}`];
-      if (e < s) return ['expected_early',`Expected ${etd}`];
-    }
-    return ['on_time',`Expected ${etd}`];
-  }
-  return ['', etd || 'Status not supplied'];
-}
-function rdmCallingPoints(service, generatedAt) {
-  const groups = Array.isArray(service?.subsequentCallingPoints) ? service.subsequentCallingPoints : [];
-  const points = groups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
-  return points.map(point => {
-    const booked = rdmClockToIso(point?.st, generatedAt);
-    const expected = rdmExpectedIso(point?.et, point?.st, generatedAt);
-    return {
-      station: {name:String(point?.locationName || ''), crs:String(point?.crs || '')},
-      name:String(point?.locationName || ''), crs:String(point?.crs || ''),
-      scheduled: booked, arrives: booked, departs: booked,
-      expected: expected || booked, expected_arrives: expected || booked, expected_departs: expected || booked,
-      platform: String(point?.platform || ''), platform_withheld: !String(point?.platform || '').trim(),
-      is_cancelled: point?.isCancelled === true
-    };
-  });
-}
-function rdmToLegacyBoard(data) {
-  if (!data || !Array.isArray(data.trainServices)) return data;
-  const generatedAt = data.generatedAt || new Date().toISOString();
-  return {
-    generated_at: generatedAt,
-    results: data.trainServices.map((service, index) => {
-      const [status, statusText] = rdmStatusFor(service);
-      const destination = Array.isArray(service?.destination) ? service.destination[0] : service?.destination;
-      const origin = Array.isArray(service?.origin) ? service.origin[0] : service?.origin;
-      const booked = rdmClockToIso(service?.std, generatedAt);
-      const expected = rdmExpectedIso(service?.etd, service?.std, generatedAt);
-      const length = Number(service?.length);
-      return {
-        train_id: String(service?.serviceID || service?.rsid || `rdm-${index}`),
-        train_uid: '', headcode: '',
-        service_id: String(service?.serviceID || ''), rsid: String(service?.rsid || ''),
-        departs: booked, expected_departs: expected,
-        arrives: booked, expected_arrives: expected,
-        status, status_text: statusText,
-        destination: {name:String(destination?.locationName || destination?.name || 'Unknown'), crs:String(destination?.crs || '')},
-        destination_name:String(destination?.locationName || destination?.name || 'Unknown'), destination_crs:String(destination?.crs || ''),
-        origin: {name:String(origin?.locationName || origin?.name || ''), crs:String(origin?.crs || '')},
-        origin_name:String(origin?.locationName || origin?.name || ''), origin_crs:String(origin?.crs || ''),
-        operator:String(service?.operator || 'National Rail'), operator_code:String(service?.operatorCode || ''),
-        platform:String(service?.platform || ''), platform_withheld:!String(service?.platform || '').trim(),
-        calling_points: rdmCallingPoints(service, generatedAt),
-        coaches:Number.isInteger(length) && length > 0 ? length : null,
-        late_reason:String(service?.delayReason || ''), cancel_reason:String(service?.cancelReason || ''),
-        not_for_display:String(service?.serviceType || 'train').toLowerCase() !== 'train',
-        service_class:String(service?.serviceType || 'train').toLowerCase(),
-        is_reverse_formation:service?.isReverseFormation === true
-      };
-    })
-  };
-}
-
-function parseServices(json){if(Array.isArray(json?.trainServices))json=rdmToLegacyBoard(json);if(!Array.isArray(json?.results))throw Error('Unexpected departures response');return json.results.map(raw=>{
+function parseServices(json){json=MCVData.toLegacyBoard(json);if(!Array.isArray(json?.results))throw Error('Unexpected departures response');return json.results.map(raw=>{
  const code=String(raw.status||'').toLowerCase(),txt=String(raw.status_text||'');
  const booked=dateValue(raw.departs),expected=dateValue(raw.expected_departs);
  const cancelled=code==='cancelled'||/^cancelled/i.test(txt),departed=code==='departed'||/^departed/i.test(txt);
@@ -240,7 +148,7 @@ function renderDepartures(){if(!lastFeed){$('departure-rows').innerHTML=`<tr><td
  $('feed-age').textContent=`Received ${ago(lastFeed)}${feedError?' · last good data':''}`;
  $('connection-dot').className='dot '+(feedError||Date.now()-lastFeed>90000?'warn':'good');
  $('connection-message').textContent=feedError?'Feed unavailable · last successful data shown':Date.now()-lastFeed>90000?'Feed data is stale':'Live station feed connected';}
-async function refreshDepartures(){try{const url='https://mcv-rdm-proxy.baileykendall432.workers.dev/departures';const res=await fetch(url,{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);let raw=await res.json();if(Array.isArray(raw?.trainServices))raw=rdmToLegacyBoard(raw);if(!Array.isArray(raw.results))throw Error('Unexpected departures response');window.MCVPlatformAlerts?.observe(raw.results);services=parseServices(raw);lastFeed=Date.now();feedError='';renderChanges();renderAnnouncementChoices();}catch(err){feedError=String(err?.message||err);if(!lastFeed){$('connection-message').textContent='Live feed unavailable';$('connection-dot').className='dot bad';}}renderPlatforms();renderDepartures();}
+async function refreshDepartures(){try{const board=await MCVData.fetchBoard({allowStale:true});const raw=MCVData.toLegacyBoard(board.raw);if(!Array.isArray(raw.results))throw Error('Unexpected departures response');window.MCVPlatformAlerts?.observe(raw.results);services=parseServices(raw);lastFeed=board.receivedAt||Date.now();feedError=board.fallback?'Showing last received data: '+MCVData.ageLabel(board.ageMs):'';renderChanges();renderAnnouncementChoices();}catch(err){feedError=String(err?.message||err);if(!lastFeed){$('connection-message').textContent='Live feed unavailable';$('connection-dot').className='dot bad';}}renderPlatforms();renderDepartures();}
 function validNotice(n){return n&&typeof n==='object'&&typeof n.id==='string'&&typeof n.message==='string'&&n.message.length<=270&&n.message.length>=5&&['info','warning','urgent'].includes(n.kind)&&Array.isArray(n.targets)&&n.targets.length>0&&n.targets.every(t=>passenger.includes(t))&&Number.isFinite(Date.parse(n.expires_at))&&Number.isFinite(Date.parse(n.created_at));}
 function active(){return notices.filter(n=>Date.parse(n.expires_at)>Date.now());}
 function renderNotices(){const list=active().slice().sort((a,b)=>(PRIORITY[a.kind]??3)-(PRIORITY[b.kind]??3)||Date.parse(a.created_at)-Date.parse(b.created_at));
