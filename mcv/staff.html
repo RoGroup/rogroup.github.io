@@ -539,8 +539,11 @@ function parseServices(json){
   if(!json||!Array.isArray(json.results))throw new Error('Unexpected departures feed format');
   return json.results.map(raw=>{
     const statusCode=String(raw.status||'').trim().toLowerCase(),statusText=String(raw.status_text||'').trim();
-    const bookedMs=ms(raw.departs),expectedMs=ms(raw.expected_departs),bookedArrivalMs=ms(raw.arrives),expectedArrivalMs=ms(raw.expected_arrives),actualArrivalMs=ms(raw.actual_arrives),actualDepartureMs=ms(raw.actual_departs),diff=Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)?expectedMs-bookedMs:NaN;
-    const departed=statusCode==='departed'||/^departed\b/i.test(statusText);
+    const bookedMs=ms(raw.departs),expectedMs=ms(raw.expected_departs),bookedArrivalMs=ms(raw.arrives),expectedArrivalMs=ms(raw.expected_arrives),actualArrivalMs=ms(raw.actual_arrives),actualDepartureMs=ms(raw.actual_departs);
+    const depDiff=Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)?expectedMs-bookedMs:NaN,arrDiff=Number.isFinite(bookedArrivalMs)&&Number.isFinite(expectedArrivalMs)?expectedArrivalMs-bookedArrivalMs:NaN;
+    const diff=Number.isFinite(depDiff)?depDiff:arrDiff;
+    const departed=Number.isFinite(actualDepartureMs)||statusCode==='departed'||/^departed\b/i.test(statusText);
+    const arrived=Number.isFinite(actualArrivalMs);
     const cancelled=statusCode==='cancelled'||/^cancelled\b/i.test(statusText);
     const delayed=!cancelled&&!departed&&( ['expected_late','delayed_no_estimate','delayed'].includes(statusCode)||/^delayed\b/i.test(statusText)||(/^expected\b/i.test(statusText)&&Number.isFinite(diff)&&diff>60000)||(Number.isFinite(diff)&&diff>60000));
     const rawPlatform=raw.platform_withheld===true?'':String(raw.platform??'').trim();
@@ -556,9 +559,16 @@ function parseServices(json){
     const rid=String(raw.rid||'').trim();
     const serviceId=String(raw.service_id||rid||raw.rsid||'').trim();
     const destCrs=String(raw.destination?.crs||raw.destination_crs||'').toUpperCase(),dest=station(raw.destination?.name||raw.destination_name||'Unknown',destCrs);
-    const key=[serviceId||headcode||'service',raw.departs||'unknown',destCrs||dest,raw.operator||'unknown'].join('|');
-    let status=cancelled?'Cancelled':departed?'Departed':delayed?(statusText|| (Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):'Delayed')):(statusText|| (/^(on[_ -]?time|early|expected_early)$/i.test(statusCode)?'On time':'Status not supplied'));
-    if(/^expected_late$/i.test(status))status=Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):'Delayed';
+    const key=[serviceId||headcode||'service',raw.departs||raw.arrives||'unknown',destCrs||dest,raw.operator||'unknown'].join('|');
+    const arrivalOnly=!Number.isFinite(bookedMs)&&Number.isFinite(bookedArrivalMs);
+    let status;
+    if(cancelled)status='Cancelled';
+    else if(arrivalOnly&&arrived)status='Arrived '+fmt(actualArrivalMs);
+    else if(departed)status='Departed';
+    else if(arrivalOnly&&Number.isFinite(expectedArrivalMs)&&expectedArrivalMs!==bookedArrivalMs)status='Expected '+fmt(expectedArrivalMs);
+    else if(delayed)status=statusText|| (Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):(Number.isFinite(expectedArrivalMs)?'Expected '+fmt(expectedArrivalMs):'Delayed'));
+    else status=statusText||'On time';
+    if(/^expected_late$/i.test(status))status=Number.isFinite(expectedMs)?'Expected '+fmt(expectedMs):(Number.isFinite(expectedArrivalMs)?'Expected '+fmt(expectedArrivalMs):'Delayed');
     const coaches=Number.isInteger(Number(raw.coaches))&&Number(raw.coaches)>0?Number(raw.coaches):null;
     const serviceClass=String(raw.service_class||'').toLowerCase();
     const ecs=raw.is_passenger_service===false||serviceClass==='empty stock';
@@ -588,7 +598,7 @@ function parseServices(json){
     const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
-      status,statusCode,delayed,cancelled,departed,lateReason:String(raw.late_reason||'').trim(),coaches,
+      status,statusCode,delayed,cancelled,departed,arrived,lateReason:String(raw.late_reason||'').trim(),coaches,
       stops:onward,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
@@ -603,9 +613,9 @@ function parseServices(json){
     return service;
   }).filter(s=>!s.notForDisplay&&!['freight','trip'].includes(s.serviceClass));
 }
-function visibleServices(){return state.services.filter(s=>!s.departed)}
+function visibleServices(){return state.services.filter(s=>!(s.departed&&serviceFlow(s).key!=='terminate'))}
 function sortedServices(){const list=chronologicalServices();return state.sortMode==='platform'?list.sort(sortByPlatform):list}
-function overdue(s){return s.delayed&&Number.isFinite(s.bookedMs)&&s.bookedMs<Date.now()}
+function overdue(s){const t=movementScheduledMs(s);return s.delayed&&Number.isFinite(t)&&t<Date.now()}
 function changed(message,type='info',key=''){
   const now=Date.now();const sig=type+'|'+key+'|'+message;
   if(state.changes[0]?.sig===sig)return;
@@ -638,7 +648,7 @@ function updateFeedBanner(){
 }
 function renderStats(){
   if(!state.lastGood)return;
-  const arr=visibleServices(),next=chronologicalServices().find(s=>!s.cancelled&&Number.isFinite(s.bookedMs));
+  const arr=visibleServices(),next=chronologicalServices('departures').find(s=>!s.cancelled&&Number.isFinite(s.bookedMs));
   const ecsCount=arr.filter(s=>s.ecs).length,passengerCount=arr.length-ecsCount;
   $('stat-total').textContent=arr.length;$('stat-total-split').textContent=`${passengerCount} passenger | ${ecsCount} ECS`;$('stat-delay').textContent=arr.filter(s=>s.delayed).length;
   $('stat-overdue').textContent=`${arr.filter(overdue).length} delayed past booked time`;
@@ -648,7 +658,7 @@ function renderStats(){
   $('stat-next').textContent=next?next.booked:'—';$('stat-next-dest').textContent=next?`${next.headcode?next.headcode+' · ':''}${next.dest} · ${next.platform||'TBC'}`:'No upcoming service in feed';
 }
 function renderPlatforms(){
-  const all=chronologicalServices();
+  const all=chronologicalServices('departures');
   for(let n=1;n<=6;n++){
     const el=document.querySelector(`.platform-card[data-platform="${n}"]`);const list=all.filter(s=>matchPlatform(s.platform,n));const s=list.find(x=>!x.cancelled)||list[0];
     el.classList.toggle('is-selected',state.chosenPlatform===String(n));
@@ -660,7 +670,7 @@ function renderPlatforms(){
 }
 function selectFilter(){
   const q=state.search.toLowerCase();
-  const filtered=sortedServices().filter(s=>{
+  const filtered=sortedServices().filter(s=>serviceVisibleInView(s)&&(()=>{
     const platform=state.chosenPlatform;
     if(state.serviceTypeFilter==='passenger'&&s.ecs)return false;
     if(state.serviceTypeFilter==='ecs'&&!s.ecs)return false;
@@ -672,8 +682,8 @@ function selectFilter(){
     if(state.statusFilter==='overdue'&&!overdue(s))return false;
     if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
     return true;
-  });
-  if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||(state.sortMode==='platform'?sortByPlatform(a,b):a.bookedMs-b.bookedMs));
+  })());
+  if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||(state.sortMode==='platform'?sortByPlatform(a,b):movementScheduledMs(a)-movementScheduledMs(b)));
   return filtered;
 }
 function badge(s){return s.cancelled?'cancel':s.delayed?'delay':'ok'}
