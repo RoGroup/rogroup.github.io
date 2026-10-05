@@ -326,7 +326,7 @@ function selectFilter(){
 function badge(s){return s.cancelled?'cancel':s.delayed?'delay':'ok'}
 function renderTable(){
   if(!state.lastGood){$('departures').innerHTML='<tr><td class="empty" colspan="6">Waiting for live departures. No times are being simulated.</td></tr>';return}
-  const rows=selectFilter();$('results-note').textContent=`Showing ${rows.length} of ${visibleServices().length} services · feed limit 100`;
+  const rows=selectFilter();$('results-note').textContent=`Showing ${rows.length} of ${visibleServices().length} services · up to 60 supplied by live feed`;
   const scrollArea=$('table-area'),scrollTop=scrollArea.scrollTop;
   $('departures').innerHTML=rows.length?rows.map(s=>{
     const cls=s.key===state.selectedKey?' selected':'';
