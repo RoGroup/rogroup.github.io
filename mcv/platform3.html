@@ -155,7 +155,26 @@ main {
   scrollbar-width: none;
 }
 .stops-viewport::-webkit-scrollbar { display: none; }
-.stops-text { display: inline-block; white-space: nowrap; text-transform: uppercase; }
+.stops-track {
+  display: inline-flex; align-items: center; width: max-content;
+  white-space: nowrap; will-change: transform;
+}
+.stops-text, .stops-repeat {
+  flex: 0 0 auto; display: inline-block; white-space: nowrap; text-transform: uppercase;
+}
+.stops-repeat { display: none; }
+.stops-track.ticker-active .stops-repeat { display: inline-block; }
+.stops-track.ticker-active {
+  animation: calling-points-ticker var(--ticker-duration, 18s) linear infinite;
+}
+@keyframes calling-points-ticker {
+  0%, 15% { transform: translateX(0); }
+  85%, 100% { transform: translateX(calc(-1 * var(--ticker-distance, 0px))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stops-track.ticker-active { animation: none; transform: none; }
+  .stops-track.ticker-active .stops-repeat { display: none; }
+}
 .service-reason {
   margin: 6px 0 0 calc(100px + 1.5rem);
   color: #ffffff; font-size: 14px; font-weight: 600;
@@ -394,7 +413,12 @@ function renderBoard(services) {
       ${dep.lateReason ? `<div class="service-reason"><span class="label">DELAY REASON:</span>${escapeHTML(dep.lateReason)}</div>` : ''}
       <div class="service-stops">
         <span class="label">Calling at:</span>
-        <div class="stops-viewport"><span class="stops-text">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span></div>
+        <div class="stops-viewport" data-stop-count="${dep.activeCallingPoints?.length || 0}">
+          <span class="stops-track">
+            <span class="stops-text">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span>
+            <span class="stops-repeat" aria-hidden="true">${escapeHTML(dep.stops || 'Stopping pattern unavailable')}</span>
+          </span>
+        </div>
       </div>
     `;
     boardRows.appendChild(card);
@@ -403,6 +427,7 @@ function renderBoard(services) {
   }
   stopViewports = [...boardRows.querySelectorAll('.stops-viewport')];
   for (const key of stopStates.keys()) if (!currentKeys.has(key)) stopStates.delete(key);
+  requestAnimationFrame(configureCallingTickers);
 
   if (newlyOverdue) {
     // Only a train which has passed its booked time jumps to the top.
@@ -609,42 +634,53 @@ function advanceBoardScroll() {
 }
 
 // Smooth long calling-point strips only when those particular strips overflow.
-function autoScrollFrame(now) {
-  const elapsed = previousAnimationTime === null ? 0 : Math.min((now - previousAnimationTime) / 1000, 0.1);
-  previousAnimationTime = now;
-
-  // A stopping pattern moves ONLY when it overflows its available width.
-  // Hidden rows pause; when they reappear, their horizontal progress resumes.
-  const visibleArea = boardRows.getBoundingClientRect();
+function configureCallingTickers() {
   for (const viewport of stopViewports) {
-    const excess = viewport.scrollWidth - viewport.clientWidth;
-    if (excess <= 1) { viewport.scrollLeft = 0; continue; }
-    const card = viewport.closest('.service-card');
-    const rect = card.getBoundingClientRect();
-    if (rect.bottom <= visibleArea.top || rect.top >= visibleArea.bottom) continue;
-    const key = card.dataset.serviceKey;
-    let state = stopStates.get(key);
-    if (!state) {
-      state = { phase: 'start', waitUntil: now + MOTION.callingPointsStartPauseMs };
-      stopStates.set(key, state);
+    const track = viewport.querySelector('.stops-track');
+    const primary = viewport.querySelector('.stops-text');
+    const repeat = viewport.querySelector('.stops-repeat');
+    if (!track || !primary || !repeat || viewport.clientWidth <= 0) continue;
+
+    const primaryWidth = primary.getBoundingClientRect().width;
+    const stopCount = Number(viewport.dataset.stopCount || 0);
+    const textLength = (primary.textContent || '').trim().length;
+
+    // Longer patterns are a ticker even when they happen to fit at 100% zoom.
+    // This avoids browser zoom being the thing that decides whether animation runs.
+    const shouldTicker =
+      primaryWidth > viewport.clientWidth + 1 ||
+      stopCount >= 4 ||
+      textLength >= 52;
+
+    track.classList.toggle('ticker-active', shouldTicker);
+
+    if (!shouldTicker) {
+      repeat.style.marginLeft = '0px';
+      track.style.removeProperty('--ticker-distance');
+      track.style.removeProperty('--ticker-duration');
+      continue;
     }
-    if (now < state.waitUntil) continue;
-    if (state.phase === 'start') state.phase = 'moving';
-    if (state.phase === 'moving') {
-      viewport.scrollLeft = Math.min(excess, viewport.scrollLeft + MOTION.callingPointsPixelsPerSecond * elapsed);
-      if (viewport.scrollLeft >= excess - 1) {
-        viewport.scrollLeft = excess;
-        state.phase = 'end';
-        state.waitUntil = now + MOTION.callingPointsEndPauseMs;
-      }
-    } else if (state.phase === 'end') {
-      viewport.scrollLeft = 0;
-      state.phase = 'start';
-      state.waitUntil = now + MOTION.callingPointsStartPauseMs;
-    }
+
+    // Keep the repeated copy just beyond the right edge when the first copy fits,
+    // then travel exactly to the repeated copy. At the loop point both copies match,
+    // so the reset is visually seamless.
+    const gap = Math.max(48, viewport.clientWidth - primaryWidth + 48);
+    repeat.style.marginLeft = gap + 'px';
+
+    const distance = primaryWidth + gap;
+    const travelSeconds = Math.max(6, distance / MOTION.callingPointsPixelsPerSecond);
+    const duration = Math.max(10, travelSeconds / 0.70);
+
+    track.style.setProperty('--ticker-distance', distance + 'px');
+    track.style.setProperty('--ticker-duration', duration.toFixed(2) + 's');
   }
-  requestAnimationFrame(autoScrollFrame);
 }
+
+let callingTickerResizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(callingTickerResizeTimer);
+  callingTickerResizeTimer = setTimeout(configureCallingTickers, 120);
+});
 
 updateClock();
 setInterval(updateClock, 1000);
@@ -653,7 +689,7 @@ setInterval(fetchDepartures, CONFIG.refreshIntervalMs);
 setInterval(promoteNewlyOverdueServices, 1000);
 setInterval(rotateServiceAlert, CONFIG.alertRotationMs);
 setInterval(advanceBoardScroll, 40);
-requestAnimationFrame(autoScrollFrame);
+configureCallingTickers();
 </script>
 
 </body>
