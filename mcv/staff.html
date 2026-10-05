@@ -15,7 +15,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .top{background:#fff;border-bottom:4px solid var(--blue);display:flex;align-items:center;justify-content:space-between;gap:24px;padding:14px clamp(18px,3vw,48px);position:relative;z-index:2}
 .identity{display:flex;align-items:center;gap:21px}.logo{width:170px;height:56px;object-fit:contain}.titleblock{border-left:1px solid #d2dbe7;padding-left:20px}.top h1{font-size:clamp(22px,2.3vw,32px);line-height:1.1;margin:0;font-weight:800;color:var(--navy);text-transform:uppercase}.subhead{margin-top:5px;font-size:12px;color:var(--blue);font-weight:800;letter-spacing:1.25px;text-transform:uppercase}.top-right{display:flex;gap:15px;align-items:center}.clock{color:var(--navy);font-weight:800;font-size:31px;white-space:nowrap;font-variant-numeric:tabular-nums;text-align:right}.date{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);text-align:right;margin-top:2px}
 .container{max-width:1860px;margin:auto;padding:22px clamp(16px,3vw,48px) 40px}.feedbar{display:flex;gap:11px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:17px;min-height:53px}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#95a1ae;flex:none}.dot.ok{background:var(--green)}.dot.warn{background:#d69900}.dot.off{background:var(--red)}.feedbar strong{color:var(--navy)}.feedbar .note{color:var(--muted);font-size:13px}.push{margin-left:auto}.button{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;background:white;color:var(--navy);padding:10px 13px;font-weight:800;text-decoration:none;gap:7px;white-space:nowrap}.button:hover{background:#edf9ff}.button.primary{background:var(--navy);color:white;border-color:var(--navy)}.button.primary:hover{background:#3b367e}.button:disabled{opacity:.55;cursor:wait}
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}.stat-title{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:800}.stat-value{font-size:31px;font-weight:800;line-height:1.2;margin-top:7px;color:var(--navy);font-variant-numeric:tabular-nums}.stat.small .stat-value{font-size:18px;margin-top:13px}.stat-sub{font-size:12px;color:var(--muted);margin-top:5px}.stat.alert{border-left:5px solid var(--amber)}.stat.danger{border-left:5px solid var(--red)}
+.stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:20px}.stat{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}.stat-title{font-size:11px;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);font-weight:800}.stat-value{font-size:31px;font-weight:800;line-height:1.2;margin-top:7px;color:var(--navy);font-variant-numeric:tabular-nums}.stat.small .stat-value{font-size:18px;margin-top:13px}.stat-sub{font-size:12px;color:var(--muted);margin-top:5px}.stat.alert{border-left:5px solid var(--amber)}.stat.danger{border-left:5px solid var(--red)}
 .section-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin:24px 0 12px}.section-heading h2{margin:0;color:var(--navy);font-size:19px}.section-heading p{margin:0;color:var(--muted);font-size:12px}
 .platforms{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:11px}.platform-card{background:#fff;border:1px solid var(--line);border-top:5px solid var(--blue);border-radius:10px;padding:14px;min-width:0;text-align:left;color:var(--ink)}.platform-card:hover{border-color:var(--blue);box-shadow:0 3px 14px #26226212}.platform-card.is-selected{background:var(--navy);color:#fff;border-color:var(--navy)}.platform-card.is-selected .platform-caption,.platform-card.is-selected .platform-meta,.platform-card.is-selected .platform-dest{color:#fff}.platform-top{display:flex;align-items:baseline;justify-content:space-between;gap:4px}.platform-no{font-size:13px;font-weight:800;letter-spacing:.65px;text-transform:uppercase}.platform-meta{font-size:12px;font-weight:700;color:var(--muted)}.platform-dest{font-size:17px;font-weight:800;margin-top:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:var(--navy)}.platform-caption{font-size:12px;color:var(--muted);margin-top:5px;min-height:16px}.platform-card[data-delay="true"]{border-top-color:var(--amber)}.platform-card[data-cancel="true"]{border-top-color:var(--red)}
 .workspace{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(300px,1fr);gap:16px;align-items:start;margin-top:20px}.panel{background:#fff;border:1px solid var(--line);border-radius:11px;overflow:hidden;min-width:0}.panel-title{padding:17px 19px;display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line)}.panel-title h2{font-size:18px;margin:0;color:var(--navy)}.panel-title .minor{color:var(--muted);font-size:12px}.controls{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:9px;flex-wrap:wrap}.controls input,.controls select{background:#fff;border:1px solid #cbd5e1;border-radius:7px;padding:10px 11px;min-width:0;color:var(--navy)}.controls input{flex:1;min-width:150px}.controls select{flex:0 1 150px}.tick-control{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;white-space:nowrap;cursor:pointer}.tick-control input{flex:initial;min-width:0;accent-color:var(--navy)}
@@ -83,6 +83,33 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .ecs-chip{display:inline-flex;align-items:center;margin-right:5px;padding:2px 6px;border-radius:4px;background:#fff1bf;color:#5d4700;font-size:9px;font-weight:900;letter-spacing:.08em;vertical-align:1px}
 .headcode-chip{display:inline-flex;align-items:center;margin-right:6px;padding:4px 8px;border-radius:5px;background:var(--navy);color:#fff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;font-weight:900;letter-spacing:.08em;line-height:1;vertical-align:middle}
 .headcode-hero{display:inline-flex;align-items:center;margin-top:9px;padding:7px 10px;border-radius:6px;background:var(--navy);color:#fff;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:18px;font-weight:900;letter-spacing:.1em;line-height:1}
+.ops-badges{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ops-route{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:8px;margin:14px 0 4px;padding:12px;border:1px solid #d9e3ef;border-radius:8px;background:#f8fbfe}
+.ops-route .place{min-width:0;font-size:12px;font-weight:800;color:var(--navy);line-height:1.25}
+.ops-route .place.center{text-align:center}
+.ops-route .place.end{text-align:right}
+.ops-route .place small{display:block;margin-bottom:3px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ops-route .arrow{color:var(--blue);font-weight:900}
+.ops-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.ops-metric{padding:10px;border:1px solid var(--line);border-radius:7px;background:#fbfcfe;min-width:0}
+.ops-metric .label{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.ops-metric .value{margin-top:4px;font-size:16px;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
+.ops-metric .sub{margin-top:2px;font-size:10px;color:var(--muted)}
+.ops-alerts{display:grid;gap:7px;margin-top:12px}
+.ops-alert{padding:10px 11px;border-radius:7px;border-left:4px solid var(--blue);background:#f3f9fd;font-size:11px;line-height:1.4}
+.ops-alert.warn{border-left-color:var(--amber);background:#fff8e7}
+.ops-alert.danger{border-left-color:var(--red);background:#fff1f2}
+.ops-alert strong{color:var(--navy)}
+.ops-next{display:grid;gap:7px}
+.ops-move{display:grid;grid-template-columns:54px 56px minmax(0,1fr) auto;gap:7px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:11px}
+.ops-move:last-child{border-bottom:0}
+.ops-move .move-time{font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
+.ops-move .move-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-weight:900}
+.ops-move .move-dest{min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ops-move .move-status{font-size:9px;font-weight:800;color:var(--muted);text-align:right}
+.data-fresh{margin-top:8px;padding:10px;border:1px dashed #cdd8e5;border-radius:7px;background:#fbfcfe;font-size:10px;line-height:1.45;color:var(--muted)}
+.category-chip{display:inline-flex;padding:3px 6px;border-radius:4px;background:#e8f4fb;color:var(--navy);font-size:9px;font-weight:900;letter-spacing:.04em}
+
 .details-id{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;word-break:break-all}
 .mobile-only{display:none}
 
@@ -125,6 +152,12 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .panel-title h2{font-size:16px}
   .headcode-chip{font-size:11px;padding:4px 7px}
   .headcode-hero{font-size:16px;padding:6px 9px}
+  .ops-route{grid-template-columns:1fr;gap:5px}
+  .ops-route .place,.ops-route .place.center,.ops-route .place.end{text-align:left}
+  .ops-route .arrow{display:none}
+  .ops-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ops-move{grid-template-columns:48px 52px minmax(0,1fr)}
+  .ops-move .move-status{display:none}
   .panel-title .mini-label{display:none}
   .controls{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:10px}
   .controls #search{grid-column:1/-1}
@@ -210,10 +243,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
   <section class="stats" aria-label="Station summary">
-    <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">Not departed · passenger services</div></div>
+    <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub">Not departed · passenger + ECS</div></div>
     <div class="stat alert"><div class="stat-title">Delayed</div><div class="stat-value" id="stat-delay">—</div><div class="stat-sub" id="stat-overdue">Awaiting data</div></div>
     <div class="stat danger"><div class="stat-title">Cancelled</div><div class="stat-value" id="stat-cancel">—</div><div class="stat-sub">Still shown by live feed</div></div>
     <div class="stat"><div class="stat-title">Platform TBC</div><div class="stat-value" id="stat-tbc">—</div><div class="stat-sub">Not allocated / withheld</div></div>
+    <div class="stat"><div class="stat-title">ECS moves</div><div class="stat-value" id="stat-ecs">—</div><div class="stat-sub">Non-passenger movements</div></div>
     <div class="stat small"><div class="stat-title">Next booked departure</div><div class="stat-value" id="stat-next">—</div><div class="stat-sub" id="stat-next-dest">Awaiting data</div></div>
   </section>
   <section aria-label="Platform overview">
@@ -264,7 +298,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=bc815fdc"></script>
+<script src="mcv-data.js?v=5ccd1792"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
@@ -278,7 +312,7 @@ function centreSignalMap(){
   });
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
-  lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
+  lastGood:0,feedGeneratedAt:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
 const ukTime = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hour12:false});
 const ukClock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
@@ -291,12 +325,42 @@ function matchPlatform(value,num){return new RegExp('^'+num+'(?:[AB])?$','i').te
 function timeDiff(s){return Number.isFinite(s.expectedMs)&&Number.isFinite(s.bookedMs)?Math.max(0,Math.round((s.expectedMs-s.bookedMs)/60000)):null}
 function trainNotice(s){if(!(s.coaches>2))return '';const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
 
+const CATEGORY_NAMES={
+  OL:'London Underground / Metro service',OU:'Unadvertised ordinary passenger',OO:'Ordinary passenger',OS:'Staff train',OW:'Mixed',
+  XC:'Channel Tunnel',XD:'Sleeper (Europe night service)',XI:'International',XR:'Motorail',XU:'Unadvertised express',XX:'Express passenger',XZ:'Sleeper (domestic)',
+  BR:'Rail replacement bus',BS:'WTT bus service',SS:'Ship',
+  EE:'Empty Coaching Stock (ECS)',EL:'ECS Metro / Underground',ES:'ECS & staff',
+  JJ:'Postal',PM:'Post Office controlled parcels',PP:'Parcels',PV:'Empty NPCCS',
+  DD:'Departmental',DH:'Civil Engineer',DI:'Mechanical & Electrical Engineer',DQ:'Stores',DT:'Test train',DY:'Signal & Telecommunications Engineer',
+  ZB:'Locomotive & brake van',ZZ:'Light locomotive'
+};
+function categoryName(code){const key=String(code||'').trim().toUpperCase();return key?(CATEGORY_NAMES[key]||'ITPS category '+key):'Not supplied'}
+function dwellMinutes(s){
+  if(!Number.isFinite(s.bookedArrivalMs)||!Number.isFinite(s.bookedMs))return null;
+  let d=Math.round((s.bookedMs-s.bookedArrivalMs)/60000);
+  if(d<0)d+=1440;
+  return d>=0&&d<180?d:null;
+}
+function platformState(s){
+  if(s.platformHidden&&s.platform)return s.platform+' · supplied / public display hidden';
+  if(s.platform)return s.platform;
+  if(s.platformWithheld)return 'Withheld / TBC';
+  return 'TBC';
+}
+function sameExactPlatform(a,b){return String(a||'').trim().toUpperCase()===String(b||'').trim().toUpperCase()}
+function nextPlatformMovements(s){
+  if(!s.platform)return [];
+  return sortedServices().filter(x=>x.key!==s.key&&sameExactPlatform(x.platform,s.platform)&&x.bookedMs>=s.bookedMs).slice(0,3);
+}
+function ageText(ts){if(!Number.isFinite(ts)||!ts)return 'Not supplied';const sec=Math.max(0,Math.round((Date.now()-ts)/1000));return sec<60?sec+'s ago':Math.floor(sec/60)+'m '+(sec%60)+'s ago'}
+
+
 function parseServices(json){
   json=MCVData.toLegacyBoard(json);
   if(!json||!Array.isArray(json.results))throw new Error('Unexpected departures feed format');
   return json.results.map(raw=>{
     const statusCode=String(raw.status||'').trim().toLowerCase(),statusText=String(raw.status_text||'').trim();
-    const bookedMs=ms(raw.departs),expectedMs=ms(raw.expected_departs),diff=Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)?expectedMs-bookedMs:NaN;
+    const bookedMs=ms(raw.departs),expectedMs=ms(raw.expected_departs),bookedArrivalMs=ms(raw.arrives),expectedArrivalMs=ms(raw.expected_arrives),actualArrivalMs=ms(raw.actual_arrives),actualDepartureMs=ms(raw.actual_departs),diff=Number.isFinite(bookedMs)&&Number.isFinite(expectedMs)?expectedMs-bookedMs:NaN;
     const departed=statusCode==='departed'||/^departed\b/i.test(statusText);
     const cancelled=statusCode==='cancelled'||/^cancelled\b/i.test(statusText);
     const delayed=!cancelled&&!departed&&( ['expected_late','delayed_no_estimate','delayed'].includes(statusCode)||/^delayed\b/i.test(statusText)||(/^expected\b/i.test(statusText)&&Number.isFinite(diff)&&diff>60000)||(Number.isFinite(diff)&&diff>60000));
@@ -337,11 +401,16 @@ function parseServices(json){
       }];
     }
 
-    const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,booked:fmt(bookedMs),expected:fmt(expectedMs),
-      dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,
+    const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
+      booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
+      dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,lateReason:String(raw.late_reason||'').trim(),coaches,
       stops:onward,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
-      trainCategory:String(raw.train_category||''),trainType:String(raw.train_type||''),origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),
+      trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
+      isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
+      uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
+      arrivalType:String(raw.arrival_type||'').trim(),departureType:String(raw.departure_type||'').trim(),
+      origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),
       note:String(raw.cancel_reason||'').trim()};
     service.firstClassNotice=MCVData.firstClassNotice({
       coaches:service.coaches,operator:service.operator,operatorCode:service.operatorCode,
@@ -390,7 +459,8 @@ function renderStats(){
   $('stat-overdue').textContent=`${arr.filter(overdue).length} delayed past booked time`;
   $('stat-cancel').textContent=arr.filter(s=>s.cancelled).length;
   $('stat-tbc').textContent=arr.filter(s=>!s.platform&&!s.cancelled).length;
-  $('stat-next').textContent=next?next.booked:'—';$('stat-next-dest').textContent=next?`${next.dest} · ${next.platform||'TBC'}`:'No upcoming service in feed';
+  $('stat-ecs').textContent=arr.filter(s=>s.ecs).length;
+  $('stat-next').textContent=next?next.booked:'—';$('stat-next-dest').textContent=next?`${next.headcode?next.headcode+' · ':''}${next.dest} · ${next.platform||'TBC'}`:'No upcoming service in feed';
 }
 function renderPlatforms(){
   const all=sortedServices();
@@ -413,7 +483,7 @@ function selectFilter(){
     if(state.statusFilter==='cancelled'&&!s.cancelled)return false;
     if(state.statusFilter==='issues'&&!(s.delayed||s.cancelled))return false;
     if(state.statusFilter==='overdue'&&!overdue(s))return false;
-    if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
+    if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
     return true;
   });
   if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||a.bookedMs-b.bookedMs);
@@ -422,7 +492,7 @@ function selectFilter(){
 function badge(s){return s.cancelled?'cancel':s.delayed?'delay':'ok'}
 function renderTable(){
   if(!state.lastGood){$('departures').innerHTML='<tr><td class="empty" colspan="6">Waiting for live departures. No times are being simulated.</td></tr>';return}
-  const rows=selectFilter();$('results-note').textContent=`Showing ${rows.length} of ${visibleServices().length} services · up to 60 supplied by live feed`;
+  const rows=selectFilter();const allVisible=visibleServices(),ecsCount=allVisible.filter(s=>s.ecs).length;$('results-note').textContent=`Showing ${rows.length} of ${allVisible.length} services · ${allVisible.length-ecsCount} passenger · ${ecsCount} ECS`;
   const scrollArea=$('table-area'),scrollTop=scrollArea.scrollTop;
   $('departures').innerHTML=rows.length?rows.map(s=>{
     const cls=s.key===state.selectedKey?' selected':'';
@@ -436,17 +506,92 @@ function renderTable(){
 function reasonFor(s){return s.cancelled?s.note:s.delayed?s.lateReason:''}
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
-  if(!s){$('service-details').innerHTML='<div class="placeholder">Select a service in the departures table to see its full live information and calling points.</div>';return}
-  const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s);
+  if(!s){$('service-details').innerHTML='<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>';return}
+  const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
+  const nextCall=s.stops[0]||null;
+  const platformMoves=nextPlatformMovements(s);
+  const cat=categoryName(s.trainCategory);
   const extra=(label,value)=>`<div><div class="kv-label">${escapeHTML(label)}</div><div class="kv-value">${escapeHTML(value||'—')}</div></div>`;
-  $('service-details').innerHTML=`<div class="detail-heading">${escapeHTML(s.dest)}</div><div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}<div style="margin-top:12px"><span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>${overdue(s)?' <span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
-  <section class="detail-group"><h3>Departure information</h3><div class="keyvalues">${extra('Booked departure',s.booked)}${extra('Expected departure',s.expected)}${extra('Platform',s.platform|| (s.platformWithheld?'Withheld / TBC':'TBC'))}${extra('Delay against booked',diff===null?'Not available':`${diff} minutes`)}${extra('Operator',s.operator)}${extra('Headcode',s.headcode||'Not supplied')}${s.uid?extra('Train UID',s.uid):''}${s.rid?extra('RID',s.rid):''}${extra('Origin',s.origin==='Unknown'?'Not supplied':s.origin)}${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}${extra('Service type',s.ecs?'ECS / non-passenger':'Passenger service')}${extra('Service category',s.serviceClass||'Not supplied')}${extra('Source status code',s.statusCode||'Not provided')}${extra('Feed service ID',s.serviceId||'Not supplied')}</div>
-  ${reason?`<div class="reason${s.cancelled?' red':''}"><strong>${s.cancelled?'Reported cancellation reason':'Reported delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="reason blue">No cause provided by the current feed for this service.</div>':'')}
-  ${notice&&!s.cancelled?`<div class="reason"><strong>Locally configured carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}</section>
-  <section class="detail-group"><h3>Calling points after Manchester Victoria · ${s.stops.length}</h3>${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li><div class="stop-name">${escapeHTML(p.name)}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}</section>
-  ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)}</div>`).join('')}</section>`:''}
-  <div class="detail-small" style="margin-top:18px">Feed data only. Verify before making operational decisions.</div>`;
+  const metric=(label,value,sub='')=>`<div class="ops-metric"><div class="label">${escapeHTML(label)}</div><div class="value">${escapeHTML(value||'—')}</div>${sub?`<div class="sub">${escapeHTML(sub)}</div>`:''}</div>`;
+  const statusBadge=`<span class="status-pill ${badge(s)}">${escapeHTML(s.status)}</span>`;
+  const typeBadge=s.ecs?'<span class="ecs-chip">ECS / NON-PASSENGER</span>':'<span class="category-chip">PASSENGER</span>';
+  const charterBadge=s.isCharter?'<span class="category-chip">CHARTER</span>':'';
+  const categoryBadge=s.trainCategory?`<span class="category-chip">${escapeHTML(s.trainCategory)} · ${escapeHTML(cat)}</span>`:'';
+  const arrivalDisplay=s.actualArrival!=='—'?s.actualArrival:s.expectedArrival;
+  const arrivalSub=s.actualArrival!=='—'?'Actual arrival':(s.expectedArrival!=='—'?'Expected arrival':'Arrival forecast not supplied');
+  const departureDisplay=s.actualDeparture!=='—'?s.actualDeparture:s.expected;
+  const departureSub=s.actualDeparture!=='—'?'Actual departure':(s.expected!=='—'?'Expected departure':'Departure forecast not supplied');
+
+  $('service-details').innerHTML=`
+    <div class="detail-heading">${escapeHTML(s.dest)}</div>
+    <div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>
+    ${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}
+    <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
+
+    <div class="ops-route">
+      <div class="place"><small>Origin</small>${escapeHTML(s.origin==='Unknown'?'Not supplied':s.origin)}</div>
+      <div class="arrow">→</div>
+      <div class="place center"><small>Current location</small>Manchester Victoria</div>
+      <div class="arrow">→</div>
+      <div class="place end"><small>Destination</small>${escapeHTML(s.dest)}</div>
+    </div>
+
+    <div class="ops-metrics">
+      ${metric('Booked arrival',s.bookedArrival,s.bookedArrival!=='—'?'At Manchester Victoria':'Not supplied for this movement')}
+      ${metric('Booked departure',s.booked,'At Manchester Victoria')}
+      ${metric('Booked dwell',dwell===null?'—':dwell+' min',dwell===null?'Not available':'Arrival → departure')}
+      ${metric(arrivalSub,arrivalDisplay,'Live arrival information')}
+      ${metric(departureSub,departureDisplay,diff!==null&&diff>0?'+'+diff+' min vs booked':'Live departure information')}
+      ${metric('Platform',platformState(s),s.platformHidden?'Platform supplied but hidden on public display':(s.platformWithheld&&!s.platform?'Allocation withheld / not supplied':'Live allocation'))}
+    </div>
+
+    <div class="ops-alerts">
+      ${reason?`<div class="ops-alert ${s.cancelled?'danger':'warn'}"><strong>${s.cancelled?'Cancellation reason':'Delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="ops-alert warn"><strong>Disruption:</strong> No cause supplied by the current feed.</div>':'')}
+      ${s.reverseFormation?'<div class="ops-alert warn"><strong>Formation:</strong> Staff feed reports this service is operating in reverse formation.</div>':''}
+      ${s.futureCancellation?'<div class="ops-alert danger"><strong>Future cancellation:</strong> A cancellation is flagged at a later location.</div>':''}
+      ${s.futureDelay?'<div class="ops-alert warn"><strong>Future delay:</strong> A delay is flagged at a later location.</div>':''}
+      ${s.uncertainty?`<div class="ops-alert warn"><strong>Uncertainty:</strong> ${escapeHTML(s.uncertainty)}</div>`:''}
+      ${notice&&!s.cancelled?`<div class="ops-alert"><strong>Local carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}
+    </div>
+
+    <section class="detail-group"><h3>Operational information</h3><div class="keyvalues">
+      ${extra('Operator',s.operator+(s.operatorCode?' · '+s.operatorCode:''))}
+      ${extra('Headcode',s.headcode||'Not supplied')}
+      ${s.uid?extra('Train UID',s.uid):''}
+      ${extra('Train category',s.trainCategory?(s.trainCategory+' · '+cat):'Not supplied')}
+      ${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'}`:'Not supplied')}
+      ${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}
+      ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
+      ${extra('Service type',s.ecs?'ECS / non-passenger':(s.isCharter?'Passenger charter':'Passenger service'))}
+      ${s.activities?extra('ITPS activities',s.activities):''}
+      ${extra('Operational call',s.isOperationalCall?'Yes':'No / not flagged')}
+    </div></section>
+
+    <section class="detail-group"><h3>Next location after Manchester Victoria</h3>
+      ${nextCall?`<div class="ops-metric"><div class="label">Next booked call</div><div class="value">${escapeHTML(nextCall.name)}</div><div class="sub">${nextCall.booked!=='—'?'Booked '+escapeHTML(nextCall.booked):'Time not supplied'}${nextCall.expected!=='—'&&nextCall.expected!==nextCall.booked?' · Expected '+escapeHTML(nextCall.expected):''}${nextCall.platform?' · Platform '+escapeHTML(nextCall.platform):''}</div></div>`:'<div class="placeholder">No onward location is currently supplied by the board feed.</div>'}
+    </section>
+
+    <section class="detail-group"><h3>Next movements on ${escapeHTML(s.platform?'Platform '+s.platform:'this platform')}</h3>
+      ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
+    </section>
+
+    <section class="detail-group"><h3>Calling points after Manchester Victoria · ${s.stops.length}</h3>
+      ${s.stops.length?`<ol class="stops">${s.stops.map(p=>`<li><div class="stop-name">${escapeHTML(p.name)}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}</div></li>`).join('')}</ol>`:'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'}
+    </section>
+
+    ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)}</div>`).join('')}</section>`:''}
+
+    <section class="detail-group"><h3>Technical identifiers</h3><div class="keyvalues">
+      ${s.rid?extra('RID',s.rid):''}
+      ${extra('Feed service ID',s.serviceId||'Not supplied')}
+      ${extra('Source status code',s.statusCode||'Not provided')}
+      ${extra('Arrival forecast type',s.arrivalType||'Not supplied')}
+      ${extra('Departure forecast type',s.departureType||'Not supplied')}
+    </div>
+    <div class="data-fresh"><strong>Data freshness:</strong> feed generated ${escapeHTML(state.feedGeneratedAt?fmt(state.feedGeneratedAt):'not supplied')} (${escapeHTML(ageText(state.feedGeneratedAt))}) · received by this page ${escapeHTML(state.lastGood?ukClock.format(state.lastGood):'—')} · auto-refresh every 20 seconds.</div></section>
+
+    <div class="detail-small" style="margin-top:18px">Live staff feed information. Verify against current operational instructions before acting.</div>`;
 }
 function renderEvents(){
   const rows=state.changes.slice(0,22);
@@ -461,7 +606,8 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     const json=await response.json();
     if(!json||!Array.isArray(json.trainServices))throw new Error('Unexpected staff departures feed format');
     const next=parseServices(json);
-    compareFeeds(next);state.services=next;state.lastGood=Date.now();state.lastError='';
+    const generated=Date.parse(json.generatedAt||json.generated_at||'');
+    compareFeeds(next);state.services=next;state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=Date.now();state.lastError='';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey))state.selectedKey='';
     render();
   }catch(err){state.lastError=String(err.message||err);console.warn('Staff departure feed:',err);updateFeedBanner();}
@@ -469,9 +615,9 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
-  const cols=['Booked','Headcode','Service type','Destination','Destination CRS','Operator','Formation','First Class','Platform','Expected','Status','Delay minutes','Delay / cancellation reason','Calling points','Feed service ID'];
+  const cols=['Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Next location','Calling points','UID','RID','Feed service ID'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[s.booked,s.headcode||'',s.ecs?'ECS':'Passenger',s.dest,s.destCrs,s.operator,s.coaches||'',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.expected,s.status,timeDiff(s)??'',reasonFor(s),s.stops.map(x=>x.name).join(' > '),s.serviceId])];
+  const rows=[cols,...list.map(s=>[s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,s.coaches||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }
