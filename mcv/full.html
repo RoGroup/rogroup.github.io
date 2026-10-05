@@ -2,6 +2,7 @@
 <html lang="en-GB">
 <head>
 <style id="staff-launcher-gate">html{visibility:hidden}</style>
+<script src="mcv-data.js"></script>
 <script>
 (function(){
   try {
@@ -128,7 +129,7 @@
         
         <div class="title-set"><strong>MANCHESTER VICTORIA</strong><span>Display control</span></div>
       </div>
-      <div class="clock-wrap" aria-label="Current UK time"><div class="clock" id="clock">--:--</div><div class="date" id="date">--</div></div>
+      <div class="clock-wrap" aria-label="Current UK time"><div class="clock" id="clock">--:--:--</div><div class="date" id="date">--</div></div>
     </div>
   </header>
 
@@ -210,11 +211,9 @@
   </main>
   <script>
     function updateClock() {
-      const now = new Date();
-      document.getElementById('clock').textContent = new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/London', hour:'2-digit', minute:'2-digit', hour12:false }).format(now);
-      document.getElementById('date').textContent = new Intl.DateTimeFormat('en-GB',{ timeZone:'Europe/London', weekday:'short', day:'numeric', month:'short' }).format(now);
+      MCVData.updateClock('clock', 'date', { dateOptions: { weekday:'short', day:'numeric', month:'short' } });
     }
-    updateClock(); setInterval(updateClock, 15000);
+    updateClock(); setInterval(updateClock, 1000);
   </script>
 </body>
 </html>
