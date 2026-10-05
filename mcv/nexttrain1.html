@@ -379,12 +379,11 @@ function configureCallingTicker() {
   if (!stopsTrack || !stopsNode || !stopsRepeat || stopWindow.clientWidth <= 0) return;
 
   const primaryWidth = stopsNode.getBoundingClientRect().width;
-  const stopCount = Number(stopWindow.dataset.stopCount || 0);
-  const textLength = (stopsNode.textContent || '').trim().length;
-  const shouldTicker =
-    primaryWidth > stopWindow.clientWidth + 1 ||
-    stopCount >= 4 ||
-    textLength >= 52;
+
+  // Only animate when the fully rendered calling pattern genuinely exceeds
+  // the available width. Re-measuring after font load fixes the old behaviour
+  // where zooming was needed before the browser noticed the overflow.
+  const shouldTicker = primaryWidth > stopWindow.clientWidth + 1;
 
   stopsTrack.classList.toggle('ticker-active', shouldTicker);
 
@@ -395,7 +394,7 @@ function configureCallingTicker() {
     return;
   }
 
-  const gap = Math.max(64, stopWindow.clientWidth - primaryWidth + 64);
+  const gap = 64;
   stopsRepeat.style.marginLeft = gap + 'px';
 
   const distance = primaryWidth + gap;
@@ -411,6 +410,15 @@ window.addEventListener('resize', () => {
   clearTimeout(callingTickerResizeTimer);
   callingTickerResizeTimer = setTimeout(configureCallingTicker, 120);
 });
+
+// Re-check once Bunday has actually loaded; otherwise the fallback font can make
+// the first width measurement wrong until something (such as zoom) triggers resize.
+if (document.fonts && document.fonts.ready) {
+  document.fonts.ready.then(() => requestAnimationFrame(configureCallingTicker));
+}
+if (document.fonts && document.fonts.addEventListener) {
+  document.fonts.addEventListener('loadingdone', () => requestAnimationFrame(configureCallingTicker));
+}
 
 updateClock();
 emptyView('Connecting to live departure information','PLEASE WAIT',true);
