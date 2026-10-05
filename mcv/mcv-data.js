@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.1';
+  const VERSION = '1.1.2';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
@@ -52,7 +52,16 @@
 
   function rdmTime(value) {
     const valueText = text(value);
-    return /^\d{2}:\d{2}$/.test(valueText) ? valueText : '--:--';
+
+    if (/^\d{2}:\d{2}$/.test(valueText)) return valueText;
+
+    // LDBSVWS Staff responses can supply DateTime values such as
+    // 2026-10-05T19:30:00 instead of the HH:MM strings used by LDBWS.
+    // Treat those as station-local clock values for display/sorting.
+    const dateTime = /T(\d{2}):(\d{2})(?::\d{2})?/.exec(valueText);
+    if (dateTime) return dateTime[1] + ':' + dateTime[2];
+
+    return '--:--';
   }
 
   function londonClockParts(date) {
@@ -83,7 +92,8 @@
   // RDM times are station-local clock values. Anchor the clock time to the
   // generatedAt date and choose the nearest occurrence across midnight.
   function scheduledEpoch(hhmm, generatedAt) {
-    const match = /^(\d{2}):(\d{2})$/.exec(text(hhmm));
+    const clock = rdmTime(hhmm);
+    const match = /^(\d{2}):(\d{2})$/.exec(clock);
     if (!match) return Number.POSITIVE_INFINITY;
 
     const base = new Date(generatedAt || Date.now());
@@ -117,8 +127,8 @@
   }
 
   function expectedMinutesLate(std, etd) {
-    const booked = /^(\d{2}):(\d{2})$/.exec(text(std));
-    const expected = /^(\d{2}):(\d{2})$/.exec(text(etd));
+    const booked = /^(\d{2}):(\d{2})$/.exec(rdmTime(std));
+    const expected = /^(\d{2}):(\d{2})$/.exec(rdmTime(etd));
     if (!booked || !expected) return null;
 
     const bookedMinutes = Number(booked[1]) * 60 + Number(booked[2]);
@@ -243,15 +253,19 @@
   }
 
   function statusForService(service) {
-    const std = text(service && service.std);
-    const etd = text(service && service.etd);
-    const atd = text(service && service.atd);
+    const rawStd = text(service && service.std);
+    const rawEtd = text(service && service.etd);
+    const rawAtd = text(service && service.atd);
 
-    const cancelled = Boolean(service && (service.isCancelled || service.filterLocationCancelled)) || /^cancelled$/i.test(etd);
-    const departed = /^\d{2}:\d{2}$/.test(atd);
+    const std = rdmTime(rawStd);
+    const etd = rdmTime(rawEtd);
+    const atd = rdmTime(rawAtd);
+
+    const cancelled = Boolean(service && (service.isCancelled || service.filterLocationCancelled)) || /^cancelled$/i.test(rawEtd);
+    const departed = atd !== '--:--';
     const minutesLate = expectedMinutesLate(std, etd);
     const delayed = !cancelled && (
-      /^delayed$/i.test(etd) ||
+      /^delayed$/i.test(rawEtd) ||
       (minutesLate !== null && minutesLate > 0)
     );
 
@@ -261,14 +275,14 @@
     if (cancelled) {
       label = 'Cancelled';
       className = 'cancelled';
-    } else if (/^delayed$/i.test(etd)) {
+    } else if (/^delayed$/i.test(rawEtd)) {
       label = 'Delayed';
       className = 'delayed';
-    } else if (/^\d{2}:\d{2}$/.test(etd) && etd !== std) {
+    } else if (etd !== '--:--' && etd !== std) {
       label = 'Expected ' + etd;
       className = delayed ? 'delayed' : 'on-time';
-    } else if (etd && !/^on time$/i.test(etd)) {
-      label = etd;
+    } else if (rawEtd && etd === '--:--' && !/^on time$/i.test(rawEtd)) {
+      label = rawEtd;
       className = delayed ? 'delayed' : 'on-time';
     }
 
@@ -279,10 +293,10 @@
       departed: departed,
       delayed: delayed,
       minutesLate: minutesLate,
-      booked: rdmTime(std),
-      expected: /^\d{2}:\d{2}$/.test(etd) ? etd : '',
-      rawExpected: etd,
-      actual: /^\d{2}:\d{2}$/.test(atd) ? atd : ''
+      booked: std,
+      expected: etd !== '--:--' ? etd : '',
+      rawExpected: rawEtd,
+      actual: atd !== '--:--' ? atd : ''
     };
   }
 
@@ -701,29 +715,37 @@
   // Some established display renderers still consume the older Traini-shaped
   // model. Keeping the adapter here means RDM interpretation stays centralised.
   function clockToIso(clock, generatedAt) {
-    const ms = scheduledEpoch(clock, generatedAt);
+    const normalisedClock = rdmTime(clock);
+    if (normalisedClock === '--:--') return null;
+    const ms = scheduledEpoch(normalisedClock, generatedAt);
     return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
   }
 
   function expectedClockToIso(value, booked, generatedAt) {
     const raw = text(value);
-    if (/^\d{2}:\d{2}$/.test(raw)) return clockToIso(raw, generatedAt);
+    const clock = rdmTime(raw);
+    if (clock !== '--:--') return clockToIso(clock, generatedAt);
     if (/^(on time|early)$/i.test(raw)) return clockToIso(booked, generatedAt);
     return null;
   }
 
   function legacyStatus(service) {
     const status = statusForService(service || {});
-    const etd = text(service && service.etd);
+    const rawEtd = text(service && service.etd);
+    const etd = rdmTime(rawEtd);
+
     if (status.departed) return ['departed', 'Departed'];
     if (status.cancelled) return ['cancelled', 'Cancelled'];
-    if (/^delayed$/i.test(etd)) return ['delayed_no_estimate', 'Delayed'];
-    if (status.delayed && /^\d{2}:\d{2}$/.test(etd)) return ['expected_late', 'Expected ' + etd];
-    if (/^\d{2}:\d{2}$/.test(etd) && expectedMinutesLate(service.std, etd) < 0) {
+    if (/^delayed$/i.test(rawEtd)) return ['delayed_no_estimate', 'Delayed'];
+    if (status.delayed && etd !== '--:--') return ['expected_late', 'Expected ' + etd];
+    if (etd !== '--:--' && expectedMinutesLate(service.std, etd) < 0) {
       return ['expected_early', 'Expected ' + etd];
     }
-    if (/^(on time|early)$/i.test(etd) || !etd) return ['on_time', 'On time'];
-    return ['', status.label || etd || 'Status not supplied'];
+    if (/^(on time|early)$/i.test(rawEtd) || !rawEtd || etd === rdmTime(service.std)) {
+      return ['on_time', 'On time'];
+    }
+
+    return ['', status.label || rawEtd || 'Status not supplied'];
   }
 
   function toLegacyBoard(input) {
