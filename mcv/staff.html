@@ -436,7 +436,7 @@ function platformSequenceRisks(){
       const gap=Math.round((b.bookedMs-a.bookedMs)/60000);
       const aLive=Number.isFinite(a.expectedMs)?a.expectedMs:a.bookedMs;
       const clearance=Math.round((b.bookedMs-aLive)/60000);
-      if(gap<=10||clearance<=5){
+      if(gap<=3||clearance<=3){
         risks.push({
           platform,a,b,gap,clearance,
           level:clearance<=0?'danger':'warn',
