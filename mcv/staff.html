@@ -197,11 +197,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Northern · Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=a6b64063"></script>
+<script src="mcv-data.js?v=6efd953d"></script>
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
-const STAFF_FEED_URL='https://mcv-rdm-proxy.baileykendall432.workers.dev/staff-departures';
+const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
   lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
