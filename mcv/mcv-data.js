@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.6';
+  const VERSION = '1.1.7';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -783,6 +783,10 @@
           : (service.origin || {});
         const booked = clockToIso(service.std, generatedAt);
         const expected = expectedClockToIso(service.etd, service.std, generatedAt);
+        const bookedArrival = clockToIso(service.sta, generatedAt);
+        const expectedArrival = expectedClockToIso(service.eta, service.sta, generatedAt);
+        const actualArrival = clockToIso(service.ata, generatedAt);
+        const actualDeparture = clockToIso(service.atd, generatedAt);
 
         const points = parseCallingPoints(service).map(function (point) {
           const scheduled = clockToIso(point.scheduled, generatedAt);
@@ -815,8 +819,12 @@
           rsid: text(service.rsid),
           departs: booked,
           expected_departs: expected,
-          arrives: booked,
-          expected_arrives: expected,
+          actual_departs: actualDeparture,
+          arrives: bookedArrival,
+          expected_arrives: actualArrival || expectedArrival,
+          actual_arrives: actualArrival,
+          arrival_type: text(service.arrivalType),
+          departure_type: text(service.departureType),
           status: statusPair[0],
           status_text: statusPair[1],
           destination: {
@@ -835,6 +843,7 @@
           operator_code: text(service.operatorCode),
           platform: text(service.platform),
           platform_withheld: !text(service.platform),
+          platform_hidden: service.platformIsHidden === true,
           calling_points: points,
           coaches: coachCount(service.length),
           late_reason: text(service.delayReason),
@@ -842,9 +851,14 @@
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
           service_class: text(service.serviceType || 'train').toLowerCase(),
           train_category: text(service.category),
+          activities: Array.isArray(service.activities) ? service.activities.join(' ') : text(service.activities),
           is_passenger_service: service.isPassengerService !== false,
           is_charter: service.isCharter === true,
-          is_reverse_formation: service.isReverseFormation === true
+          is_reverse_formation: service.isReverseFormation === true,
+          is_operational_call: service.isOperationalCall === true,
+          uncertainty: text(service.uncertainty),
+          future_delay: service.futureDelay === true,
+          future_cancellation: service.futureCancellation === true
         };
       })
     };
