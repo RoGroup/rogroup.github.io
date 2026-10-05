@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.0.0';
+  const VERSION = '1.1.0';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
@@ -635,6 +635,171 @@
     return Math.round(age / (60 * 60000)) + ' hr ago';
   }
 
+
+  // ---------- Shared live clock/date helpers ----------
+  // Live clocks include seconds. Timetable times stay HH:MM because Darwin/RDM
+  // only supplies them to minute precision.
+  function formatLiveClock(value) {
+    const date = value instanceof Date ? value : new Date(value == null ? Date.now() : value);
+    if (!Number.isFinite(date.getTime())) return '--:--:--';
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: CONFIG.stationTimeZone,
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+    }).format(date);
+  }
+
+  function formatLiveDate(value, options) {
+    const date = value instanceof Date ? value : new Date(value == null ? Date.now() : value);
+    if (!Number.isFinite(date.getTime())) return '--';
+    return new Intl.DateTimeFormat('en-GB', Object.assign({
+      timeZone: CONFIG.stationTimeZone,
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    }, options || {})).format(date);
+  }
+
+  function resolveElement(target) {
+    if (!target) return null;
+    if (typeof target === 'string') {
+      return global.document ? global.document.getElementById(target) : null;
+    }
+    return target;
+  }
+
+  function updateClock(timeTarget, dateTarget, options) {
+    const opts = options || {};
+    const now = new Date();
+    const timeNode = resolveElement(timeTarget);
+    const dateNode = resolveElement(dateTarget);
+    if (timeNode) timeNode.textContent = formatLiveClock(now);
+    if (dateNode) dateNode.textContent = formatLiveDate(now, opts.dateOptions);
+    return now;
+  }
+
+  function startClock(timeTarget, dateTarget, options) {
+    const opts = Object.assign({ intervalMs: 1000 }, options || {});
+    updateClock(timeTarget, dateTarget, opts);
+    const id = global.setInterval(function () {
+      updateClock(timeTarget, dateTarget, opts);
+    }, opts.intervalMs);
+    return function stopClock() { global.clearInterval(id); };
+  }
+
+  // ---------- Legacy adapter ----------
+  // Some established display renderers still consume the older Traini-shaped
+  // model. Keeping the adapter here means RDM interpretation stays centralised.
+  function clockToIso(clock, generatedAt) {
+    const ms = scheduledEpoch(clock, generatedAt);
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+  }
+
+  function expectedClockToIso(value, booked, generatedAt) {
+    const raw = text(value);
+    if (/^\d{2}:\d{2}$/.test(raw)) return clockToIso(raw, generatedAt);
+    if (/^(on time|early)$/i.test(raw)) return clockToIso(booked, generatedAt);
+    return null;
+  }
+
+  function legacyStatus(service) {
+    const status = statusForService(service || {});
+    const etd = text(service && service.etd);
+    if (status.departed) return ['departed', 'Departed'];
+    if (status.cancelled) return ['cancelled', 'Cancelled'];
+    if (/^delayed$/i.test(etd)) return ['delayed_no_estimate', 'Delayed'];
+    if (status.delayed && /^\d{2}:\d{2}$/.test(etd)) return ['expected_late', 'Expected ' + etd];
+    if (/^\d{2}:\d{2}$/.test(etd) && expectedMinutesLate(service.std, etd) < 0) {
+      return ['expected_early', 'Expected ' + etd];
+    }
+    if (/^(on time|early)$/i.test(etd) || !etd) return ['on_time', 'On time'];
+    return ['', status.label || etd || 'Status not supplied'];
+  }
+
+  function toLegacyBoard(input) {
+    const data = input && input.raw && Array.isArray(input.raw.trainServices)
+      ? input.raw
+      : input;
+    if (!data || !Array.isArray(data.trainServices)) return data;
+
+    const generatedAt = data.generatedAt || new Date().toISOString();
+
+    return {
+      generated_at: generatedAt,
+      results: data.trainServices.map(function (service, index) {
+        const statusPair = legacyStatus(service);
+        const destination = Array.isArray(service.destination)
+          ? (service.destination[0] || {})
+          : (service.destination || {});
+        const origin = Array.isArray(service.origin)
+          ? (service.origin[0] || {})
+          : (service.origin || {});
+        const booked = clockToIso(service.std, generatedAt);
+        const expected = expectedClockToIso(service.etd, service.std, generatedAt);
+
+        const points = parseCallingPoints(service).map(function (point) {
+          const scheduled = clockToIso(point.scheduled, generatedAt);
+          const expectedPoint =
+            expectedClockToIso(point.expected, point.scheduled, generatedAt) || scheduled;
+
+          return {
+            station: { name: point.rawName || point.name, crs: point.crs },
+            name: point.rawName || point.name,
+            crs: point.crs,
+            scheduled: scheduled,
+            arrives: scheduled,
+            departs: scheduled,
+            expected: expectedPoint,
+            expected_arrives: expectedPoint,
+            expected_departs: expectedPoint,
+            platform: point.platform,
+            platform_withheld: !point.platform,
+            is_cancelled: point.cancelled
+          };
+        });
+
+        return {
+          train_id: text(service.serviceID || service.rsid || ('rdm-' + index)),
+          train_uid: '',
+          headcode: '',
+          service_id: text(service.serviceID),
+          rsid: text(service.rsid),
+          departs: booked,
+          expected_departs: expected,
+          arrives: booked,
+          expected_arrives: expected,
+          status: statusPair[0],
+          status_text: statusPair[1],
+          destination: {
+            name: text(destination.locationName || destination.name || 'Unknown'),
+            crs: text(destination.crs)
+          },
+          destination_name: text(destination.locationName || destination.name || 'Unknown'),
+          destination_crs: text(destination.crs),
+          origin: {
+            name: text(origin.locationName || origin.name),
+            crs: text(origin.crs)
+          },
+          origin_name: text(origin.locationName || origin.name),
+          origin_crs: text(origin.crs),
+          operator: text(service.operator || 'National Rail'),
+          operator_code: text(service.operatorCode),
+          platform: text(service.platform),
+          platform_withheld: !text(service.platform),
+          calling_points: points,
+          coaches: coachCount(service.length),
+          late_reason: text(service.delayReason),
+          cancel_reason: text(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
+          not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
+          service_class: text(service.serviceType || 'train').toLowerCase(),
+          is_reverse_formation: service.isReverseFormation === true
+        };
+      })
+    };
+  }
+
+  async function fetchLegacyBoard(options) {
+    const board = await fetchBoard(options);
+    return Object.assign({}, board, { legacy: toLegacyBoard(board.raw) });
+  }
+
   global.MCVData = Object.freeze({
     VERSION: VERSION,
     CONFIG: CONFIG,
@@ -664,6 +829,14 @@
     freshness: freshness,
     fetchRaw: fetchRaw,
     fetchBoard: fetchBoard,
-    ageLabel: ageLabel
+    ageLabel: ageLabel,
+    formatLiveClock: formatLiveClock,
+    formatLiveDate: formatLiveDate,
+    updateClock: updateClock,
+    startClock: startClock,
+    clockToIso: clockToIso,
+    expectedClockToIso: expectedClockToIso,
+    toLegacyBoard: toLegacyBoard,
+    fetchLegacyBoard: fetchLegacyBoard
   });
 })(typeof window !== 'undefined' ? window : globalThis);
