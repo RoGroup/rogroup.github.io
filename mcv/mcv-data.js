@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.7';
+  const VERSION = '1.1.8';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -805,7 +805,10 @@
             expected_departs: expectedPoint,
             platform: point.platform,
             platform_withheld: !point.platform,
-            is_cancelled: point.cancelled
+            is_cancelled: point.cancelled,
+            affected_by_diversion: point.affectedByDiversion === true,
+            reroute_delay: Number(point.rerouteDelay) || 0,
+            delay_reason: text(point.delayReason)
           };
         });
 
