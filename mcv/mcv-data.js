@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.4';
+  const VERSION = '1.1.5';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -832,6 +832,8 @@
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
           service_class: text(service.serviceType || 'train').toLowerCase(),
           train_category: text(service.category),
+          is_passenger_service: service.isPassengerService !== false,
+          is_charter: service.isCharter === true,
           is_reverse_formation: service.isReverseFormation === true
         };
       })
