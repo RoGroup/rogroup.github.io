@@ -202,6 +202,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
+const STAFF_FEED_URL='https://mcv-rdm-proxy.baileykendall432.workers.dev/staff-departures';
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',search:'',overdueFirst:false,
   lastGood:0,lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map()};
 const $ = id=>document.getElementById(id);
@@ -232,7 +233,7 @@ function parseServices(json){
     const onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(p=>({
       name:station(p.station?.name||p.name,p.station?.crs||p.crs),crs:String(p.station?.crs||p.crs||''),booked:fmt(p.arrives||p.departs),expected:fmt(p.expected_arrives||p.expected_departs),platform:String(p.platform||'').trim()
     }));
-    const headcode=String(raw.headcode||raw.train_id||'').trim().toUpperCase();
+    const headcode=String(raw.headcode||'').trim().toUpperCase();
     const uid=String(raw.uid||raw.train_uid||'').trim();
     const rid=String(raw.rid||'').trim();
     const serviceId=String(raw.service_id||rid||raw.rsid||'').trim();
@@ -359,11 +360,16 @@ function renderEvents(){
 }
 function render(){updateFeedBanner();renderStats();renderPlatforms();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
-  try{const board=await MCVData.fetchBoard({allowStale:true});const json=board.raw;const next=parseServices(json);
-    compareFeeds(next);state.services=next;state.lastGood=board.receivedAt||Date.now();state.lastError=board.fallback?'Live feed unavailable — showing last received data':'';
+  try{
+    const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
+    if(!response.ok)throw new Error('Staff departures feed HTTP '+response.status);
+    const json=await response.json();
+    if(!json||!Array.isArray(json.trainServices))throw new Error('Unexpected staff departures feed format');
+    const next=parseServices(json);
+    compareFeeds(next);state.services=next;state.lastGood=Date.now();state.lastError='';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey))state.selectedKey='';
     render();
-  }catch(err){state.lastError=String(err.message||err);console.warn('Departure feed:',err);updateFeedBanner();}
+  }catch(err){state.lastError=String(err.message||err);console.warn('Staff departure feed:',err);updateFeedBanner();}
   finally{state.feedBusy=false;$('refresh').disabled=false}
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
