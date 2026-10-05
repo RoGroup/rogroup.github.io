@@ -102,7 +102,7 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
   </div>
  </div>
  <div class="header-right">
-  <div class="clock-wrap"><div class="clock" id="clock">--:--</div><div class="clock-date" id="clock-date">--</div></div>
+  <div class="clock-wrap"><div class="clock" id="clock">--:--:--</div><div class="clock-date" id="clock-date">--</div></div>
   <div class="platform-top"><span>PLATFORM</span><strong>2</strong></div>
  </div>
 </header>
@@ -118,14 +118,14 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
 <footer><div class="footer-label" id="footer-label">SERVICE INFORMATION</div><div class="footer-text" id="footer-text">Please check the destination and listen for station announcements before boarding.</div></footer>
 </div>
 
+<script src="mcv-data.js"></script>
 <script>
 'use strict';
 const PLATFORM_NUMBER = 2;
 const CONFIG = {
-  departuresUrl: 'https://mcv-rdm-proxy.baileykendall432.workers.dev/departures',
   activityUrl: null,
   cancellationUrl: null,
-  departureRefreshMs: 30000,
+  departureRefreshMs: MCVData.CONFIG.refreshIntervalMs,
   activityRefreshMs: 10000,
   cancellationRefreshMs: 120000,
   callingScrollPxPerSecond: 70,
@@ -154,21 +154,8 @@ let cancellationReasons = new Map();
 const departedIds = new Map();
 const scrollState = { phase:'start', waitUntil:0, lastFrame:null };
 
-function stationName(name, crs = '') {
-  const raw = String(name ?? '').trim();
-  const code = String(crs ?? '').toUpperCase().trim();
-  if (code === 'SFD' || (raw.toUpperCase() === 'SALFORD' && code !== 'SLD')) return 'SALFORD CENTRAL';
-  return raw || code;
-}
-function onlyFrontCarriages(destination, code = '') {
-  const name = String(destination ?? '').toUpperCase().replace(/\s+/g,' ').trim();
-  const crs = String(code ?? '').toUpperCase().trim();
-  if (name === 'CLITHEROE' || crs === 'CLH')
-    return 'Passengers travelling to LANGHO, WHALLEY & CLITHEROE must travel in the FRONT 2 CARRIAGES ONLY.';
-  if (name === 'HEADBOLT LANE' || crs === 'HBL')
-    return 'Passengers travelling to UPHOLLAND, RAINFORD & HEADBOLT LANE must travel in the FRONT 2 CARRIAGES ONLY.';
-  return '';
-}
+function stationName(name, crs = '') { return MCVData.displayStationName(name, crs); }
+function onlyFrontCarriages(destination, code = '') { const notice = MCVData.frontCarriagesNotice(destination, code); return notice ? notice.rowText : ''; }
 function timeMs(raw) {
   const ms = Date.parse(raw || '');
   return Number.isFinite(ms) ? ms : Infinity;
@@ -183,109 +170,10 @@ function isMatchingPlatform(platform) {
   const match = String(platform ?? '').trim().match(/^(?:platform\s*)?(\d+)\s*([AB])?$/i);
   return !!match && Number(match[1]) === PLATFORM_NUMBER;
 }
-function coachCount(raw) {
-  // Darwin's coaches field is nullable; don't infer a formation from
-  // the service, headcode or a front-two-carriages boarding instruction.
-  if (raw === null || raw === undefined || typeof raw === 'boolean' || raw === '') return null;
-  const n = typeof raw === 'number' ? raw : Number(String(raw).trim());
-  return Number.isInteger(n) && n > 0 && n <= 30 ? n : null;
-}
-
-function rdmClockToIso(clock, generatedAt) {
-  const text = String(clock || '').trim();
-  if (!/^\d{2}:\d{2}$/.test(text)) return null;
-  const source = String(generatedAt || new Date().toISOString());
-  const datePart = /^\d{4}-\d{2}-\d{2}/.exec(source)?.[0] || new Date().toISOString().slice(0,10);
-  const tz = /(Z|[+-]\d{2}:\d{2})$/.exec(source)?.[1] || 'Z';
-  const anchor = new Date(source);
-  let candidate = new Date(`${datePart}T${text}:00${tz}`);
-  if (!Number.isFinite(candidate.getTime())) return null;
-  if (Number.isFinite(anchor.getTime())) {
-    const twelveHours = 12 * 60 * 60 * 1000;
-    const diff = candidate.getTime() - anchor.getTime();
-    if (diff < -twelveHours) candidate = new Date(candidate.getTime() + 24*60*60*1000);
-    else if (diff > twelveHours) candidate = new Date(candidate.getTime() - 24*60*60*1000);
-  }
-  return candidate.toISOString();
-}
-function rdmExpectedIso(value, booked, generatedAt) {
-  const raw = String(value || '').trim();
-  if (/^\d{2}:\d{2}$/.test(raw)) return rdmClockToIso(raw, generatedAt);
-  if (/^on time$/i.test(raw) || /^early$/i.test(raw)) return rdmClockToIso(booked, generatedAt);
-  return null;
-}
-function rdmStatusFor(service) {
-  const etd = String(service?.etd || '').trim();
-  if (/^\d{2}:\d{2}$/.test(String(service?.atd || '').trim())) return ['departed','Departed'];
-  if (service?.isCancelled === true || service?.filterLocationCancelled === true || /^cancelled$/i.test(etd)) return ['cancelled','Cancelled'];
-  if (/^delayed$/i.test(etd)) return ['delayed_no_estimate','Delayed'];
-  if (/^on time$/i.test(etd) || !etd) return ['on_time','On time'];
-  if (/^\d{2}:\d{2}$/.test(etd)) {
-    const std = String(service?.std || '').trim();
-    if (/^\d{2}:\d{2}$/.test(std)) {
-      const [sh,sm]=std.split(':').map(Number), [eh,em]=etd.split(':').map(Number);
-      let s=sh*60+sm,e=eh*60+em; if(e < s-720)e+=1440; if(s < e-720)s+=1440;
-      if (e > s) return ['expected_late',`Expected ${etd}`];
-      if (e < s) return ['expected_early',`Expected ${etd}`];
-    }
-    return ['on_time',`Expected ${etd}`];
-  }
-  return ['', etd || 'Status not supplied'];
-}
-function rdmCallingPoints(service, generatedAt) {
-  const groups = Array.isArray(service?.subsequentCallingPoints) ? service.subsequentCallingPoints : [];
-  const points = groups.flatMap(group => Array.isArray(group?.callingPoint) ? group.callingPoint : []);
-  return points.map(point => {
-    const booked = rdmClockToIso(point?.st, generatedAt);
-    const expected = rdmExpectedIso(point?.et, point?.st, generatedAt);
-    return {
-      station: {name:String(point?.locationName || ''), crs:String(point?.crs || '')},
-      name:String(point?.locationName || ''), crs:String(point?.crs || ''),
-      scheduled: booked, arrives: booked, departs: booked,
-      expected: expected || booked, expected_arrives: expected || booked, expected_departs: expected || booked,
-      platform: String(point?.platform || ''), platform_withheld: !String(point?.platform || '').trim(),
-      is_cancelled: point?.isCancelled === true
-    };
-  });
-}
-function rdmToLegacyBoard(data) {
-  if (!data || !Array.isArray(data.trainServices)) return data;
-  const generatedAt = data.generatedAt || new Date().toISOString();
-  return {
-    generated_at: generatedAt,
-    results: data.trainServices.map((service, index) => {
-      const [status, statusText] = rdmStatusFor(service);
-      const destination = Array.isArray(service?.destination) ? service.destination[0] : service?.destination;
-      const origin = Array.isArray(service?.origin) ? service.origin[0] : service?.origin;
-      const booked = rdmClockToIso(service?.std, generatedAt);
-      const expected = rdmExpectedIso(service?.etd, service?.std, generatedAt);
-      const length = Number(service?.length);
-      return {
-        train_id: String(service?.serviceID || service?.rsid || `rdm-${index}`),
-        train_uid: '', headcode: '',
-        service_id: String(service?.serviceID || ''), rsid: String(service?.rsid || ''),
-        departs: booked, expected_departs: expected,
-        arrives: booked, expected_arrives: expected,
-        status, status_text: statusText,
-        destination: {name:String(destination?.locationName || destination?.name || 'Unknown'), crs:String(destination?.crs || '')},
-        destination_name:String(destination?.locationName || destination?.name || 'Unknown'), destination_crs:String(destination?.crs || ''),
-        origin: {name:String(origin?.locationName || origin?.name || ''), crs:String(origin?.crs || '')},
-        origin_name:String(origin?.locationName || origin?.name || ''), origin_crs:String(origin?.crs || ''),
-        operator:String(service?.operator || 'National Rail'), operator_code:String(service?.operatorCode || ''),
-        platform:String(service?.platform || ''), platform_withheld:!String(service?.platform || '').trim(),
-        calling_points: rdmCallingPoints(service, generatedAt),
-        coaches:Number.isInteger(length) && length > 0 ? length : null,
-        late_reason:String(service?.delayReason || ''), cancel_reason:String(service?.cancelReason || ''),
-        not_for_display:String(service?.serviceType || 'train').toLowerCase() !== 'train',
-        service_class:String(service?.serviceType || 'train').toLowerCase(),
-        is_reverse_formation:service?.isReverseFormation === true
-      };
-    })
-  };
-}
+function coachCount(raw) { return MCVData.coachCount(raw); }
 
 function parseServices(json) {
-  if (Array.isArray(json?.trainServices)) json = rdmToLegacyBoard(json);
+  json = MCVData.toLegacyBoard(json);
   if (!Array.isArray(json?.results)) throw new Error('Invalid departures response');
   return json.results.map(item => {
     const code = String(item.status || '').toLowerCase().trim();
@@ -413,7 +301,7 @@ function updateView() {
   actualPlatformNode.hidden = !platformEnd || platformEnd === String(PLATFORM_NUMBER);
   actualPlatformNode.textContent = 'PLATFORM ' + platformEnd;
   formationNode.hidden = next.coaches === null;
-  formationNode.textContent = next.coaches === null ? '' : `${next.coaches} ${next.coaches === 1 ? 'CARRIAGE' : 'CARRIAGES'}${next.coaches === 5 && /transpennine/i.test(next.operator) ? ' · FIRST CLASS: COACH E' : ''}`;
+  formationNode.textContent = next.coaches === null ? '' : MCVData.formationText({ coaches: next.coaches, operator: next.operator, cancelled: next.cancelled, statusClass: next.cancelled ? 'cancelled' : '' });
   const stopsText = next.stops.length ? next.stops.join('   •   ') : 'Stopping pattern currently unavailable';
   callingSection.hidden = false;
   if (lastStops !== stopsText) {
@@ -449,16 +337,18 @@ async function refreshDepartures() {
   if (loadingDepartures) return;
   loadingDepartures = true;
   try {
-    const response = await fetch(CONFIG.departuresUrl,{cache:'no-store'});
-    if (!response.ok) throw new Error('Departure feed HTTP ' + response.status);
-    const json = await response.json();
-    const newServices = parseServices(json);
-    window.MCVPlatformAlerts?.observe(json.results);
+    const board = await MCVData.fetchBoard({ allowStale: true });
+    const legacy = MCVData.toLegacyBoard(board.raw);
+    const newServices = parseServices(legacy);
+    window.MCVPlatformAlerts?.observe(legacy.results);
     noticePlatformMoves(newServices);
     services = newServices;
-    feedUpdatedAt = Date.now();
+    feedUpdatedAt = board.receivedAt || Date.now();
     isAvailable = true;
     updateView();
+    if (board.fallback || board.stale) {
+      setConnection(false, `Last received information · ${MCVData.ageLabel(board.ageMs)}`);
+    }
   } catch (error) {
     console.warn('Live departure information unavailable:',error);
     isAvailable = false;
@@ -469,9 +359,7 @@ async function refreshDepartures() {
 async function refreshActivity() { return; }
 async function refreshCancellationReasons() { return; }
 function updateClock() {
-  const now = new Date();
-  $('clock').textContent = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/London'});
-  $('clock-date').textContent = now.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:'Europe/London'});
+  MCVData.updateClock('clock', 'clock-date', { dateOptions: { weekday:'short', day:'numeric', month:'short' } });
 }
 function scrollCallingPattern(now) {
   const elapsed = scrollState.lastFrame == null ? 0 : Math.min(.1,(now-scrollState.lastFrame)/1000);
