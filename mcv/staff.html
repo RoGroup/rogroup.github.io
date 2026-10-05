@@ -345,7 +345,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script>
 'use strict';
 const REFRESH_MS=20000, STALE_MS=60000;
-const STAFF_FEED_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
+const STAFF_MOVEMENTS_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-movements';
+const STAFF_DEPARTURES_URL='https://mcv-rdm-proxy.railstaffhub.uk/staff-departures';
 
 function centreSignalMap(){
   const wrap=document.querySelector('.signal-frame-wrap');
@@ -399,21 +400,91 @@ function ageText(ts){if(!Number.isFinite(ts)||!ts)return 'Not supplied';const se
 
 function relativeAge(ts){if(!Number.isFinite(ts)||!ts)return 'unknown';const sec=Math.max(0,Math.floor((Date.now()-ts)/1000));if(sec<60)return sec+'s';if(sec<3600)return Math.floor(sec/60)+'m';return Math.floor(sec/3600)+'h '+Math.floor((sec%3600)/60)+'m'}
 function isMCV(name,crs){return String(crs||'').toUpperCase()==='MCV'||String(name||'').trim().toUpperCase()==='MANCHESTER VICTORIA'}
-function movementType(s){
-  if(s.ecs)return {key:'ecs',label:'ECS'};
-  if(isMCV(s.origin,s.originCrs))return {key:'origin',label:'ORIGINATES HERE'};
-  if(isMCV(s.dest,s.destCrs))return {key:'terminate',label:'TERMINATES HERE'};
+function serviceFlow(s){
+  if(isMCV(s.origin,s.originCrs)&&!isMCV(s.dest,s.destCrs))return {key:'origin',label:'ORIGINATES HERE'};
+  if(isMCV(s.dest,s.destCrs)&&!isMCV(s.origin,s.originCrs))return {key:'terminate',label:'TERMINATES HERE'};
   return {key:'through',label:'THROUGH'};
 }
-function countdownInfo(s){
-  if(!Number.isFinite(s.bookedMs))return {text:'—',className:''};
-  const minutes=(s.bookedMs-Date.now())/60000;
+function movementType(s){
+  if(s.ecs)return {key:'ecs',label:'ECS'};
+  return serviceFlow(s);
+}
+function serviceHasArrival(s){return Number.isFinite(s.bookedArrivalMs)}
+function serviceHasDeparture(s){return Number.isFinite(s.bookedMs)}
+function serviceVisibleInView(s,view=state.viewMode){
+  if(view==='arrivals')return serviceHasArrival(s)&&serviceFlow(s).key!=='origin';
+  if(view==='departures')return serviceHasDeparture(s)&&serviceFlow(s).key!=='terminate';
+  return serviceHasArrival(s)||serviceHasDeparture(s);
+}
+function movementScheduledMs(s,view=state.viewMode){
+  const flow=serviceFlow(s).key;
+  if(view==='arrivals')return s.bookedArrivalMs;
+  if(view==='departures')return s.bookedMs;
+  if(flow==='terminate'&&serviceHasArrival(s))return s.bookedArrivalMs;
+  if(serviceHasDeparture(s))return s.bookedMs;
+  return s.bookedArrivalMs;
+}
+function movementExpectedMs(s,view=state.viewMode){
+  const flow=serviceFlow(s).key;
+  if(view==='arrivals')return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
+  if(view==='departures')return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
+  if(flow==='terminate'&&serviceHasArrival(s))return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
+  if(serviceHasDeparture(s))return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
+  return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
+}
+function movementBookedText(s,view=state.viewMode){return fmt(movementScheduledMs(s,view))}
+function movementExpectedText(s,view=state.viewMode){return fmt(movementExpectedMs(s,view))}
+function movementPlace(s,view=state.viewMode){
+  if(view==='arrivals')return {label:s.origin==='Unknown'?'Origin not supplied':s.origin,prefix:'From'};
+  if(view==='departures')return {label:s.dest,prefix:'To'};
+  const flow=serviceFlow(s).key;
+  if(flow==='terminate')return {label:s.origin==='Unknown'?'Origin not supplied':s.origin,prefix:'Arr from'};
+  if(flow==='origin')return {label:s.dest,prefix:'Dep to'};
+  return {label:s.dest,prefix:'Through to'};
+}
+function countdownInfo(s,view=state.viewMode){
+  const target=movementScheduledMs(s,view);
+  if(!Number.isFinite(target))return {text:'—',className:''};
+  const minutes=(target-Date.now())/60000;
   if(minutes<-0.5)return {text:'T+'+Math.floor(Math.abs(minutes))+'m',className:'over'};
   if(minutes<=0.5)return {text:'DUE',className:'due'};
   const m=Math.ceil(minutes);
   return m>=60?{text:'T−'+Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m',className:''}:{text:'T−'+m+'m',className:m<=5?'due':''};
 }
-function chronologicalServices(){return visibleServices().slice().sort((a,b)=>a.bookedMs-b.bookedMs||a.key.localeCompare(b.key))}
+function chronologicalServices(view=state.viewMode){
+  return visibleServices().filter(s=>serviceVisibleInView(s,view)).slice().sort((a,b)=>{
+    const ta=movementScheduledMs(a,view),tb=movementScheduledMs(b,view);
+    return (Number.isFinite(ta)?ta:Number.MAX_SAFE_INTEGER)-(Number.isFinite(tb)?tb:Number.MAX_SAFE_INTEGER)||a.key.localeCompare(b.key);
+  });
+}
+function turnaroundPair(s){
+  if(!s.platform)return null;
+  const flow=serviceFlow(s).key;
+  const all=state.services.filter(x=>x.key!==s.key&&x.platform&&sameExactPlatform(x.platform,s.platform)&&!x.cancelled);
+  if(flow==='terminate'&&Number.isFinite(s.bookedArrivalMs)){
+    const candidates=all.filter(x=>serviceFlow(x).key==='origin'&&Number.isFinite(x.bookedMs)&&x.bookedMs>=s.bookedArrivalMs&&x.bookedMs-s.bookedArrivalMs<=90*60000)
+      .sort((a,b)=>{
+        const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
+        const af=(a.coaches&&s.coaches&&a.coaches===s.coaches)?0:1,bf=(b.coaches&&s.coaches&&b.coaches===s.coaches)?0:1;
+        return ao-bo||af-bf||a.bookedMs-b.bookedMs;
+      });
+    if(!candidates.length)return null;
+    const x=candidates[0],mins=Math.round((x.bookedMs-s.bookedArrivalMs)/60000);
+    return {service:x,minutes:mins,label:`Possible onward working: ${x.headcode||x.dest} to ${x.dest} · dep ${x.booked} · ${mins}m after booked arrival`};
+  }
+  if(flow==='origin'&&Number.isFinite(s.bookedMs)){
+    const candidates=all.filter(x=>serviceFlow(x).key==='terminate'&&Number.isFinite(x.bookedArrivalMs)&&x.bookedArrivalMs<=s.bookedMs&&s.bookedMs-x.bookedArrivalMs<=90*60000)
+      .sort((a,b)=>{
+        const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
+        const af=(a.coaches&&s.coaches&&a.coaches===s.coaches)?0:1,bf=(b.coaches&&s.coaches&&b.coaches===s.coaches)?0:1;
+        return ao-bo||af-bf||b.bookedArrivalMs-a.bookedArrivalMs;
+      });
+    if(!candidates.length)return null;
+    const x=candidates[0],mins=Math.round((s.bookedMs-x.bookedArrivalMs)/60000);
+    return {service:x,minutes:mins,label:`Possible inward working: ${x.headcode||x.origin} from ${x.origin} · arr ${x.bookedArrival} · ${mins}m before booked departure`};
+  }
+  return null;
+}
 function platformSortValue(p){
   const raw=String(p||'').toUpperCase().trim(),m=raw.match(/^(\d+)([AB])?$/);
   if(!m)return [999,'',raw];
@@ -421,7 +492,7 @@ function platformSortValue(p){
 }
 function sortByPlatform(a,b){
   const pa=platformSortValue(a.platform),pb=platformSortValue(b.platform);
-  return pa[0]-pb[0]||pa[1].localeCompare(pb[1])||a.bookedMs-b.bookedMs||a.key.localeCompare(b.key);
+  return pa[0]-pb[0]||pa[1].localeCompare(pb[1])||(movementScheduledMs(a)-movementScheduledMs(b))||a.key.localeCompare(b.key);
 }
 function inwardRisk(s){
   if(isMCV(s.origin,s.originCrs)||!Number.isFinite(s.expectedArrivalMs)||!Number.isFinite(s.bookedMs))return null;
