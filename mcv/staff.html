@@ -183,8 +183,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 :root[data-theme="dark"] .stops li{border-left-color:#386d84}
 :root[data-theme="dark"] .stops li.altered-call{background:#362f1a}
 :root[data-theme="dark"] .bottom{color:var(--muted)}
-:root[data-theme="dark"] .signal-frame-wrap,
-:root[data-theme="dark"] .signal-frame{background:#fff}
+:root[data-theme="dark"] .signal-frame-wrap{background:#11172f}
+:root[data-theme="dark"] .signal-frame{
+  background:#11172f;
+  filter:invert(.92) hue-rotate(180deg) brightness(.9) contrast(.96) saturate(.92);
+}
 @media(max-width:760px){
   :root[data-theme="dark"] .table-area{background:#11172f}
 }
