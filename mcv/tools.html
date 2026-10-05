@@ -14,7 +14,7 @@ body{margin:0;background:var(--paper);font-family:Bunday,Arial,Helvetica,sans-se
 a{color:inherit}
 .top{background:#fff;border-bottom:4px solid var(--blue)}
 .top-inner{width:min(1240px,calc(100% - 48px));min-height:86px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
-.station strong{display:block;color:var(--navy);font-size:clamp(20px,2.2vw,29px);font-weight:900}
+.home-brand{display:flex;align-items:center;gap:18px;min-width:0}.home-logo{display:flex;align-items:center;flex:none;text-decoration:none}.home-logo img{width:128px;height:48px;object-fit:contain;display:block}.station{min-width:0}.station strong{display:block;color:var(--navy);font-size:clamp(20px,2.2vw,29px);font-weight:900}
 .station span{display:block;margin-top:3px;color:var(--blue);font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
 .back{display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:7px;padding:9px 12px;text-decoration:none;color:var(--navy);font-size:12px;font-weight:900;background:#fff}
 .back:hover{border-color:var(--blue);background:#eef9fe}
@@ -58,7 +58,7 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
 </head>
 <body>
 <header class="top"><div class="top-inner">
-  <div class="station"><strong>MANCHESTER VICTORIA</strong><span>Full tool launcher</span></div>
+  <div class="home-brand"><a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a><div class="station"><strong>MANCHESTER VICTORIA</strong><span>Full tool launcher</span></div></div>
   <a class="back" href="index.html">← Main launcher</a>
 </div></header>
 <section class="hero"><div class="hero-inner">
