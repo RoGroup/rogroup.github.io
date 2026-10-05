@@ -137,8 +137,8 @@
     const rawName = text(name);
     const code = text(crs).toUpperCase();
 
-    if (code === 'SFD') return 'SALFORD CENTRAL';
-    if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'SALFORD CENTRAL';
+    if (code === 'SFD') return 'Salford Central';
+    if (rawName.toUpperCase() === 'SALFORD' && code !== 'SLD') return 'Salford Central';
 
     return rawName || code;
   }
