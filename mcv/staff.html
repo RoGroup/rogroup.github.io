@@ -661,7 +661,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=3edd21be"></script>
+<script src="mcv-data.js?v=20261006-units-v1"></script>
 <script>
 'use strict';
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
@@ -794,6 +794,16 @@ function movementExpectedMs(s,view=state.viewMode){
   if(flow==='terminate'&&serviceHasArrival(s))return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
   if(serviceHasDeparture(s))return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
   return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
+}
+function allocationFresh(s){
+  const age=Date.now()-Date.parse(s.unitAllocation?.syncedAt||'');
+  return Number.isFinite(age)&&age>=0&&age<=6*60*1000;
+}
+function allocatedUnits(s,view=state.viewMode){
+  if(!allocationFresh(s)||s.unitAllocation?.status!=='allocated')return [];
+  const arrival=view==='arrivals'||(view==='all'&&!serviceHasDeparture(s));
+  const values=s.unitAllocation[arrival?'arrivalUnits':'departureUnits'];
+  return Array.isArray(values)?values.filter(x=>typeof x==='string'&&/^\d{6}$/.test(x)):[];
 }
 function movementBookedText(s,view=state.viewMode){return fmt(movementScheduledMs(s,view))}
 function movementExpectedText(s,view=state.viewMode){return fmt(movementExpectedMs(s,view))}
@@ -1046,6 +1056,7 @@ function parseServices(json){
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,lateReason:usableLateReason,coaches,
+      unitAllocation:raw.unit_allocation || null,
       stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
@@ -1242,10 +1253,12 @@ function renderTable(){
     const statusCls=s.cancelled?'cancel':s.delayed?'delay':'neutral';
     const displayStatus=s.recentlyDeparted?`Departed ${fmt(s.recentDepartedAt)}`:s.status;
     const formation=s.coaches?`${s.coaches} ${s.coaches===1?'car':'cars'}`:'Not supplied';
+    const units=allocatedUnits(s);
+    const unitHtml=units.length?`<div class="formation-note" title="Allocated units from the RDM consist feed; allocations may change">ALLOCATED ${escapeHTML(units.join(' + '))}</div>`:'';
     const formationHtml=s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">LIVE FEED</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Formation not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
   scrollArea.scrollTop=scrollTop;
 }
@@ -1316,6 +1329,9 @@ function renderDetails(){
       ${extra('Headcode',s.headcode||'Not supplied')}
       ${s.uid?extra('Train UID',s.uid):''}
       ${extra('Train category',s.trainCategory?(s.trainCategory+' · '+cat):'Not supplied')}
+      ${serviceHasArrival(s)?extra('Allocated arrival units',allocatedUnits(s,'arrivals').join(' + ')||'Not supplied'):''}
+      ${serviceHasDeparture(s)?extra('Allocated departure units',allocatedUnits(s,'departures').join(' + ')||'Not supplied'):''}
+      ${allocationFresh(s)&&s.unitAllocation?.messageTime?extra('Allocation updated (London)',s.unitAllocation.messageTime.replace('T',' ')):''}
       ${extra('Formation',s.coaches?`${s.coaches} ${s.coaches===1?'carriage':'carriages'} · live staff feed`:'Not supplied by live feed')}
       ${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}
       ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
@@ -1401,9 +1417,9 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
 }
 function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
-  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID'];
+  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,s.coaches||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId])];
+  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,s.coaches||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId,allocatedUnits(s,'arrivals').join(' + '),allocatedUnits(s,'departures').join(' + '),allocationFresh(s)?s.unitAllocation?.messageTime||'':''])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }

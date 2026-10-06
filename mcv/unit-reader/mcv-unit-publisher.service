@@ -1,0 +1,18 @@
+[Unit]
+Description=MCV allocation snapshot publisher
+Wants=network-online.target mcv-unit-reader.service
+After=network-online.target mcv-unit-reader.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=opc
+WorkingDirectory=/opt/mcv-unit-reader
+ExecStart=/opt/mcv-unit-reader/.venv/bin/python -u /opt/mcv-unit-reader/publisher.py
+Restart=always
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

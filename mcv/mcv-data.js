@@ -907,6 +907,7 @@
           calling_points: points,
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
+          unit_allocation: service.unitAllocation || null,
           late_reason: reasonText(service.delayReason),
           cancel_reason: reasonText(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',

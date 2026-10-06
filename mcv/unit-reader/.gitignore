@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.sqlite3*
+kafka-config.json
+unit-ingest-token.txt
+sample-*
