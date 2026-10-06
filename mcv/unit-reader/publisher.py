@@ -69,6 +69,7 @@ def resolve(db, service):
             continue
         selected = {}
         vehicle_sets = {}
+        unit_classes = {}
         for allocation in segments:
             start = clock(allocation.findtext("AllocationOriginDateTime"))
             end = clock(allocation.findtext("AllocationDestinationDateTime"))
@@ -87,6 +88,9 @@ def resolve(db, service):
                 continue
             position = allocation.findtext("ResourceGroupPosition") or "999"
             selected[unit] = int(position) if position.isdigit() else 999
+            fleet = group.findtext("FleetId") or ""
+            if re.fullmatch(r"\d{3}(?:/\d{1,3})?", fleet):
+                unit_classes[unit] = fleet
             vehicles = group.findall("Vehicle")
             ids = [v.findtext("VehicleId") or "" for v in vehicles]
             valid = bool(ids) and all(ids) and len(ids) == len(set(ids))
@@ -96,6 +100,7 @@ def resolve(db, service):
             else:
                 vehicle_sets[unit] = current
         result[output] = sorted(selected, key=lambda unit: (selected[unit], unit))
+        result["arrivalUnitClasses" if field == "sta" else "departureUnitClasses"] = unit_classes
         if selected and all(vehicle_sets.get(unit) for unit in selected):
             sets = [vehicle_sets[unit] for unit in selected]
             total = sum(len(ids) for ids in sets)
