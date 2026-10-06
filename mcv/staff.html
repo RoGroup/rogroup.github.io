@@ -216,6 +216,45 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-warning{color:#805400;font-weight:700}
 .formation-transition{color:var(--ink)}
 :root[data-theme="dark"] .formation-warning{color:#ffe091}
+
+/* Compact formations and a persistent selected-service context. */
+.service-formation .formation-note{font-size:10px;line-height:1.3;margin-top:3px}
+.service-formation .formation-source{color:var(--muted);font-weight:700}
+.service-formation .allocated-units{gap:4px;margin-top:4px}
+.service-formation .allocated-unit-list{gap:4px}
+.service-formation .allocated-unit{padding:2px 5px;font-size:12px}
+.service-formation .allocated-unit-class{color:var(--muted);font-size:10px}
+.table .service-row.selected{background:#e4f4fc}
+.table .service-row.selected>td:first-child{box-shadow:inset 4px 0 var(--blue)}
+.table .service-row.selected.is-overdue>td:first-child{box-shadow:inset 4px 0 var(--blue),inset 7px 0 var(--amber)}
+.detail-context{position:sticky;top:-16px;z-index:2;margin:-16px -18px 0;padding:15px 18px 12px;background:var(--card);border-bottom:2px solid var(--blue)}
+.detail-context-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.detail-context-title .detail-heading{font-size:20px;line-height:1.25;overflow-wrap:anywhere;min-width:0}
+.detail-context-title .plat-pill{flex:none}
+.detail-context-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:7px;color:var(--muted);font-size:12px}
+.detail-context-meta .headcode-chip{margin:0}
+.details-content>.detail-group{margin-top:20px;padding-top:16px}
+.details-content .detail-group h3{font-size:13px;margin-bottom:12px;color:var(--navy)}
+.details-content .ops-metrics{margin-top:0}
+.details-content .detail-route .ops-route{margin-top:0}
+.detail-stock{background:var(--pale);border:1px solid var(--line);border-radius:8px;padding:14px!important}
+.detail-stock .keyvalues{gap:14px 18px}
+:root[data-theme="dark"] .table .service-row.selected{background:#203e5b}
+:root[data-theme="dark"] .detail-context{background:var(--card)}
+:root[data-theme="dark"] .details-content .detail-group h3{color:#f3f5ff}
+@media(max-width:760px){
+  .details-content{max-height:78dvh;overflow:auto;overscroll-behavior:contain}
+  .detail-context{top:-14px;margin:-14px -14px 0;padding:13px 14px 11px}
+  .details-content>.detail-group{margin-top:22px;padding-top:18px}
+  .details-content .kv-label{font-size:12px;line-height:1.4}
+  .details-content .kv-value{font-size:14px;line-height:1.45}
+  .controls select,.controls input[type="search"],.controls .button,.type-segment button,.movement-tabs button,.theme-toggle,.signal-control-btn,.calling-toggle button{min-height:44px}
+  .rtt-button{min-height:44px;font-size:12px;padding:10px 12px}
+  .table tr.service-row.selected{border-color:var(--blue)}
+  .service-formation .formation-note{display:block}
+}
+@media(max-width:430px){.detail-stock .keyvalues{grid-template-columns:1fr}}
+
 </style>
 
 
@@ -1372,7 +1411,7 @@ function renderTable(){
     const carriageCount=displayCarriages(s);
     const formation=carriageCount?`${carriageCount} ${carriageCount===1?'car':'cars'}`:'Not supplied';
     const units=allocatedUnits(s);
-    const unitHtml=units.length?`<div class="allocated-units" title="Gemini allocation order; direction of travel is not verified"><span class="allocated-units-label">Allocation order</span><span class="allocated-unit-list">${units.map(unit=>`<span class="allocated-unit">${escapeHTML(unit)}${unitClass(s,unit)?` <span class="allocated-unit-class">${escapeHTML(unitClass(s,unit))}</span>`:''}</span>`).join('')}</span></div>`:'';
+    const unitHtml=units.length?`<div class="allocated-units" title="Gemini allocation order; direction of travel is not verified"><span class="allocated-units-label">Units</span><span class="allocated-unit-list">${units.map(unit=>`<span class="allocated-unit">${escapeHTML(unit)}${unitClass(s,unit)?` <span class="allocated-unit-class">${escapeHTML(unitClass(s,unit))}</span>`:''}</span>`).join('')}</span></div>`:'';
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
@@ -1407,13 +1446,14 @@ function renderDetails(){
   const departureSub=s.actualDeparture!=='—'?'Actual departure':(s.expected!=='—'?'Expected departure':'Departure forecast not supplied');
 
   const detailsHTML=`
-    <div class="detail-heading">${escapeHTML(s.dest)}</div>
-    <div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>
-    ${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}
+    <div class="detail-context">
+      <div class="detail-context-title"><div class="detail-heading">${escapeHTML(movementPlace(s).label)}</div><span class="plat-pill${s.platform?'':' unknown'}" aria-label="Platform ${escapeHTML(s.platform||'to be confirmed')}">${escapeHTML(s.platform?'P'+s.platform:'TBC')}</span></div>
+      <div class="detail-context-meta">${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}<span>${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</span></div>
+    </div>
     ${rttUrl?`<div><a class="button rtt-button" href="${escapeHTML(rttUrl)}" target="_blank" rel="noopener noreferrer">Open in RealTimeTrains ↗</a></div>`:''}
     <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
-    <div class="ops-route">
+    <section class="detail-group detail-route"><h3>Route</h3><div class="ops-route">
       <div class="place"><small>Origin</small>${escapeHTML(s.origin==='Unknown'?'Not supplied':s.origin)}</div>
       <div class="arrow">→</div>
       <div class="place center"><small>Current location</small>Manchester Victoria</div>
@@ -1421,7 +1461,8 @@ function renderDetails(){
       <div class="place end"><small>Destination</small>${escapeHTML(s.dest)}</div>
     </div>
 
-    <div class="ops-metrics">
+    </section>
+    <section class="detail-group detail-timings"><h3>Timings at Manchester Victoria</h3><div class="ops-metrics">
       ${metric('Booked arrival',s.bookedArrival,s.bookedArrival!=='—'?'At Manchester Victoria':'Not supplied for this movement')}
       ${metric('Booked departure',s.booked,'At Manchester Victoria')}
       ${metric('Booked dwell',dwell===null?'—':dwell+' min',dwell===null?'Not available':'Arrival → departure')}
@@ -1430,6 +1471,7 @@ function renderDetails(){
       ${metric('Platform',platformState(s),s.platformHidden?'Platform supplied but hidden on public display':(s.platformWithheld&&!s.platform?'Allocation withheld / not supplied':'Live allocation'))}
     </div>
 
+    </section>
     <div class="ops-alerts">
       ${reason?`<div class="ops-alert ${s.cancelled?'danger':'warn'}"><strong>${s.cancelled?'Cancellation reason':'Delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="ops-alert warn"><strong>Disruption:</strong> No cause supplied by the current feed.</div>':'')}
       ${s.reverseFormation?'<div class="ops-alert warn"><strong>Formation:</strong> Staff feed reports this service is operating in reverse formation.</div>':''}
@@ -1443,11 +1485,7 @@ function renderDetails(){
     </div>
     ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">Possible turnaround pairing · inferred</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">Matched from the same exact platform, timing, operator and formation where available. This is not a confirmed stock diagram.</div></div>`:''}
 
-    <section class="detail-group"><h3>Operational information</h3><div class="keyvalues">
-      ${extra('Operator',s.operator+(s.operatorCode?' · '+s.operatorCode:''))}
-      ${extra('Headcode',s.headcode||'Not supplied')}
-      ${s.uid?extra('Train UID',s.uid):''}
-      ${extra('Train category',s.trainCategory?(s.trainCategory+' · '+cat):'Not supplied')}
+    <section class="detail-group detail-stock"><h3>Stock &amp; formation</h3><div class="keyvalues">
       ${serviceHasArrival(s)?extra('Allocated arrival units',unitsWithClasses(s,'arrivals')||'Not supplied'):''}
       ${serviceHasDeparture(s)?extra('Allocated departure units',unitsWithClasses(s,'departures')||'Not supplied'):''}
       ${allocationFresh(s)&&s.unitAllocation?.messageTime?extra('Allocation updated (London)',s.unitAllocation.messageTime.replace('T',' ')):''}
@@ -1462,6 +1500,12 @@ function renderDetails(){
       ${inferredTpeFormation(s)?extra('Expected stock',inferredTpeFormation(s)+' · inferred from TPE carriage count'):''}
       ${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}
       ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
+    </div></section>
+    <section class="detail-group"><h3>Service information</h3><div class="keyvalues">
+      ${extra('Operator',s.operator+(s.operatorCode?' · '+s.operatorCode:''))}
+      ${extra('Headcode',s.headcode||'Not supplied')}
+      ${s.uid?extra('Train UID',s.uid):''}
+      ${extra('Train category',s.trainCategory?(s.trainCategory+' · '+cat):'Not supplied')}
       ${extra('Service type',s.ecs?'ECS / non-passenger':(s.isCharter?'Passenger charter':'Passenger service'))}
       ${s.activities?extra('ITPS activities',s.activities):''}
       ${extra('Operational call',s.isOperationalCall?'Yes':'No / not flagged')}
