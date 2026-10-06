@@ -194,6 +194,7 @@
     const code = text(crs).toUpperCase();
 
     const operationalLocations = {
+      CHNL159: 'Chinley Signal Cy159',
       NWTNHDD: 'Newton Heath TMD',
       ARDWTMD: 'Ardwick TMD',
       MNCRVRS: 'Manchester Victoria Turnback'
