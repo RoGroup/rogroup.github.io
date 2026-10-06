@@ -486,6 +486,89 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .service-row.platform-changed{outline-width:2px}
 }
 </style>
+<style id="staff-mobile-header-compact">
+@media(max-width:760px){
+  .top{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:flex-start;
+    gap:8px;
+    padding:9px 12px 10px;
+  }
+  .identity{
+    width:100%;
+    min-width:0;
+    gap:10px;
+  }
+  .home-logo{
+    flex:0 0 auto;
+  }
+  .logo{
+    width:86px;
+    height:36px;
+  }
+  .titleblock{
+    min-width:0;
+    padding-left:10px;
+  }
+  .top h1{
+    font-size:17px;
+    line-height:1.05;
+    white-space:nowrap;
+  }
+  .subhead{
+    margin-top:3px;
+    font-size:8.5px;
+    line-height:1.2;
+    letter-spacing:.75px;
+    white-space:nowrap;
+  }
+  .top-right{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-left:0;
+  }
+  .top-right>div{
+    display:flex;
+    align-items:baseline;
+    justify-content:flex-end;
+    gap:8px;
+    min-width:0;
+    margin-left:auto;
+  }
+  .theme-toggle{
+    min-width:0;
+    padding:6px 9px;
+    font-size:9.5px;
+    line-height:1;
+    border-radius:6px;
+  }
+  .clock{
+    font-size:19px;
+    line-height:1;
+    text-align:right;
+  }
+  .date{
+    margin-top:0;
+    font-size:8.5px;
+    line-height:1;
+    letter-spacing:.45px;
+    white-space:nowrap;
+  }
+}
+@media(max-width:430px){
+  .logo{width:78px;height:32px}
+  .top h1{font-size:15px}
+  .subhead{font-size:7.7px;letter-spacing:.55px}
+  .clock{font-size:18px}
+  .date{font-size:7.8px}
+  .theme-toggle{font-size:9px;padding:6px 8px}
+}
+</style>
 </head>
 <body>
 <header class="top">
