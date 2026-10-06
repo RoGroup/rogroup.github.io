@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.10';
+  const VERSION = '1.1.11';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -36,6 +36,51 @@
 
   function text(value) {
     return String(value == null ? '' : value).trim();
+  }
+
+  function reasonText(value, depth) {
+    depth = Number(depth) || 0;
+    if (value == null || depth > 4) return '';
+
+    if (typeof value === 'string' || typeof value === 'number') {
+      const result = text(value);
+      return result === '[object Object]' ? '' : result;
+    }
+
+    if (Array.isArray(value)) {
+      const seen = new Set();
+      return value.map(function (item) { return reasonText(item, depth + 1); })
+        .filter(function (item) {
+          if (!item || seen.has(item)) return false;
+          seen.add(item);
+          return true;
+        }).join('; ');
+    }
+
+    if (typeof value === 'object') {
+      const preferred = [
+        'reasonText', 'reasonDescription', 'description', 'message', 'reason',
+        'text', 'value', 'name', 'delayReason', 'lateReason', 'cancelReason',
+        'cancellationReason'
+      ];
+
+      for (let i = 0; i < preferred.length; i += 1) {
+        if (!Object.prototype.hasOwnProperty.call(value, preferred[i])) continue;
+        const result = reasonText(value[preferred[i]], depth + 1);
+        if (result) return result;
+      }
+
+      const values = Object.keys(value)
+        .filter(function (key) {
+          return !/^(?:id|code|reasonCode|category|type)$/i.test(key);
+        })
+        .map(function (key) { return reasonText(value[key], depth + 1); })
+        .filter(Boolean);
+
+      return values[0] || '';
+    }
+
+    return '';
   }
 
   function escapeHTML(value) {
@@ -261,7 +306,7 @@
         coaches: coachCount(point && point.length),
         affectedByDiversion: Boolean(point && point.affectedByDiversion),
         rerouteDelay: Number(point && point.rerouteDelay) || 0,
-        delayReason: text(point && point.delayReason)
+        delayReason: reasonText(point && point.delayReason)
       };
     });
   }
@@ -412,10 +457,10 @@
       isDelayed: status.delayed,
       minutesLate: status.minutesLate,
 
-      delayReason: status.delayed ? text(raw.delayReason) : '',
-      lateReason: status.delayed ? text(raw.delayReason) : '',
-      cancellationReason: status.cancelled ? text(raw.cancelReason || raw.delayReason) : '',
-      cancelReason: status.cancelled ? text(raw.cancelReason || raw.delayReason) : '',
+      delayReason: status.delayed ? reasonText(raw.delayReason) : '',
+      lateReason: status.delayed ? reasonText(raw.delayReason) : '',
+      cancellationReason: status.cancelled ? reasonText(raw.cancelReason || raw.delayReason) : '',
+      cancelReason: status.cancelled ? reasonText(raw.cancelReason || raw.delayReason) : '',
 
       callingPoints: callingPoints,
       activeCallingPoints: activeCallingPoints,
@@ -816,7 +861,7 @@
             is_cancelled: point.cancelled,
             affected_by_diversion: point.affectedByDiversion === true,
             reroute_delay: Number(point.rerouteDelay) || 0,
-            delay_reason: text(point.delayReason)
+            delay_reason: reasonText(point.delayReason)
           };
         }
 
@@ -862,8 +907,8 @@
           calling_points: points,
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
-          late_reason: text(service.delayReason),
-          cancel_reason: text(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
+          late_reason: reasonText(service.delayReason),
+          cancel_reason: reasonText(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
           service_class: text(service.serviceType || 'train').toLowerCase(),
           train_category: text(service.category),
@@ -890,6 +935,7 @@
     CONFIG: CONFIG,
 
     escapeHTML: escapeHTML,
+    reasonText: reasonText,
     rdmTime: rdmTime,
     scheduledEpoch: scheduledEpoch,
     expectedMinutesLate: expectedMinutesLate,
