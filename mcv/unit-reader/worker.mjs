@@ -1045,6 +1045,9 @@ async function ingestUnits(request, env, origin) {
     if (snapshot.version !== 1 || typeof snapshot.readerRunning !== 'boolean' || !Array.isArray(snapshot.services) || snapshot.services.length > 200) throw new Error('Invalid snapshot');
     for (const service of snapshot.services) {
       if (typeof service.serviceID !== 'string' || !['allocated','unallocated','not-supplied'].includes(service.status)) throw new Error('Invalid service');
+      for (const field of ['arrivalCarriages','departureCarriages']) {
+        if (service[field] != null && (!Number.isInteger(service[field]) || service[field] < 1 || service[field] > 100)) throw new Error('Invalid carriage count');
+      }
       for (const field of ['arrivalUnits','departureUnits']) {
         if (!Array.isArray(service[field]) || service[field].length > 20 || !service[field].every(unit => typeof unit === 'string' && /^\d{6}$/.test(unit))) throw new Error('Invalid units');
       }
@@ -1074,6 +1077,7 @@ async function enrichUnits(board, env) {
       const match = index.get(unitSignature(service));
       if (match) service.unitAllocation = {
         status:match.status, arrivalUnits:match.arrivalUnits, departureUnits:match.departureUnits,
+        arrivalCarriages:match.arrivalCarriages || null, departureCarriages:match.departureCarriages || null,
         messageTime:match.messageTime || null, syncedAt:snapshot.updatedAt,
         source:'RDM Passenger Train Allocation and Consist'
       };
