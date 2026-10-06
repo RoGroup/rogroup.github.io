@@ -201,6 +201,15 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 @media(max-width:760px){
   :root[data-theme="dark"] .table-area{background:#11172f}
 }
+
+/* Keep allocated unit numbers readable alongside the carriage count. */
+.allocated-units{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:8px}
+.allocated-units-label{font-size:11px;line-height:1.3;font-weight:700;color:var(--muted)}
+.allocated-unit-list{display:flex;flex-wrap:wrap;gap:5px}
+.allocated-unit{display:inline-block;padding:5px 8px;border:1px solid #9bcde3;border-radius:5px;background:#edf9ff;color:#262262;font-size:15px;font-weight:800;line-height:1.2;font-variant-numeric:tabular-nums;white-space:nowrap}
+:root[data-theme="dark"] .allocated-unit{background:#17334a;border-color:#4389aa;color:#fff}
+@media(max-width:700px){.allocated-units{flex-basis:100%;margin-top:5px}.allocated-unit{font-size:15px}}
+
 </style>
 
 
@@ -1254,7 +1263,7 @@ function renderTable(){
     const displayStatus=s.recentlyDeparted?`Departed ${fmt(s.recentDepartedAt)}`:s.status;
     const formation=s.coaches?`${s.coaches} ${s.coaches===1?'car':'cars'}`:'Not supplied';
     const units=allocatedUnits(s);
-    const unitHtml=units.length?`<div class="formation-note" title="Allocated units from the RDM consist feed; allocations may change">ALLOCATED ${escapeHTML(units.join(' + '))}</div>`:'';
+    const unitHtml=units.length?`<div class="allocated-units" title="Allocated units from the RDM consist feed; allocations may change"><span class="allocated-units-label">Units</span><span class="allocated-unit-list">${units.map(unit=>`<span class="allocated-unit">${escapeHTML(unit)}</span>`).join('')}</span></div>`:'';
     const formationHtml=s.coaches?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">LIVE FEED</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Formation not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
