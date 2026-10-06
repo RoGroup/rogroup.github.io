@@ -1511,10 +1511,6 @@ function renderDetails(){
       ${extra('Operational call',s.isOperationalCall?'Yes':'No / not flagged')}
     </div></section>
 
-    <section class="detail-group"><h3>Next location after Manchester Victoria</h3>
-      ${nextCall?`<div class="ops-metric"><div class="label">Next booked call</div><div class="value">${escapeHTML(nextCall.name)}</div><div class="sub">${nextCall.booked!=='—'?'Booked '+escapeHTML(nextCall.booked):'Time not supplied'}${nextCall.expected!=='—'&&nextCall.expected!==nextCall.booked?' · Expected '+escapeHTML(nextCall.expected):''}${nextCall.platform?' · Platform '+escapeHTML(nextCall.platform):''}</div></div>`:'<div class="placeholder">No onward location is currently supplied by the board feed.</div>'}
-    </section>
-
     <section class="detail-group">
       <div class="calling-points-head">
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
