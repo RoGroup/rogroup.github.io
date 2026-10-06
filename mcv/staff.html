@@ -717,7 +717,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261006-3"></script>
+<script src="mcv-data.js?v=20261006-leeds-procedure"></script>
 <script>
 'use strict';
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
@@ -1397,7 +1397,7 @@ function renderTable(){
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
   updateDisplayHTML($('departures'),tableHTML,true);
   scrollArea.scrollTop=scrollTop;
@@ -1406,7 +1406,7 @@ function reasonFor(s){return s.cancelled?s.note:s.delayed?s.lateReason:''}
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
-  const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),dwell=dwellMinutes(s);
+  const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),procedure=MCVData.operatingProcedureNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
   const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before';
@@ -1463,6 +1463,7 @@ function renderDetails(){
       ${inward?`<div class="ops-alert ${inward.level}"><strong>Inward / dwell risk:</strong> ${escapeHTML(inward.text)}.</div>`:''}
       ${platformRisk?`<div class="ops-alert ${platformRisk.level}"><strong>Potential platform sequencing risk:</strong> ${escapeHTML(platformRisk.text)}. Derived from listed departure times only.</div>`:''}
       ${lastPlatformChange?`<div class="ops-alert warn"><strong>Latest platform change:</strong> ${escapeHTML(lastPlatformChange.from)} → ${escapeHTML(lastPlatformChange.to)} · ${escapeHTML(relativeAge(lastPlatformChange.at))} ago.</div>`:''}
+      ${procedure?`<div class="ops-alert warn"><strong>Operating procedure:</strong> ${escapeHTML(procedure.replace('Operating procedure: ',''))}</div>`:''}
       ${notice&&!s.cancelled?`<div class="ops-alert"><strong>Local carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}
     </div>
     ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">Possible turnaround pairing · inferred</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">Matched from the same exact platform, timing, operator and formation where available. This is not a confirmed stock diagram.</div></div>`:''}
@@ -1531,6 +1532,7 @@ function renderOperationalAlerts(){
   const alerts=[];
   for(const s of chronologicalServices('all')){
     if(s.recentlyDeparted)continue;
+    const procedure=MCVData.operatingProcedureNotice(s);if(procedure)alerts.unshift({level:'warn',text:procedure});
     if(s.cancelled)alerts.push({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: cancelled`});
     else if(overdue(s))alerts.push({level:'warn',text:`${s.headcode||s.dest}: delayed past booked departure`});
     if(s.reverseFormation)alerts.push({level:'warn',text:`${s.headcode||s.dest}: reverse formation reported`});

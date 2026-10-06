@@ -302,7 +302,7 @@ body{user-select:none}
   </footer>
 </div>
 
-<script src="mcv-data.js?v=20261006-3"></script>
+<script src="mcv-data.js?v=20261006-leeds-procedure"></script>
 <script>
 'use strict';
 
@@ -419,6 +419,7 @@ function render(){
   }
   const html=list.map(function(s){
     const info=MCVData.formationSummary(s,'departures');
+    const procedure=MCVData.operatingProcedureNotice(s);
     const formation=info.carriages?String(info.carriages)+' cars':'—';
     const unitText=info.units.map(unit=>unit+(MCVData.unitClass(s,unit,'departures')?' · '+MCVData.unitClass(s,unit,'departures'):'')).join(' + ');
     const stockNotes=[unitText?(info.orderKnown?'Front → rear · ':'Units · ')+unitText+(info.orderKnown?' · Gemini reported':''):'',info.inferredClass?info.inferredClass+' · inferred':'',info.difference,info.firstClass].filter(Boolean);
@@ -441,6 +442,7 @@ function render(){
       '</div>'+
       '<div class="stops"><span class="label">'+(s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
       (stockNotes.length?'<div class="stock-notes">'+stockNotes.map(note=>'<span>'+escapeHTML(note)+'</span>').join('')+'</div>':'')+
+      (procedure?'<div class="reason procedure-note"><strong>OPERATING PROCEDURE: </strong>'+escapeHTML(procedure.replace('Operating procedure: ',''))+'</div>':'')+
       (reason?'<div class="reason"><strong>'+(s.cancelled?'CANCELLATION: ':'DELAY: ')+'</strong>'+escapeHTML(reason)+'</div>':'')+
     '</article>';
   }).join('');

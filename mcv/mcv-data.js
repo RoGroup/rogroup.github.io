@@ -302,6 +302,20 @@
     return notice ? 'First class: ' + notice.replace('FIRST CLASS: ', '') + ' · front/rear not supplied' : 'First-class position not supplied';
   }
 
+  // Locally configured staff procedure supplied for the two booked Leeds services.
+  function operatingProcedureNotice(service) {
+    if (!service || service.ecs || service.cancelled || service.isCancelled) return '';
+    const operator = text(service.operator).toLowerCase().replace(/\s+/g, ' ');
+    if (text(service.operatorCode).toUpperCase() !== 'NT' &&
+        !/^(?:northern|northern rail|northern trains(?: limited)?)$/.test(operator)) return '';
+    const destination = text(service.dest || service.destination).toUpperCase();
+    const destinationCrs = text(service.destCrs || service.destinationCrs).toUpperCase();
+    if (destinationCrs !== 'LDS' && destination !== 'LEEDS') return '';
+    const booked = rdmTime(service.booked || service.time || (service.raw && service.raw.std));
+    if (!['16:57', '17:21'].includes(booked) || displayCarriages(service, 'departures') !== 2) return '';
+    return 'Operating procedure: ' + booked + ' Northern to Leeds — 2-car formation presents an overcrowding risk. The Rochdale stop should be removed.';
+  }
+
   function formationSummary(service, view) {
     const gemini = allocationCarriages(service, view);
     const darwin = coachCount(service.coaches);
@@ -1079,6 +1093,7 @@
     inferredTpeFormation: inferredTpeFormation,
     firstClassPosition: firstClassPosition,
     formationSummary: formationSummary,
+    operatingProcedureNotice: operatingProcedureNotice,
     parseService: parseService,
     parseBoard: parseBoard,
     isPassengerService: isPassengerService,
