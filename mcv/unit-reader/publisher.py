@@ -70,6 +70,7 @@ def resolve(db, service):
         selected = {}
         vehicle_sets = {}
         unit_classes = {}
+        vehicle_order = {}
         for allocation in segments:
             start = clock(allocation.findtext("AllocationOriginDateTime"))
             end = clock(allocation.findtext("AllocationDestinationDateTime"))
@@ -92,6 +93,12 @@ def resolve(db, service):
             if re.fullmatch(r"\d{3}(?:/\d{1,3})?", fleet):
                 unit_classes[unit] = fleet
             vehicles = group.findall("Vehicle")
+            reverse = allocation.findtext("Reversed")
+            positions = [v.findtext("ResourcePosition") or "" for v in vehicles]
+            ordered = sorted(vehicles, key=lambda v: int(v.findtext("ResourcePosition") or "0")) if all(x.isdigit() for x in positions) else []
+            if ordered and sorted(int(x) for x in positions) == list(range(1, len(vehicles)+1)) and reverse in ("Y", "N"):
+                vehicle_order[unit] = list(reversed(ordered)) if reverse == "Y" else ordered
+
             ids = [v.findtext("VehicleId") or "" for v in vehicles]
             valid = bool(ids) and all(ids) and len(ids) == len(set(ids))
             current = frozenset(ids) if valid else None
@@ -100,7 +107,27 @@ def resolve(db, service):
             else:
                 vehicle_sets[unit] = current
         result[output] = sorted(selected, key=lambda unit: (selected[unit], unit))
-        result["arrivalUnitClasses" if field == "sta" else "departureUnitClasses"] = unit_classes
+        prefix = "arrival" if field == "sta" else "departure"
+        order_known = sorted(selected.values()) == list(range(1, len(selected)+1))
+        result[prefix + "OrderKnown"] = bool(selected) and order_known
+        result[prefix + "UnitClasses"] = unit_classes
+        # Coach letters and order are feed-reported, not a physical verification.
+        if order_known and selected and all(vehicle_order.get(unit) for unit in selected):
+            first = []
+            offset = 0
+            complete = True
+            for unit in result[output]:
+                fleet = unit_classes.get(unit, "").split("/")[0]
+                letters = {"185": {"C", "G"}, "802": {"E"}}.get(fleet)
+                vehicles = vehicle_order[unit]
+                matches = [i+1 for i, v in enumerate(vehicles) if (v.findtext("CoachLetter") or "").strip().upper() in (letters or set())]
+                if not letters or not matches:
+                    complete = False
+                    break
+                first.extend(offset + i for i in matches)
+                offset += len(vehicles)
+            if complete:
+                result[prefix + "FirstClassCarriages"] = first
         if selected and all(vehicle_sets.get(unit) for unit in selected):
             sets = [vehicle_sets[unit] for unit in selected]
             total = sum(len(ids) for ids in sets)
