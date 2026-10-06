@@ -1075,7 +1075,7 @@ async function readUnitSnapshot(env) {
 async function enrichUnits(board, env) {
   try {
     const snapshot = await readUnitSnapshot(env);
-    board._mcv = {...(board._mcv || {}), unitAllocationsAvailable:Boolean(snapshot?.available), unitSnapshotAt:snapshot?.updatedAt || null};
+    board._mcv = {...(board._mcv || {}), unitAllocationsAvailable:Boolean(snapshot?.available), unitReaderRunning:snapshot?.readerRunning ?? null, unitSnapshotAt:snapshot?.updatedAt || null};
     if (!snapshot?.available) return;
     const index = new Map(snapshot.services.map(service => [unitSignature(service), service]));
     for (const service of board.trainServices || []) {
