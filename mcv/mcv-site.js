@@ -125,7 +125,7 @@
     else {release.classList.add('mcv-release-corner');document.body.append(release);}
     if(!unattended&&page!=='index.html'){
       const nav=document.createElement('nav');nav.className='mcv-site-nav';nav.setAttribute('aria-label','Site navigation');
-      for(const [href,label] of [['index.html','Home'],['tools.html','Tools'],['staff.html','Staff display']]){
+      for(const [href,label] of [['index.html','Home'],['staff.html','Staff display']]){
         const a=document.createElement('a');a.href=href;a.textContent=label;if(page===href)a.setAttribute('aria-current','page');nav.append(a);
       }
       const header=document.querySelector('header,.top');
