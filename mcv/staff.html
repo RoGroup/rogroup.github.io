@@ -1515,16 +1515,16 @@ function renderDetails(){
       ${nextCall?`<div class="ops-metric"><div class="label">Next booked call</div><div class="value">${escapeHTML(nextCall.name)}</div><div class="sub">${nextCall.booked!=='—'?'Booked '+escapeHTML(nextCall.booked):'Time not supplied'}${nextCall.expected!=='—'&&nextCall.expected!==nextCall.booked?' · Expected '+escapeHTML(nextCall.expected):''}${nextCall.platform?' · Platform '+escapeHTML(nextCall.platform):''}</div></div>`:'<div class="placeholder">No onward location is currently supplied by the board feed.</div>'}
     </section>
 
-    <section class="detail-group"><h3>Next movements on ${escapeHTML(s.platform?'Platform '+s.platform:'this platform')}</h3>
-      ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
-    </section>
-
     <section class="detail-group">
       <div class="calling-points-head">
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
 
       </div>
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
+    </section>
+
+    <section class="detail-group"><h3>Next movements on ${escapeHTML(s.platform?'Platform '+s.platform:'this platform')}</h3>
+      ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
     </section>
 
     ${hist.length?`<section class="detail-group"><h3>Platform changes observed this session</h3>${hist.map(h=>`<div class="detail-small" style="padding:5px 0">${escapeHTML(fmt(h.at))}: ${escapeHTML(h.from)} → ${escapeHTML(h.to)} · ${escapeHTML(relativeAge(h.at))} ago</div>`).join('')}</section>`:''}
