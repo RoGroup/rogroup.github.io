@@ -1035,17 +1035,22 @@ function parseServices(json){
     }
 
     const serviceDate=String(raw.scheduled_departure_date||raw.sdd||'').trim();
+    const rawLateReason=String(raw.late_reason||'').trim();
+    const callingPointReason=[...onward,...previousStops].map(p=>String(p.delayReason||'').trim()).find(r=>r&&r!=='[object Object]'&&!/^\d+$/.test(r))||'';
+    const usableLateReason=rawLateReason&&rawLateReason!=='[object Object]'&&!/^\d+$/.test(rawLateReason)?rawLateReason:callingPointReason;
+    const rawCancelReason=String(raw.cancel_reason||'').trim();
+    const usableCancelReason=rawCancelReason&&rawCancelReason!=='[object Object]'&&!/^\d+$/.test(rawCancelReason)?rawCancelReason:callingPointReason;
     const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,serviceDate,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
-      status,statusCode,delayed,cancelled,departed,arrived,lateReason:String(raw.late_reason||'').trim(),coaches,
+      status,statusCode,delayed,cancelled,departed,arrived,lateReason:usableLateReason,coaches,
       stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
       arrivalType:String(raw.arrival_type||'').trim(),departureType:String(raw.departure_type||'').trim(),
       origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),originCrs:String(raw.origin?.crs||raw.origin_crs||'').trim().toUpperCase(),
-      note:String(raw.cancel_reason||'').trim()};
+      note:usableCancelReason};
     const cachedPrevious=state.previousStopsCache.get(detailCacheKey(service));
     if(cachedPrevious){service.previousStops=cachedPrevious.stops;service.previousStopsLoaded=true;}
     service.firstClassNotice=service.ecs?null:MCVData.firstClassNotice({
