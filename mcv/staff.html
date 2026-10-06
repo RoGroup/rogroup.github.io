@@ -638,7 +638,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="panel">
       <div class="panel-title"><div><h2 id="movement-panel-title">Detailed departures</h2><span class="minor" id="results-note">Waiting for staff movements feed</span></div><span class="mini-label">Select a service for details →</span></div>
       <div class="movement-tabs" id="movement-tabs" role="tablist" aria-label="Choose movements view"><button type="button" class="active" data-view="departures">DEPARTURES</button><button type="button" data-view="arrivals">ARRIVALS</button><button type="button" data-view="all">ALL MOVEMENTS</button></div>
-      <div class="controls"><input id="search" type="search" placeholder="Search headcode, destination, operator, station, platform or service ID…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
+      <div class="controls"><input id="search" type="search" placeholder="Search headcode, unit, class, destination, operator, station or platform…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
       <div class="table-area" id="table-area"><table class="table"><thead><tr><th id="movement-time-heading">Booked dep</th><th id="movement-place-heading">To / operator</th><th>Formation</th><th>Platform</th><th id="movement-expected-heading">Expected dep</th><th>Status</th></tr></thead><tbody id="departures"><tr><td colspan="6" class="empty">Waiting for live staff movement information…</td></tr></tbody></table></div>
       <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · confirmed departures remain dimmed for 2 minutes · platform changes are highlighted for 60 seconds · formation is labelled live only when supplied.</div>
     </div>
@@ -745,7 +745,7 @@ function fmt(v){const n=typeof v==='number'?v:ms(v);return Number.isFinite(n)?uk
 function station(name,crs=''){return MCVData.displayStationName(name,crs)||String(crs||'').trim().toUpperCase()||'Unknown'}
 function matchPlatform(value,num){return new RegExp('^'+num+'(?:[AB])?$','i').test(String(value||'').trim())}
 function timeDiff(s){return Number.isFinite(s.expectedMs)&&Number.isFinite(s.bookedMs)?Math.max(0,Math.round((s.expectedMs-s.bookedMs)/60000)):null}
-function trainNotice(s){if(!(s.coaches>2))return '';const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
+function trainNotice(s){if(!(displayCarriages(s,'departures')>2))return '';const dest=s.dest.toUpperCase();if(dest==='CLITHEROE'||s.destCrs==='CLH')return 'Local notice: FRONT 2 CARRIAGES ONLY for LANGHO, WHALLEY and CLITHEROE. Verify against current formation/operating instructions.';if(dest==='HEADBOLT LANE'||s.destCrs==='HBL')return 'Local notice: FRONT 2 CARRIAGES ONLY for UPHOLLAND, RAINFORD and HEADBOLT LANE. Verify against current formation/operating instructions.';return ''}
 
 const CATEGORY_NAMES={
   OL:'London Underground / Metro service',OU:'Unadvertised ordinary passenger',OO:'Ordinary passenger',OS:'Staff train',OW:'Mixed',
@@ -860,6 +860,57 @@ function inferredTpeFormation(s){
   if(String(s.operatorCode||'').toUpperCase()!=='TP'&&operator!=='tpe'&&!operator.includes('transpennine express'))return '';
   return ({3:'Class 185',6:'2 × Class 185',5:'Class 802'})[displayCarriages(s)]||'';
 }
+
+function patchDisplayNode(current,next){
+  if(current.nodeType!==next.nodeType||current.nodeName!==next.nodeName){current.replaceWith(next.cloneNode(true));return}
+  if(current.nodeType===3){if(current.nodeValue!==next.nodeValue)current.nodeValue=next.nodeValue;return}
+  if(current.nodeType!==1)return;
+  for(const attr of Array.from(current.attributes))if(!next.hasAttribute(attr.name))current.removeAttribute(attr.name);
+  for(const attr of Array.from(next.attributes))if(current.getAttribute(attr.name)!==attr.value)current.setAttribute(attr.name,attr.value);
+  const wanted=Array.from(next.childNodes);
+  for(let i=0;i<wanted.length;i++){
+    const child=current.childNodes[i];
+    if(child)patchDisplayNode(child,wanted[i]);else current.appendChild(wanted[i].cloneNode(true));
+  }
+  while(current.childNodes.length>wanted.length)current.lastChild.remove();
+}
+function updateDisplayHTML(target,html,keyed=false){
+  if(target._displayHTML===html)return;
+  const active=document.activeElement,hadFocus=target.contains(active),scrollTop=target.scrollTop;
+  const next=target.cloneNode(false);
+  next.innerHTML=html;
+  if(keyed){
+    const existing=new Map(Array.from(target.children).filter(n=>n.dataset.key).map(n=>[n.dataset.key,n]));
+    const wanted=Array.from(next.children);
+    const keep=new Set();
+    for(let i=0;i<wanted.length;i++){
+      const source=wanted[i],row=source.dataset.key?existing.get(source.dataset.key):null;
+      const node=row||source.cloneNode(true);
+      if(row)patchDisplayNode(row,source);
+      keep.add(node);
+      if(target.children[i]!==node)target.insertBefore(node,target.children[i]||null);
+    }
+    for(const node of Array.from(target.children))if(!keep.has(node))node.remove();
+  }else patchDisplayNode(target,next);
+  target._displayHTML=html;target.scrollTop=scrollTop;
+  if(hadFocus&&active.isConnected&&document.activeElement!==active)active.focus({preventScroll:true});
+}
+function searchableUnits(s){
+  return ['arrivals','departures'].flatMap(view=>allocatedUnits(s,view).map(unit=>unit+' '+unitClass(s,unit,view))).join(' ')+' '+inferredTpeFormation(s);
+}
+function allocationAvailability(s){
+  const meta=state.unitFeedMeta||{};
+  if(meta.unitReaderRunning===false)return 'Gemini reader offline · Darwin fallback where available';
+  if(s.unitAllocation&&!allocationFresh(s))return 'Gemini snapshot stale · allocation hidden; Darwin fallback where available';
+  if(meta.unitAllocationsAvailable===false){
+    const age=Date.now()-Date.parse(meta.unitSnapshotAt||'');
+    return Number.isFinite(age)&&age>6*60000?'Gemini snapshot stale · Darwin fallback where available':'Gemini feed unavailable · Darwin fallback where available';
+  }
+  if(s.unitAllocation?.status==='unallocated')return 'Gemini reports no allocated units';
+  if(allocatedUnits(s).length)return 'Gemini allocation supplied';
+  return 'Gemini units not supplied for this movement';
+}
+
 function movementBookedText(s,view=state.viewMode){return fmt(movementScheduledMs(s,view))}
 function movementExpectedText(s,view=state.viewMode){return fmt(movementExpectedMs(s,view))}
 function movementPlace(s,view=state.viewMode){
@@ -893,7 +944,8 @@ function turnaroundPair(s){
     const candidates=all.filter(x=>serviceFlow(x).key==='origin'&&Number.isFinite(x.bookedMs)&&x.bookedMs>=s.bookedArrivalMs&&x.bookedMs-s.bookedArrivalMs<=90*60000)
       .sort((a,b)=>{
         const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
-        const af=(a.coaches&&s.coaches&&a.coaches===s.coaches)?0:1,bf=(b.coaches&&s.coaches&&b.coaches===s.coaches)?0:1;
+        const sc=displayCarriages(s,'arrivals'),ac=displayCarriages(a,'departures'),bc=displayCarriages(b,'departures');
+        const af=(ac&&sc&&ac===sc)?0:1,bf=(bc&&sc&&bc===sc)?0:1;
         return ao-bo||af-bf||a.bookedMs-b.bookedMs;
       });
     if(!candidates.length)return null;
@@ -904,7 +956,8 @@ function turnaroundPair(s){
     const candidates=all.filter(x=>serviceFlow(x).key==='terminate'&&Number.isFinite(x.bookedArrivalMs)&&x.bookedArrivalMs<=s.bookedMs&&s.bookedMs-x.bookedArrivalMs<=90*60000)
       .sort((a,b)=>{
         const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
-        const af=(a.coaches&&s.coaches&&a.coaches===s.coaches)?0:1,bf=(b.coaches&&s.coaches&&b.coaches===s.coaches)?0:1;
+        const sc=displayCarriages(s,'departures'),ac=displayCarriages(a,'arrivals'),bc=displayCarriages(b,'arrivals');
+        const af=(ac&&sc&&ac===sc)?0:1,bf=(bc&&sc&&bc===sc)?0:1;
         return ao-bo||af-bf||b.bookedArrivalMs-a.bookedArrivalMs;
       });
     if(!candidates.length)return null;
@@ -1281,7 +1334,7 @@ function selectFilter(){
     if(state.statusFilter==='cancelled'&&!s.cancelled)return false;
     if(state.statusFilter==='issues'&&!(s.delayed||s.cancelled))return false;
     if(state.statusFilter==='overdue'&&!overdue(s))return false;
-    if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
+    if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,searchableUnits(s),...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
     return true;
   })());
   if(state.overdueFirst)filtered.sort((a,b)=>Number(overdue(b))-Number(overdue(a))||(state.sortMode==='platform'?sortByPlatform(a,b):movementScheduledMs(a)-movementScheduledMs(b)));
@@ -1297,17 +1350,17 @@ function updateMovementHeadings(){
 }
 function renderTable(){
   updateMovementHeadings();
-  if(!state.lastGood){$('departures').innerHTML='<tr><td class="empty" colspan="6">Waiting for live staff movement information. No times are being simulated.</td></tr>';return}
+  if(!state.lastGood){updateDisplayHTML($('departures'),'<tr><td class="empty" colspan="6">Waiting for live staff movement information. No times are being simulated.</td></tr>',true);return}
   const rows=selectFilter(),allVisible=visibleServices().filter(s=>serviceVisibleInView(s)),ecsCount=allVisible.filter(s=>s.ecs).length;
   const modeLabel=state.viewMode==='arrivals'?'arrivals':state.viewMode==='all'?'movements':'departures';
   const recentCount=allVisible.filter(s=>s.recentlyDeparted).length;
   $('results-note').textContent=`Showing ${rows.length} of ${allVisible.length} ${modeLabel} · ${allVisible.length-ecsCount} passenger · ${ecsCount} ECS${recentCount?` · ${recentCount} just departed`:''} · ${state.sortMode==='platform'?'platform':'booked-time'} order`;
   const scrollArea=$('table-area'),scrollTop=scrollArea.scrollTop;
   if(!rows.length&&state.viewMode==='arrivals'&&state.feedMode==='departures'){
-    $('departures').innerHTML='<tr><td colspan="6" class="empty">Arrivals are ready on this page, but the Worker is still supplying the departures-only feed. Enable the combined staff movements endpoint to populate this tab.</td></tr>';
+    updateDisplayHTML($('departures'),'<tr><td colspan="6" class="empty">Arrivals are ready on this page, but the Worker is still supplying the departures-only feed. Enable the combined staff movements endpoint to populate this tab.</td></tr>',true);
     scrollArea.scrollTop=scrollTop;return;
   }
-  $('departures').innerHTML=rows.length?rows.map(s=>{
+  const tableHTML=rows.length?rows.map(s=>{
     const cls=s.key===state.selectedKey?' selected':'',isOverdue=overdue(s),movement=movementType(s),flow=serviceFlow(s),place=movementPlace(s),risk=platformRiskFor(s);
     const platformChange=latestPlatformChange(s),platformChangeFresh=platformChange&&Date.now()-platformChange.at<PLATFORM_CHANGE_HIGHLIGHT_MS;
     const countdown=s.recentlyDeparted?{text:'JUST DEPARTED',className:'recent'}:countdownInfo(s);
@@ -1319,18 +1372,19 @@ function renderTable(){
     const carriageCount=displayCarriages(s);
     const formation=carriageCount?`${carriageCount} ${carriageCount===1?'car':'cars'}`:'Not supplied';
     const units=allocatedUnits(s);
-    const unitHtml=units.length?`<div class="allocated-units" title="Allocated units from the RDM consist feed; allocations may change"><span class="allocated-units-label">Units</span><span class="allocated-unit-list">${units.map(unit=>`<span class="allocated-unit">${escapeHTML(unit)}${unitClass(s,unit)?` <span class="allocated-unit-class">${escapeHTML(unitClass(s,unit))}</span>`:''}</span>`).join('')}</span></div>`:'';
+    const unitHtml=units.length?`<div class="allocated-units" title="Gemini allocation order; direction of travel is not verified"><span class="allocated-units-label">Allocation order</span><span class="allocated-unit-list">${units.map(unit=>`<span class="allocated-unit">${escapeHTML(unit)}${unitClass(s,unit)?` <span class="allocated-unit-class">${escapeHTML(unitClass(s,unit))}</span>`:''}</span>`).join('')}</span></div>`:'';
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
     return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div><div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:''}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
+  updateDisplayHTML($('departures'),tableHTML,true);
   scrollArea.scrollTop=scrollTop;
 }
 function reasonFor(s){return s.cancelled?s.note:s.delayed?s.lateReason:''}
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
-  if(!s){$('service-details').innerHTML='<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>';return}
+  if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
@@ -1352,7 +1406,7 @@ function renderDetails(){
   const departureDisplay=s.actualDeparture!=='—'?s.actualDeparture:s.expected;
   const departureSub=s.actualDeparture!=='—'?'Actual departure':(s.expected!=='—'?'Expected departure':'Departure forecast not supplied');
 
-  $('service-details').innerHTML=`
+  const detailsHTML=`
     <div class="detail-heading">${escapeHTML(s.dest)}</div>
     <div class="detail-small">${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</div>
     ${s.headcode?`<div><span class="headcode-hero">${escapeHTML(s.headcode)}</span></div>`:''}
@@ -1397,6 +1451,8 @@ function renderDetails(){
       ${serviceHasArrival(s)?extra('Allocated arrival units',unitsWithClasses(s,'arrivals')||'Not supplied'):''}
       ${serviceHasDeparture(s)?extra('Allocated departure units',unitsWithClasses(s,'departures')||'Not supplied'):''}
       ${allocationFresh(s)&&s.unitAllocation?.messageTime?extra('Allocation updated (London)',s.unitAllocation.messageTime.replace('T',' ')):''}
+      ${extra('Allocation status',allocationAvailability(s))}
+      ${extra('Unit order','Gemini allocation order · direction of travel not verified')}
       ${extra('Gemini sync',allocationSyncText(s))}
       ${formationDifference(s)?extra('Formation difference',formationDifference(s)+' · Gemini count displayed'):''}
       ${formationChange(s)?extra('Formation at MCV',formationChange(s)):''}
@@ -1440,6 +1496,7 @@ function renderDetails(){
     <div class="data-fresh"><strong>Data freshness:</strong> feed generated ${escapeHTML(state.feedGeneratedAt?fmt(state.feedGeneratedAt):'not supplied')} (${escapeHTML(ageText(state.feedGeneratedAt))}) · received by this page ${escapeHTML(state.lastGood?ukClock.format(state.lastGood):'—')} · auto-refresh every 20 seconds.</div></section>
 
 `;
+  updateDisplayHTML($('service-details'),detailsHTML);
 }
 function renderEvents(){
   const rows=state.changes.slice(0,22);
@@ -1478,6 +1535,7 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
       s.sta||s.eta||s.ata||
       (Array.isArray(s.origin)&&s.origin.some(o=>String(o?.crs||'').toUpperCase()!=='MCV'))
     ));
+    state.unitFeedMeta=json._mcv||{};
     const next=parseServices(json);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
     rememberRecentDepartures(next);compareFeeds(next);state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=Date.now();state.lastError='';
