@@ -1349,7 +1349,7 @@ function renderDetails(){
       ${serviceHasArrival(s)?extra('Allocated arrival units',allocatedUnits(s,'arrivals').join(' + ')||'Not supplied'):''}
       ${serviceHasDeparture(s)?extra('Allocated departure units',allocatedUnits(s,'departures').join(' + ')||'Not supplied'):''}
       ${allocationFresh(s)&&s.unitAllocation?.messageTime?extra('Allocation updated (London)',s.unitAllocation.messageTime.replace('T',' ')):''}
-      ${extra('Formation',displayCarriages(s)?`${displayCarriages(s)} ${displayCarriages(s)===1?'carriage':'carriages'} · ${allocationCarriages(s)?'allocation vehicle list':'live staff feed'}`:'Not supplied by live feed')}
+      ${extra('Formation',displayCarriages(s)?`${displayCarriages(s)} ${displayCarriages(s)===1?'carriage':'carriages'} · ${allocationCarriages(s)?'Gemini Feed':'Darwin Feed'}`:'Carriage count not supplied')}
       ${s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):''}
       ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
       ${extra('Service type',s.ecs?'ECS / non-passenger':(s.isCharter?'Passenger charter':'Passenger service'))}
