@@ -1045,6 +1045,11 @@ async function ingestUnits(request, env, origin) {
     if (snapshot.version !== 1 || typeof snapshot.readerRunning !== 'boolean' || !Array.isArray(snapshot.services) || snapshot.services.length > 200) throw new Error('Invalid snapshot');
     for (const service of snapshot.services) {
       if (typeof service.serviceID !== 'string' || !['allocated','unallocated','not-supplied'].includes(service.status)) throw new Error('Invalid service');
+      for(const prefix of ['arrival','departure']){
+        if(service[prefix+'OrderKnown']!=null && typeof service[prefix+'OrderKnown']!=='boolean')throw new Error('Invalid order flag');
+        const first=service[prefix+'FirstClassCarriages'];
+        if(first!=null && (!Array.isArray(first)||first.length>20||!first.every(x=>Number.isInteger(x)&&x>0&&x<=100)))throw new Error('Invalid first-class positions');
+      }
       for (const field of ['arrivalUnitClasses','departureUnitClasses']) {
         const classes=service[field];
         if(classes!=null && (typeof classes!=='object'||Array.isArray(classes)||Object.keys(classes).length>20||
@@ -1084,6 +1089,8 @@ async function enrichUnits(board, env) {
         status:match.status, arrivalUnits:match.arrivalUnits, departureUnits:match.departureUnits,
         arrivalCarriages:match.arrivalCarriages || null, departureCarriages:match.departureCarriages || null,
         arrivalUnitClasses:match.arrivalUnitClasses || {}, departureUnitClasses:match.departureUnitClasses || {},
+        arrivalOrderKnown:match.arrivalOrderKnown===true, departureOrderKnown:match.departureOrderKnown===true,
+        arrivalFirstClassCarriages:match.arrivalFirstClassCarriages || null, departureFirstClassCarriages:match.departureFirstClassCarriages || null,
         messageTime:match.messageTime || null, syncedAt:snapshot.updatedAt,
         source:'RDM Passenger Train Allocation and Consist'
       };
