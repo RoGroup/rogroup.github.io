@@ -9,6 +9,88 @@ const STAFF_ARRDEP_DETAILS_BASE =
 const MAX_SERVICES = 30;
 const STAFF_MAX_SERVICES = 120;
 const CACHE_SECONDS = 20;
+let reasonReference = {data:null, expires:0, retryAt:0, pending:null};
+function descriptiveReason(value, depth=0) {
+  if(value==null||depth>4)return '';
+  if(typeof value==='string'){
+    const text=value.trim();
+    return text&&!/^\d+$/.test(text)&&text!=='[object Object]'?text:'';
+  }
+  if(Array.isArray(value))return value.map(v=>descriptiveReason(v,depth+1)).filter(Boolean).join('; ');
+  if(typeof value==='object'){
+    for(const key of ['reasonText','reasonDescription','description','message','text','lateReason','cancReason','reason','value','Value','_','#text']){
+      const text=descriptiveReason(value[key],depth+1);if(text)return text;
+    }
+  }
+  return '';
+}
+function numericReasonCode(value,depth=0){
+  if(value==null||depth>4)return '';
+  if(typeof value==='string'||typeof value==='number'){
+    const code=String(value).trim();return /^\d+$/.test(code)&&Number(code)>0?code:'';
+  }
+  if(typeof value==='object')for(const key of ['code','reasonCode','Value','value','_','#text']){
+    const code=numericReasonCode(value[key],depth+1);if(code)return code;
+  }
+  return '';
+}
+function preferReason(staff,passenger){
+  return descriptiveReason(staff)||descriptiveReason(passenger)||staff||passenger;
+}
+// The documented staff reference operation may be restricted by the RDM product.
+// Keep board updates working if reference access is unavailable, and retry later.
+async function getReasonReference(env){
+  if(reasonReference.data&&Date.now()<reasonReference.expires)return reasonReference.data;
+  if(reasonReference.pending)return reasonReference.pending;
+  if(Date.now()<reasonReference.retryAt||!env.RDM_STAFF_API_KEY)return reasonReference.data;
+  reasonReference.pending=(async()=>{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),3000);
+    try{
+      const url=STAFF_DEPARTURES_URL.replace(/GetDepartureBoardByCRS\/MCV$/, 'GetReasonCodeList');
+      const response=await fetch(url,{headers:{Accept:'application/json','x-apikey':env.RDM_STAFF_API_KEY},signal:controller.signal});
+      if(!response.ok)throw new Error('Reason reference HTTP '+response.status);
+      const raw=await response.json();
+      const rows=Array.isArray(raw)?raw:raw.reasonCodeList||raw.reasonCodes||raw.ReasonDescription||raw.reasonDescription;
+      if(!Array.isArray(rows)||rows.length>10000)throw new Error('Unexpected reason reference');
+      const data=new Map();
+      for(const row of rows){
+        const code=numericReasonCode(row.code);
+        const late=descriptiveReason(row.lateReason),cancel=descriptiveReason(row.cancReason);
+        if(code&&(late||cancel))data.set(code,{late,cancel});
+      }
+      if(!data.size)throw new Error('Empty reason reference');
+      reasonReference.data=data;reasonReference.expires=Date.now()+24*60*60*1000;
+      return data;
+    }catch(error){
+      reasonReference.retryAt=Date.now()+15*60*1000;
+      console.warn('Darwin reason reference unavailable:',error.message);
+      return reasonReference.data;
+    }finally{clearTimeout(timeout);reasonReference.pending=null;}
+  })();
+  return reasonReference.pending;
+}
+async function resolveBoardReasons(services,env){
+  const fields=[['delayReason','late'],['cancelReason','cancel']];
+  const nodes=[];
+  for(const service of services){
+    nodes.push(service);
+    for(const groupName of ['previousCallingPoints','subsequentCallingPoints']){
+      for(const group of service[groupName]||[])for(const point of group.callingPoint||[])nodes.push(point);
+    }
+  }
+  if(!nodes.some(node=>fields.some(([field])=>!descriptiveReason(node[field])&&numericReasonCode(node[field]))))return;
+  const reference=await getReasonReference(env);if(!reference)return;
+  for(const node of nodes)for(const [field,kind] of fields){
+    if(descriptiveReason(node[field]))continue;
+    const code=numericReasonCode(node[field]);const description=reference.get(code)?.[kind];
+    if(description&&!/\{[^}]*\}/.test(description)){
+      node[field+'Code']=code;
+      const original=node[field];
+      node[field]=original&&typeof original==='object'&&!Array.isArray(original)?{...original,description}:description;
+    }
+  }
+}
 const ALLOWED_ORIGINS = new Set([
   'https://rogroup.github.io',
   'https://railstaffhub.uk',
@@ -47,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-units-v12',
+          '/__cache/mcv-staff-movements-reasons-v13',
           origin,
           () => buildStaffMovements(env)
         );
@@ -349,13 +431,12 @@ async function buildStaffMovements(env) {
           detail.subsequentCallingPoints ||
           staff.subsequentCallingPoints,
         delayReason:
-          staff.delayReason ||
-          detail.delayReason,
+          preferReason(staff.delayReason, detail.delayReason),
         cancelReason:
-          staff.cancelReason ||
-          detail.cancelReason
+          preferReason(staff.cancelReason, detail.cancelReason)
       };
     });
+  await resolveBoardReasons(merged, env);
   staffBoard.trainServices =
     merged.slice(
       0,

@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.2.0';
+  const VERSION = '1.2.1';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -38,18 +38,18 @@
     return String(value == null ? '' : value).trim();
   }
 
-  function reasonText(value, depth) {
+  function reasonDescription(value, depth) {
     depth = Number(depth) || 0;
     if (value == null || depth > 4) return '';
 
     if (typeof value === 'string' || typeof value === 'number') {
       const result = text(value);
-      return result === '[object Object]' ? '' : result;
+      return result === '[object Object]' || /^\d+$/.test(result) ? '' : result;
     }
 
     if (Array.isArray(value)) {
       const seen = new Set();
-      return value.map(function (item) { return reasonText(item, depth + 1); })
+      return value.map(function (item) { return reasonDescription(item, depth + 1); })
         .filter(function (item) {
           if (!item || seen.has(item)) return false;
           seen.add(item);
@@ -61,26 +61,48 @@
       const preferred = [
         'reasonText', 'reasonDescription', 'description', 'message', 'reason',
         'text', 'value', 'name', 'delayReason', 'lateReason', 'cancelReason',
-        'cancellationReason'
+        'cancellationReason', 'cancReason', 'Value', '_', '#text'
       ];
 
       for (let i = 0; i < preferred.length; i += 1) {
         if (!Object.prototype.hasOwnProperty.call(value, preferred[i])) continue;
-        const result = reasonText(value[preferred[i]], depth + 1);
+        const result = reasonDescription(value[preferred[i]], depth + 1);
         if (result) return result;
       }
 
       const values = Object.keys(value)
         .filter(function (key) {
-          return !/^(?:id|code|reasonCode|category|type)$/i.test(key);
+          return !/^(?:id|code|reasonCode|category|type|tiploc|near|crs|location)$/i.test(key);
         })
-        .map(function (key) { return reasonText(value[key], depth + 1); })
+        .map(function (key) { return reasonDescription(value[key], depth + 1); })
         .filter(Boolean);
 
       return values[0] || '';
     }
 
     return '';
+  }
+
+  function reasonCode(value, depth) {
+    if ((depth || 0) > 4 || value == null) return '';
+    if (typeof value === 'number' || typeof value === 'string') {
+      const code = text(value);
+      return /^\d+$/.test(code) && Number(code) > 0 ? code : '';
+    }
+    if (typeof value === 'object') {
+      for (const key of ['code', 'reasonCode', 'Value', 'value', '_', '#text']) {
+        const code = reasonCode(value[key], (depth || 0) + 1);
+        if (code) return code;
+      }
+    }
+    return '';
+  }
+
+  function reasonText(value) {
+    const description = reasonDescription(value);
+    if (description) return description;
+    const code = reasonCode(value);
+    return code ? 'Reason description unavailable (Darwin code ' + code + ')' : '';
   }
 
   function escapeHTML(value) {
