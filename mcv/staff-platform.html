@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="utf-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light">
 <title>Manchester Victoria | Staff Platform Operations Display</title>
@@ -229,7 +230,9 @@ body{user-select:none}
   .workspace{grid-template-columns:1fr;grid-template-rows:650px 520px}
   .map-frame{width:1800px;height:760px;transform:none}
 }
+.stock-notes{display:flex;flex-wrap:wrap;gap:5px 16px;padding:6px 12px 8px;color:#bfeaff;font-size:11px;font-weight:700;line-height:1.4}.stock-notes span{display:block}.footer{flex-wrap:wrap;gap:7px 12px}.footer .mcv-health-compact{flex:1 0 100%}
 </style>
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <div class="screen">
@@ -299,7 +302,7 @@ body{user-select:none}
   </footer>
 </div>
 
-<script src="mcv-data.js?v=59a6cd6d"></script>
+<script src="mcv-data.js?v=20261006-2"></script>
 <script>
 'use strict';
 
@@ -383,6 +386,7 @@ function parseServices(json){
       operatorCode:String(raw.operator_code||''),
       platform:String(raw.platform||'').trim().toUpperCase().replace(/^PLATFORM\s+/,''),
       coaches:coaches,
+      unitAllocation:raw.unit_allocation||null,
       ecs:ecs,
       cancelled:cancelled,
       delayed:delayed,
@@ -409,11 +413,15 @@ function render(){
   const ecsCount=list.filter(function(s){return s.ecs}).length;
   counts.textContent=(list.length-ecsCount)+' passenger · '+ecsCount+' ECS';
   if(!list.length){
-    rows.innerHTML='<div class="empty">No upcoming passenger or ECS departures are currently listed.</div>';
+    const empty='<div class="empty">No upcoming passenger or ECS departures are currently listed.</div>';
+    if(rows._displayHTML!==empty){rows.innerHTML=empty;rows._displayHTML=empty}
     return;
   }
-  rows.innerHTML=list.map(function(s){
-    const formation=s.coaches?String(s.coaches)+' cars':'—';
+  const html=list.map(function(s){
+    const info=MCVData.formationSummary(s,'departures');
+    const formation=info.carriages?String(info.carriages)+' cars':'—';
+    const unitText=info.units.map(unit=>unit+(MCVData.unitClass(s,unit,'departures')?' · '+MCVData.unitClass(s,unit,'departures'):'')).join(' + ');
+    const stockNotes=[unitText?(info.orderKnown?'Front → rear · ':'Units · ')+unitText+(info.orderKnown?' · Gemini reported':''):'',info.inferredClass?info.inferredClass+' · inferred':'',info.difference,info.firstClass].filter(Boolean);
     const detail=s.ecs?'EMPTY COACHING STOCK · '+(s.operator&&s.operator!=='Unknown'?s.operator:'OPERATOR NOT SUPPLIED'):s.operator;
     const stops=s.ecs
       ?('TO: '+(s.stops.join(' · ')||s.destination))
@@ -427,14 +435,16 @@ function render(){
           '<div class="destination">'+(s.ecs?'<span class="ecs-tag">ECS</span>':'')+escapeHTML(s.destination)+'</div>'+
           '<div class="operator">'+escapeHTML(detail)+'</div>'+
         '</div>'+
-        '<div class="form">'+escapeHTML(formation)+(s.coaches?'<small>LIVE FEED</small>':'')+'</div>'+
+        '<div class="form">'+escapeHTML(formation)+(info.source?'<small>'+escapeHTML(info.source.toUpperCase())+'</small>':'')+'</div>'+
         '<div><span class="status '+statusClass(s)+'">'+escapeHTML(s.status)+'</span></div>'+
         '<div class="platform '+(s.platform?'':'tbc')+'">'+escapeHTML(s.cancelled?'–':(s.platform||'TBC'))+'</div>'+
       '</div>'+
       '<div class="stops"><span class="label">'+(s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
+      (stockNotes.length?'<div class="stock-notes">'+stockNotes.map(note=>'<span>'+escapeHTML(note)+'</span>').join('')+'</div>':'')+
       (reason?'<div class="reason"><strong>'+(s.cancelled?'CANCELLATION: ':'DELAY: ')+'</strong>'+escapeHTML(reason)+'</div>':'')+
     '</article>';
   }).join('');
+  if(rows._displayHTML!==html){rows.innerHTML=html;rows._displayHTML=html}
 }
 function setFeed(ok,message){
   feedDot.className='feed-dot '+(ok?'ok':'bad');
@@ -447,16 +457,15 @@ async function fetchMovements(){
   if(busy)return;
   busy=true;
   try{
-    const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{Accept:'application/json'}});
-    if(!response.ok)throw new Error('HTTP '+response.status);
-    const json=await response.json();
+    const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
+    const json=board.raw;
     services=parseServices(json);
-    lastGood=Date.now();
+    lastGood=board.receivedAt;
     render();
-    setFeed(true,'Live staff movements connected');
+    setFeed(!board.fallback,board.fallback?'Live update failed · showing last received board':'Live staff movements connected');
   }catch(error){
     console.warn('Staff platform feed:',error);
-    setFeed(false,'Staff movements feed unavailable');
+    setFeed(false,lastGood?'Staff feed unavailable · showing last received board':'Staff movements feed unavailable');
   }finally{
     busy=false;
   }
@@ -484,6 +493,7 @@ mapFrame.addEventListener('load',function(){setTimeout(centreMap,400)});
 window.addEventListener('resize',centreMap);
 setInterval(updateClock,1000);
 setInterval(fetchMovements,REFRESH_MS);
+setInterval(()=>{if(lastGood)render()},15000);
 scrollTimer=setInterval(advanceBoard,7500);
 </script>
 </body>

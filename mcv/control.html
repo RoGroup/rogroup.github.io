@@ -3,7 +3,8 @@
 <head>
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8">
+<script src="mcv-site.js?v=20261006-2"></script><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#262262">
 <title>Display Control | Manchester Victoria</title>
 <style>
@@ -36,6 +37,7 @@
 @media(max-width:550px){.change-item{flex-direction:column}.announce-controls{grid-template-columns:1fr}.announce-controls>div:first-child{grid-column:span 1}}
 </style>
 
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <header class="top"><div class="identity"><a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a><span class="identity-divider"></span><div><div class="eyebrow">Manchester Victoria</div><div class="station-title">Display Control</div></div></div><div class="top-actions"><a class="view-link" href="index.html">← Display selector</a><span class="live-clock" id="clock">--:--:--</span></div></header>
@@ -96,7 +98,7 @@
  <footer class="foot"><strong>Manchester Victoria · Display management</strong> · This static control page can only read the same public departure feed as the boards. It cannot observe physical screen availability or publish notices without a GitHub commit. Confirm operating information using authorised railway systems.</footer>
 </main>
 <script src="platform-alterations.js"></script>
-<script src="mcv-data.js?v=583633d3"></script>
+<script src="mcv-data.js?v=20261006-2"></script>
 <script>
  'use strict';
 const $=id=>document.getElementById(id);
@@ -155,7 +157,7 @@ function renderNotices(){const list=active().slice().sort((a,b)=>(PRIORITY[a.kin
  $('activity').innerHTML=`<div class="event-line"><span>${esc(guide)}</span></div><div class="event-line"><span>No GitHub credentials are requested or stored by this page.</span></div>`;
  $('submit-notice').disabled=!noticesLoaded;
 }
-async function refreshNotices(){if(unsaved)return;try{const res=await fetch('./notices.json?_='+Date.now(),{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(!Array.isArray(data.notices)||!data.notices.every(validNotice))throw Error('Invalid notices.json format');notices=data.notices;noticesLoaded=true;noticesError='';}catch(err){noticesError='Could not read notices.json ('+String(err?.message||err)+'). Check the file exists beside control.html.';noticesLoaded=false;}
+async function refreshNotices(){if(unsaved)return;try{const res=await MCVSite.fetch('./notices.json?_='+Date.now(),{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const data=await res.json();if(!Array.isArray(data.notices)||!data.notices.every(validNotice))throw Error('Invalid notices.json format');notices=data.notices;noticesLoaded=true;noticesError='';}catch(err){noticesError='Could not read notices.json ('+String(err?.message||err)+'). Check the file exists beside control.html.';noticesLoaded=false;}
  renderNotices();}
 function buildTargets(){$('target-list').innerHTML=passenger.map(screen=>`<label class="target"><input type="checkbox" class="screen-target" value="${screen}"><span>${esc(screenNames[screen])}</span></label>`).join('');chooseTargets('platforms');}
 function chooseTargets(mode){for(const el of document.querySelectorAll('.screen-target'))el.checked=mode==='all'||(mode==='platforms'&&!el.value.startsWith('nexttrain'))||(mode==='next'&&el.value.startsWith('nexttrain'));updateTargetCount();}

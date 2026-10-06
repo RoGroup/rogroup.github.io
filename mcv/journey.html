@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="utf-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#262262">
 <meta name="description" content="Plan your train journey with live departures, platform updates and connection information. Manchester Victoria is selected as your starting station.">
@@ -30,6 +31,7 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.swap{transition:none}.swap:hover{transform:none}}
 </style>
 
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <a href="#journey-form" class="skip">Skip to journey search</a>
@@ -50,7 +52,7 @@
 <section class="more"><div><strong>Travelling another day, or need a ticket?</strong><p>Use National Rail for return journeys, ticket prices, travel further ahead and checking changes across the wider network.</p></div><a href="https://www.nationalrail.co.uk/journey-planner/" target="_blank" rel="noopener noreferrer">National Rail planner ↗</a></section>
 <p class="trust-note">Information is updated when you search. Always check station displays and listen for announcements before boarding. Platform information and connections are subject to change. For step-free travel, check <a href="https://www.nationalrail.co.uk/stations/" target="_blank" rel="noopener noreferrer">station accessibility information</a> before you travel.</p>
 </main><footer class="footer"><div class="shell footer-in"><span><strong>Manchester Victoria</strong> · Train journey information</span><span>Live train information is indicative. Confirm your journey before boarding.</span></div></footer>
-<script src="mcv-data.js"></script>
+<script src="mcv-data.js?v=20261006-2"></script>
 <script>
 'use strict';
 const API='https://api.traini.ac/api';
@@ -68,7 +70,7 @@ function setExpanded(which,yes){$(which).setAttribute('aria-expanded',String(!!y
 function hideSuggestions(which){stationBox(which).innerHTML='';setExpanded(which,false)}
 function selectStation(which,station){state[which]={crs:String(station.crs).toUpperCase(),name:stationName(station.name,station.crs)};$(which).value=state[which].name;$(which).setAttribute('aria-invalid','false');$(which+'-hint').classList.remove('error');$(which+'-hint').textContent='Station selected';hideSuggestions(which)}
 function showHint(which,message,isError=false){const el=$(which+'-hint');el.textContent=message;el.classList.toggle('error',isError);$(which).setAttribute('aria-invalid',String(isError))}
-async function getJSON(url,signal){let response;try{response=await fetch(url,{cache:'no-store',signal,headers:{'Accept':'application/json'}})}catch(e){if(e.name==='AbortError')throw e;throw Error('Unable to connect to live train information. Check your internet connection.')}let obj;try{obj=await response.json()}catch{throw Error('The live service returned an unreadable response.')}if(!response.ok){if(response.status===429||response.status===503){const retry=Number(response.headers.get('Retry-After'))||Number(obj.retry_after_seconds)||0;throw Error('The live service is busy.'+(retry?' Please try again in about '+Math.ceil(retry)+' seconds.':' Please try again shortly.'))}throw Error(String(obj.message||'Train information temporarily unavailable.'))}return obj}
+async function getJSON(url,signal){let response;try{response=await MCVSite.fetch(url,{cache:'no-store',signal,headers:{'Accept':'application/json'}})}catch(e){if(e.name==='AbortError')throw e;throw Error('Unable to connect to live train information. Check your internet connection.')}let obj;try{obj=await response.json()}catch{throw Error('The live service returned an unreadable response.')}if(!response.ok){if(response.status===429||response.status===503){const retry=Number(response.headers.get('Retry-After'))||Number(obj.retry_after_seconds)||0;throw Error('The live service is busy.'+(retry?' Please try again in about '+Math.ceil(retry)+' seconds.':' Please try again shortly.'))}throw Error(String(obj.message||'Train information temporarily unavailable.'))}return obj}
 function stationSearchResult(which,items){const box=stationBox(which);box.replaceChildren();if(!items.length){box.innerHTML='<div class="suggestion-info">No matching stations. Try another name or a station code.</div>';setExpanded(which,true);return}for(const item of items){const b=document.createElement('button');b.type='button';b.className='suggestion';b.setAttribute('role','option');const strong=document.createElement('strong');strong.textContent=item.name;const small=document.createElement('small');small.textContent=item.crs;b.append(strong,small);b.addEventListener('click',()=>selectStation(which,item));box.append(b)}setExpanded(which,true)}
 async function searchStations(which,q){const seq=++state.searchSeq[which];state.searchCtrl[which]?.abort();const ctl=new AbortController();state.searchCtrl[which]=ctl;const cached=state.stationCache.get(q.toLowerCase());if(cached&&Date.now()-cached.at<120000){stationSearchResult(which,cached.items);return}const box=stationBox(which);box.innerHTML='<div class="suggestion-info">Finding stations…</div>';setExpanded(which,true);try{const d=await getJSON(API+'/stations?q='+encodeURIComponent(q),ctl.signal);if(seq!==state.searchSeq[which]||$(which).value.trim()!==q)return;const seen=new Set();const items=(Array.isArray(d.results)?d.results:[]).filter(s=>s.type==='station'&&s.crs).map(s=>({name:stationName(s.description||s.name,s.crs),crs:String(s.crs).toUpperCase()})).filter(x=>{if(seen.has(x.crs))return false;seen.add(x.crs);return true}).slice(0,8);state.stationCache.set(q.toLowerCase(),{items,at:Date.now()});stationSearchResult(which,items)}catch(e){if(e.name==='AbortError'||seq!==state.searchSeq[which])return;box.innerHTML='<div class="suggestion-info">Station search is unavailable. Please try again shortly.</div>';setExpanded(which,true)}}
 function onTyping(which){state[which]=null;state.searchSeq[which]++;state.searchCtrl[which]?.abort();clearTimeout(state.searchTimer[which]);hideSuggestions(which);showHint(which,'Select a station from the suggestions');const q=$(which).value.trim();if(q.length<2)return;state.searchTimer[which]=setTimeout(()=>searchStations(which,q),340)}

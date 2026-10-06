@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="utf-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#f2f5fa">
@@ -625,6 +626,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .theme-toggle{font-size:9px;padding:6px 8px}
 }
 </style>
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <header class="top">
@@ -677,7 +679,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="panel">
       <div class="panel-title"><div><h2 id="movement-panel-title">Detailed departures</h2><span class="minor" id="results-note">Waiting for staff movements feed</span></div><span class="mini-label">Select a service for details →</span></div>
       <div class="movement-tabs" id="movement-tabs" role="tablist" aria-label="Choose movements view"><button type="button" class="active" data-view="departures">DEPARTURES</button><button type="button" data-view="arrivals">ARRIVALS</button><button type="button" data-view="all">ALL MOVEMENTS</button></div>
-      <div class="controls"><input id="search" type="search" placeholder="Search headcode, unit, class, destination, operator, station or platform…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="export">Export CSV</button></div>
+      <div class="controls"><input id="search" type="search" placeholder="Search headcode, unit, class, destination, operator, station or platform…" aria-label="Search departures"><div class="type-segment" id="service-type-filter" role="group" aria-label="Filter passenger or ECS services"><button type="button" class="active" data-type="all">ALL</button><button type="button" data-type="passenger">PASSENGER</button><button type="button" data-type="ecs">ECS</button></div><select id="platform-filter" aria-label="Filter by platform"><option value="all">All platforms</option><option value="1">Platform 1</option><option value="2">Platform 2</option><option value="3">Platform 3</option><option value="4">Platform 4</option><option value="5">Platform 5</option><option value="6">Platform 6</option><option value="tbc">Platform TBC</option></select><select id="status-filter" aria-label="Filter by status"><option value="all">All statuses</option><option value="issues">Disruptions only</option><option value="delayed">Delayed only</option><option value="cancelled">Cancelled only</option><option value="overdue">Overdue only</option></select><select id="sort-mode" aria-label="Sort departures"><option value="time">Booked time order</option><option value="platform">Platform order</option></select><label class="tick-control"><input id="overdue-first" type="checkbox"> Overdue first</label><button type="button" class="button" id="reset-filters">Reset filters</button><button type="button" class="button" id="export">Export CSV</button></div>
       <div class="table-area" id="table-area"><table class="table"><thead><tr><th id="movement-time-heading">Booked dep</th><th id="movement-place-heading">To / operator</th><th>Formation</th><th>Platform</th><th id="movement-expected-heading">Expected dep</th><th>Status</th></tr></thead><tbody id="departures"><tr><td colspan="6" class="empty">Waiting for live staff movement information…</td></tr></tbody></table></div>
       <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · confirmed departures remain dimmed for 2 minutes · platform changes are highlighted for 60 seconds · formation is labelled live only when supplied.</div>
     </div>
@@ -715,7 +717,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261006-units-v1"></script>
+<script src="mcv-data.js?v=20261006-2"></script>
 <script>
 'use strict';
 if ('scrollRestoration' in history) history.scrollRestoration='manual';
@@ -849,30 +851,12 @@ function movementExpectedMs(s,view=state.viewMode){
   if(serviceHasDeparture(s))return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
   return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
 }
-function allocationFresh(s){
-  const age=Date.now()-Date.parse(s.unitAllocation?.syncedAt||'');
-  return Number.isFinite(age)&&age>=0&&age<=6*60*1000;
-}
-function allocatedUnits(s,view=state.viewMode){
-  if(!allocationFresh(s)||s.unitAllocation?.status!=='allocated')return [];
-  const arrival=view==='arrivals'||(view==='all'&&!serviceHasDeparture(s));
-  const values=s.unitAllocation[arrival?'arrivalUnits':'departureUnits'];
-  return Array.isArray(values)?values.filter(x=>typeof x==='string'&&/^\d{6}$/.test(x)):[];
-}
-function allocationCarriages(s,view=state.viewMode){
-  if(!allocatedUnits(s,view).length)return null;
-  const arrival=view==='arrivals'||(view==='all'&&!serviceHasDeparture(s));
-  const value=s.unitAllocation[arrival?'arrivalCarriages':'departureCarriages'];
-  return Number.isInteger(value)&&value>0&&value<=100?value:null;
-}
-function displayCarriages(s,view=state.viewMode){return allocationCarriages(s,view)||s.coaches||null}
+function allocationFresh(s){return MCVData.allocationFresh(s)}
+function allocatedUnits(s,view=state.viewMode){return MCVData.allocatedUnits(s,view)}
+function allocationCarriages(s,view=state.viewMode){return MCVData.allocationCarriages(s,view)}
+function displayCarriages(s,view=state.viewMode){return MCVData.displayCarriages(s,view)}
+function unitClass(s,unit,view=state.viewMode){return MCVData.unitClass(s,unit,view)}
 
-function unitClass(s,unit,view=state.viewMode){
-  if(!allocationFresh(s))return '';
-  const arrival=view==='arrivals'||(view==='all'&&!serviceHasDeparture(s));
-  const value=s.unitAllocation?.[arrival?'arrivalUnitClasses':'departureUnitClasses']?.[unit];
-  return typeof value==='string'&&/^\d{3}(?:\/\d{1,3})?$/.test(value)?'Class '+value:'';
-}
 function unitsWithClasses(s,view){
   return allocatedUnits(s,view).map(unit=>unit+(unitClass(s,unit,view)?' · '+unitClass(s,unit,view):'')).join(' + ');
 }
@@ -893,12 +877,7 @@ function allocationSyncText(s){
   return 'Gemini synced '+MCVData.formatLiveClock(stamp)+' · '+relativeAge(stamp)+' ago'+(allocationFresh(s)?'':' · stale; allocation hidden');
 }
 
-function inferredTpeFormation(s){
-  if(allocatedUnits(s).length)return '';
-  const operator=String(s.operator||'').toLowerCase();
-  if(String(s.operatorCode||'').toUpperCase()!=='TP'&&operator!=='tpe'&&!operator.includes('transpennine express'))return '';
-  return ({3:'Class 185',6:'2 × Class 185',5:'Class 802'})[displayCarriages(s)]||'';
-}
+function inferredTpeFormation(s){return MCVData.inferredTpeFormation(s,state.viewMode)}
 
 function patchDisplayNode(current,next){
   if(current.nodeType!==next.nodeType||current.nodeName!==next.nodeName){current.replaceWith(next.cloneNode(true));return}
@@ -950,20 +929,9 @@ function allocationAvailability(s){
   return 'Gemini units not supplied for this movement';
 }
 
-function allocationPrefix(s,view=state.viewMode){return view==='arrivals'||(view==='all'&&!serviceHasDeparture(s))?'arrival':'departure'}
-function reportedUnitOrder(s,view=state.viewMode){return allocatedUnits(s,view).length&&s.unitAllocation?.[allocationPrefix(s,view)+'OrderKnown']===true}
-function firstClassPosition(s){
-  if(s.ecs)return '';
-  const op=String(s.operator||'').toLowerCase();
-  if(String(s.operatorCode||'').toUpperCase()!=='TP'&&op!=='tpe'&&!op.includes('transpennine express'))return '';
-  const count=allocationCarriages(s),positions=s.unitAllocation?.[allocationPrefix(s)+'FirstClassCarriages'];
-  if(reportedUnitOrder(s)&&count&&Array.isArray(positions)&&positions.length&&positions.every(x=>Number.isInteger(x)&&x>=1&&x<=count)){
-    const label=positions.length===1?(positions[0]===1?'front carriage':positions[0]===count?'rear carriage':'carriage '+positions[0]+' of '+count):'carriages '+positions.join(' & ')+' of '+count;
-    return 'First class: '+label+' · Gemini reported';
-  }
-  const existing=s.firstClassNotice?.replace('FIRST CLASS: ','');
-  return existing?'First class: '+existing+' · front/rear not supplied':'First-class position not supplied';
-}
+function allocationPrefix(s,view=state.viewMode){return MCVData.allocationPrefix(s,view)}
+function reportedUnitOrder(s,view=state.viewMode){return MCVData.reportedUnitOrder(s,view)}
+function firstClassPosition(s){return MCVData.firstClassPosition(s,state.viewMode)}
 function movementBookedText(s,view=state.viewMode){return fmt(movementScheduledMs(s,view))}
 function movementExpectedText(s,view=state.viewMode){return fmt(movementExpectedMs(s,view))}
 function movementPlace(s,view=state.viewMode){
@@ -1116,7 +1084,7 @@ async function loadPreviousStops(s){
   try{
     const url=new URL(STAFF_DETAILS_URL);
     url.searchParams.set('at',new Date(targetMs).toISOString());
-    const response=await fetch(url.toString(),{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
+    const response=await MCVSite.fetch(url.toString(),{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
     if(!response.ok)throw new Error('Detailed staff feed HTTP '+response.status);
     const json=await response.json();
     const candidates=parseServices(json);
@@ -1581,9 +1549,8 @@ function renderOperationalAlerts(){
 function render(){updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
-    const response=await fetch(STAFF_FEED_URL,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}});
-    if(!response.ok)throw new Error('Staff movements feed HTTP '+response.status);
-    const json=await response.json();
+    const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
+    const json=board.raw;
     if(!json||!Array.isArray(json.trainServices))throw new Error('Unexpected staff movements feed format');
     const hasArrivalData=json.trainServices.some(s=>s&&(
       s.sta||s.eta||s.ata||
@@ -1592,7 +1559,7 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     state.unitFeedMeta=json._mcv||{};
     const next=parseServices(json);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
-    rememberRecentDepartures(next);compareFeeds(next);state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=Date.now();state.lastError='';
+    if(!board.fallback){rememberRecentDepartures(next);compareFeeds(next)}state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=board.receivedAt;state.lastError=board.fallback?'Live update failed · showing last received board':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
     render();
   }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();}
@@ -1602,7 +1569,7 @@ function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
   const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,displayCarriages(s)||'',s.reverseFormation?'Yes':'No',s.firstClassNotice?s.firstClassNotice.replace('FIRST CLASS: ',''):'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId,allocatedUnits(s,'arrivals').join(' + '),allocatedUnits(s,'departures').join(' + '),allocationFresh(s)?s.unitAllocation?.messageTime||'':''])];
+  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,displayCarriages(s)||'',s.reverseFormation?'Yes':'No',firstClassPosition(s)||s.firstClassNotice?.replace('FIRST CLASS: ','')||'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId,allocatedUnits(s,'arrivals').join(' + '),allocatedUnits(s,'departures').join(' + '),allocationFresh(s)?s.unitAllocation?.messageTime||'':''])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }
@@ -1623,6 +1590,49 @@ $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarg
 $('signal-controls-exit').addEventListener('click',()=>setSignalControls(false));
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
+const PREFERENCES_KEY='mcv-staff-preferences-v1';
+const preferenceDefaults={chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',overdueFirst:false};
+function readPreferences(){
+  try{
+    const raw=localStorage.getItem(PREFERENCES_KEY);
+    if(!raw||raw.length>4096)return;
+    const saved=JSON.parse(raw);
+    if(!saved||saved.version!==1)return;
+    const allowed={chosenPlatform:['all','1','2','3','4','5','6','tbc'],statusFilter:['all','issues','delayed','cancelled','overdue'],serviceTypeFilter:['all','passenger','ecs'],sortMode:['time','platform'],viewMode:['departures','arrivals','all'],callingPointView:['before','after']};
+    for(const [key,values] of Object.entries(allowed))if(values.includes(saved[key]))state[key]=saved[key];
+    if(typeof saved.overdueFirst==='boolean')state.overdueFirst=saved.overdueFirst;
+  }catch(_){}
+}
+function reflectPreferences(){
+  $('platform-filter').value=state.chosenPlatform;
+  $('status-filter').value=state.statusFilter;
+  $('sort-mode').value=state.sortMode;
+  $('overdue-first').checked=state.overdueFirst;
+  document.querySelectorAll('#movement-tabs button').forEach(b=>{const active=b.dataset.view===state.viewMode;b.classList.toggle('active',active);b.setAttribute('role','tab');b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1});
+  document.querySelectorAll('#service-type-filter button').forEach(b=>{const active=b.dataset.type===state.serviceTypeFilter;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active))});
+}
+function savePreferences(){
+  const saved={version:1};
+  for(const key of Object.keys(preferenceDefaults))saved[key]=state[key];
+  try{localStorage.setItem(PREFERENCES_KEY,JSON.stringify(saved))}catch(_){}
+}
+$('movement-tabs').addEventListener('keydown',e=>{
+  const buttons=Array.from(e.currentTarget.querySelectorAll('button'));
+  const index=buttons.indexOf(e.target);if(index<0)return;
+  let next=index;
+  if(e.key==='ArrowRight')next=(index+1)%buttons.length;
+  else if(e.key==='ArrowLeft')next=(index+buttons.length-1)%buttons.length;
+  else if(e.key==='Home')next=0;
+  else if(e.key==='End')next=buttons.length-1;
+  else return;
+  e.preventDefault();buttons[next].click();buttons[next].focus();
+});
+$('reset-filters').addEventListener('click',()=>{Object.assign(state,preferenceDefaults);state.search='';$('search').value='';reflectPreferences();savePreferences();render()});
+for(const eventName of ['change','click'])document.addEventListener(eventName,e=>{
+  if(!e.target.closest('#platform-filter,#status-filter,#sort-mode,#overdue-first,#platforms,#movement-tabs,#service-type-filter,#service-details [data-calling-view]'))return;
+  reflectPreferences();savePreferences();
+});
+readPreferences();reflectPreferences();
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
 resetPageScroll();
 updateClock();renderEvents();fetchDepartures();centreSignalMap();

@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="UTF-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manchester Victoria | Northern Live Departures</title>
 <style>
@@ -98,6 +99,7 @@ input::placeholder{color:#8791a2}
  .footer{flex-direction:column;gap:8px}
 }
 </style>
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <header>
@@ -216,7 +218,7 @@ async function loadBoard() {
     const filter = document.getElementById("stationFilter").value.trim();
     const params = new URLSearchParams({limit:"50"});
     if (filter) params.set("calling_at",filter);
-    const response = await fetch(`${API}?${params}`,{cache:"no-store"});
+    const response = await MCVSite.fetch(`${API}?${params}`,{cache:"no-store"});
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || data.error || `HTTP ${response.status}`);
     console.log("API response:",data);
@@ -241,3 +243,4 @@ updateClock(); loadBoard(); setInterval(updateClock,1000); setInterval(loadBoard
 </script>
 </body>
 </html>
+

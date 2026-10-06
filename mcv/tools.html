@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="utf-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#262262">
 <title>Manchester Victoria | More Tools</title>
@@ -57,6 +58,7 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
 @media(max-width:430px){.grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.tool{transition:none}}
 </style>
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <header class="top"><div class="top-inner">
@@ -69,6 +71,14 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
   <p>Launch individual platform displays, next-train screens, passenger-assistance tools and development pages.</p>
 </div></section>
 <main class="main">
+<div class="mcv-tool-search"><label for="tool-search">Find a display or tool</label><input id="tool-search" type="search" placeholder="Platform, assistance, disruption…" autocomplete="off"><span id="tool-results" role="status"></span></div>
+<nav class="mcv-tool-shortcuts" aria-label="Tool categories"><a href="#display-tools">Displays</a><a href="#staff-tools">Staff tools</a><a href="#diagnostic-tools">Diagnostics</a></nav>
+<section class="group" id="display-tools"><div class="group-head"><h2>Main displays</h2><p>Passenger and staff overview screens</p></div><div class="grid">
+<a class="tool" href="platform.html"><span class="tool-tag">Passenger display</span><strong>Main departures</strong><span>All passenger departures, calling points and platforms.</span><span class="open">Open →</span></a>
+<a class="tool" href="staff.html"><span class="tool-tag">Interactive staff</span><strong>Staff display</strong><span>Arrivals, departures, unit allocations and service details.</span><span class="open">Open →</span></a>
+<a class="tool" href="staff-platform.html"><span class="tool-tag">Unattended staff</span><strong>Platform operations</strong><span>Passenger and ECS movements, formations and the signalling map.</span><span class="open">Open →</span></a>
+<a class="tool" href="full.html"><span class="tool-tag">Alternative display</span><strong>Full Display</strong><span>Alternative full passenger departures board.</span><span class="open">Open →</span></a>
+</div></section>
 
 <section class="group">
   <div class="group-head"><h2>Platform displays</h2><p>Individual and combined platform departure screens</p></div>
@@ -96,8 +106,8 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
   </div>
 </section>
 
-<section class="group">
-  <div class="group-head"><h2>Staff & passenger tools</h2><p>Additional operational and passenger-information views</p></div>
+<section class="group" id="staff-tools">
+  <div class="group-head"><h2>Staff tools</h2><p>Assistance, disruption, accessibility and station controls</p></div>
   <div class="grid">
     <a class="tool" href="control.html"><span class="tool-tag">Staff</span><strong>Display Control</strong><span>Notices, platform changes and announcement tools.</span><span class="open">Open →</span></a>
     <a class="tool" href="assist.html"><span class="tool-tag">Staff mobile</span><strong>Passenger Assist</strong><span>Mobile passenger assistance tools.</span><span class="open">Open →</span></a>
@@ -105,12 +115,11 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
     <a class="tool" href="accessibility.html"><span class="tool-tag">Passenger info</span><strong>Accessibility</strong><span>Accessibility information view.</span><span class="open">Open →</span></a>
     <a class="tool" href="disruption.html"><span class="tool-tag">Passenger info</span><strong>Disruption</strong><span>Disruption-focused information view.</span><span class="open">Open →</span></a>
     <a class="tool" href="journey.html"><span class="tool-tag">Journey</span><strong>Journey Search</strong><span>Station and journey search tool.</span><span class="open">Open →</span></a>
-    <a class="tool" href="full.html"><span class="tool-tag">Display</span><strong>Full Display</strong><span>Alternative full-board display.</span><span class="open">Open →</span></a>
   </div>
 </section>
 
-<section class="group">
-  <div class="group-head"><h2>Development & legacy</h2><p>Testing, comparison and older pages</p></div>
+<section class="group" id="diagnostic-tools">
+  <div class="group-head"><h2>Diagnostics & legacy</h2><p>Testing, comparison and older pages</p></div>
   <div class="grid">
     <a class="tool legacy" href="Manchester_Victoria_API_Comparison.html"><span class="tool-tag">Development</span><strong>API Comparison</strong><span>Manchester Victoria API comparison page.</span><span class="open">Open →</span></a>
     <a class="tool legacy" href="rdm-test-proxy.html"><span class="tool-tag">Development</span><strong>RDM Proxy Test</strong><span>Rail Data Marketplace proxy testing.</span><span class="open">Open →</span></a>
@@ -122,5 +131,20 @@ h1{font-size:clamp(32px,4vw,50px);line-height:1.05;margin:8px 0 9px}
 
 <div class="foot">These pages are not individually locked. The code on the main launcher is only used to reveal this secondary navigation page.</div>
 </main>
+<script>
+(function(){
+  const search=document.getElementById('tool-search');
+  const groups=Array.from(document.querySelectorAll('.group'));
+  const cards=Array.from(document.querySelectorAll('.tool'));
+  function filterTools(){
+    const words=search.value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    let count=0;
+    for(const card of cards){const content=card.textContent.toLowerCase();card.hidden=!words.every(word=>content.includes(word));if(!card.hidden)count++}
+    for(const group of groups)group.hidden=!Array.from(group.querySelectorAll('.tool')).some(card=>!card.hidden);
+    document.getElementById('tool-results').textContent=count?'Showing '+count+' tools':'No matching tools. Try another search.';
+  }
+  search.addEventListener('input',filterTools);filterTools();
+})();
+</script>
 </body>
 </html>

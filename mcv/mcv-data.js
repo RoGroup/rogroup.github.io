@@ -21,7 +21,7 @@
 (function (global) {
   'use strict';
 
-  const VERSION = '1.1.11';
+  const VERSION = '1.2.0';
 
   const CONFIG = Object.freeze({
     departuresUrl: 'https://mcv-rdm-proxy.railstaffhub.uk/departures',
@@ -219,6 +219,81 @@
     const name = text(operatorName).replace(/\s+/g, ' ').toLowerCase();
     const code = text(operatorCode).toUpperCase();
     return code === 'TP' || name === 'tpe' || name.includes('transpennine express');
+  }
+
+  function allocationPrefix(service, view) {
+    const departureMs = service.bookedMs == null ? service.scheduledMs : service.bookedMs;
+    return view === 'arrivals' || (view === 'all' && !Number.isFinite(departureMs)) ? 'arrival' : 'departure';
+  }
+
+  function allocationFresh(service, nowMs) {
+    const now = Number.isFinite(nowMs) ? nowMs : Date.now();
+    const age = now - Date.parse(service && service.unitAllocation && service.unitAllocation.syncedAt || '');
+    return Number.isFinite(age) && age >= 0 && age <= 6 * 60000;
+  }
+
+  function allocatedUnits(service, view) {
+    if (!allocationFresh(service) || service.unitAllocation.status !== 'allocated') return [];
+    const values = service.unitAllocation[allocationPrefix(service, view) + 'Units'];
+    return Array.isArray(values) ? values.filter(function (unit) { return typeof unit === 'string' && /^\d{6}$/.test(unit); }) : [];
+  }
+
+  function allocationCarriages(service, view) {
+    if (!allocatedUnits(service, view).length) return null;
+    const value = service.unitAllocation[allocationPrefix(service, view) + 'Carriages'];
+    return Number.isInteger(value) && value > 0 && value <= 100 ? value : null;
+  }
+
+  function displayCarriages(service, view) {
+    return allocationCarriages(service, view) || coachCount(service.coaches);
+  }
+
+  function unitClass(service, unit, view) {
+    if (!allocationFresh(service)) return '';
+    const classes = service.unitAllocation[allocationPrefix(service, view) + 'UnitClasses'];
+    const value = classes && classes[unit];
+    return typeof value === 'string' && /^\d{3}(?:\/\d{1,3})?$/.test(value) ? 'Class ' + value : '';
+  }
+
+  function reportedUnitOrder(service, view) {
+    return allocatedUnits(service, view).length > 0 && service.unitAllocation[allocationPrefix(service, view) + 'OrderKnown'] === true;
+  }
+
+  function inferredTpeFormation(service, view) {
+    if (service.ecs || allocatedUnits(service, view).length || !isTransPennineExpress(service.operator, service.operatorCode)) return '';
+    return ({3:'Class 185', 6:'2 × Class 185', 5:'Class 802'})[displayCarriages(service, view)] || '';
+  }
+
+  function firstClassPosition(service, view) {
+    if (service.ecs || service.cancelled || !isTransPennineExpress(service.operator, service.operatorCode)) return '';
+    const count = allocationCarriages(service, view);
+    const allocation = service.unitAllocation;
+    const positions = allocation && allocation[allocationPrefix(service, view) + 'FirstClassCarriages'];
+    if (reportedUnitOrder(service, view) && count && Array.isArray(positions) && positions.length &&
+        positions.every(function (position) { return Number.isInteger(position) && position >= 1 && position <= count; })) {
+      const label = positions.length === 1
+        ? (positions[0] === 1 ? 'front carriage' : positions[0] === count ? 'rear carriage' : 'carriage ' + positions[0] + ' of ' + count)
+        : 'carriages ' + positions.join(' & ') + ' of ' + count;
+      return 'First class: ' + label + ' · Gemini reported';
+    }
+    const notice = firstClassNotice(Object.assign({}, service, {coaches: displayCarriages(service, view)}));
+    return notice ? 'First class: ' + notice.replace('FIRST CLASS: ', '') + ' · front/rear not supplied' : 'First-class position not supplied';
+  }
+
+  function formationSummary(service, view) {
+    const gemini = allocationCarriages(service, view);
+    const darwin = coachCount(service.coaches);
+    return {
+      carriages: gemini || darwin,
+      geminiCarriages: gemini,
+      darwinCarriages: darwin,
+      source: gemini ? 'Gemini Feed' : darwin ? 'Darwin Feed' : '',
+      units: allocatedUnits(service, view),
+      orderKnown: reportedUnitOrder(service, view),
+      inferredClass: inferredTpeFormation(service, view),
+      firstClass: firstClassPosition(service, view),
+      difference: gemini && darwin && gemini !== darwin ? 'Darwin: ' + darwin + ' cars · Gemini: ' + gemini + ' cars' : ''
+    };
   }
 
   // Locally configured MCV boarding information.
@@ -446,6 +521,7 @@
 
       coaches: coaches,
       reverseFormation: Boolean(raw.isReverseFormation),
+      unitAllocation: raw.unitAllocation || null,
       detachFront: Boolean(raw.detachFront),
 
       status: status.label,
@@ -597,18 +673,18 @@
     }
   }
 
-  function saveLastGood(raw, receivedAt) {
+  function saveLastGood(raw, receivedAt, storageKey) {
     if (!raw || !Array.isArray(raw.trainServices)) return;
 
-    safeStorageSet(CONFIG.lastGoodStorageKey, JSON.stringify({
+    safeStorageSet(storageKey || CONFIG.lastGoodStorageKey, JSON.stringify({
       receivedAt: receivedAt || Date.now(),
       data: raw
     }));
   }
 
-  function loadLastGood(nowMs) {
+  function loadLastGood(nowMs, storageKey) {
     const now = Number.isFinite(nowMs) ? nowMs : Date.now();
-    const stored = safeStorageGet(CONFIG.lastGoodStorageKey);
+    const stored = safeStorageGet(storageKey || CONFIG.lastGoodStorageKey);
     if (!stored) return null;
 
     try {
@@ -642,19 +718,33 @@
     };
   }
 
-  async function fetchRaw(options) {
+  const rawRequests = new Map();
+  function fetchRaw(options) {
+    const opts = Object.assign({url: CONFIG.departuresUrl, timeoutMs: 12000}, options || {});
+    const key = !opts.signal ? JSON.stringify([opts.url, opts.timeoutMs]) : null;
+    if (key && rawRequests.has(key)) return rawRequests.get(key);
+    const work = fetchRawOnce(opts);
+    if (key) {
+      rawRequests.set(key, work);
+      work.then(function () { rawRequests.delete(key); }, function () { rawRequests.delete(key); });
+    }
+    return work;
+  }
+
+  async function fetchRawOnce(options) {
     const opts = Object.assign({
       url: CONFIG.departuresUrl,
       timeoutMs: 12000,
       signal: null
     }, options || {});
 
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const controller = !global.MCVSite && typeof AbortController !== 'undefined' ? new AbortController() : null;
     let timeoutId = null;
 
+    const forwardAbort = function () { controller.abort(); };
     if (controller && opts.signal) {
       if (opts.signal.aborted) controller.abort();
-      else opts.signal.addEventListener('abort', function () { controller.abort(); }, { once: true });
+      else opts.signal.addEventListener('abort', forwardAbort, { once: true });
     }
 
     if (controller && Number.isFinite(opts.timeoutMs) && opts.timeoutMs > 0) {
@@ -662,10 +752,12 @@
     }
 
     try {
-      const response = await fetch(opts.url, {
+      const request = global.MCVSite ? global.MCVSite.fetch : global.fetch.bind(global);
+      const response = await request(opts.url, {
         method: 'GET',
         cache: 'no-store',
         headers: { 'Accept': 'application/json' },
+        timeoutMs: opts.timeoutMs,
         signal: controller ? controller.signal : opts.signal || undefined
       });
 
@@ -681,6 +773,7 @@
       return data;
     } finally {
       if (timeoutId !== null) clearTimeout(timeoutId);
+      if (controller && opts.signal) opts.signal.removeEventListener('abort', forwardAbort);
     }
   }
 
@@ -692,11 +785,12 @@
       timeoutMs: 12000,
       nowMs: Date.now()
     }, options || {});
+    const cacheKey = opts.url && opts.url !== CONFIG.departuresUrl ? CONFIG.lastGoodStorageKey + ':' + opts.url : CONFIG.lastGoodStorageKey;
 
     try {
       const raw = await fetchRaw(opts);
       const receivedAt = Date.now();
-      saveLastGood(raw, receivedAt);
+      saveLastGood(raw, receivedAt, cacheKey);
       const board = parseBoard(raw);
       const fresh = freshness(receivedAt, opts.nowMs);
 
@@ -709,8 +803,9 @@
     } catch (error) {
       if (!opts.allowStale) throw error;
 
-      const cached = loadLastGood(opts.nowMs);
+      const cached = loadLastGood(opts.nowMs, cacheKey);
       if (!cached) throw error;
+      if (global.MCVSite) global.MCVSite.reportFallback(cached.data, cached.receivedAt);
 
       const board = parseBoard(cached.data);
       const fresh = freshness(cached.receivedAt, opts.nowMs);
@@ -952,6 +1047,16 @@
     parseCallingPoints: parseCallingPoints,
     parsePreviousCallingPoints: parsePreviousCallingPoints,
     statusForService: statusForService,
+    allocationPrefix: allocationPrefix,
+    allocationFresh: allocationFresh,
+    allocatedUnits: allocatedUnits,
+    allocationCarriages: allocationCarriages,
+    displayCarriages: displayCarriages,
+    unitClass: unitClass,
+    reportedUnitOrder: reportedUnitOrder,
+    inferredTpeFormation: inferredTpeFormation,
+    firstClassPosition: firstClassPosition,
+    formationSummary: formationSummary,
     parseService: parseService,
     parseBoard: parseBoard,
     isPassengerService: isPassengerService,

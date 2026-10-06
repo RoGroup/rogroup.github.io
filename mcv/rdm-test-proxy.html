@@ -4,6 +4,7 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="UTF-8">
+<script src="mcv-site.js?v=20261006-2"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Manchester Victoria | RDM Test Board</title>
 <style>
@@ -69,6 +70,7 @@ footer{font-size:12px;color:var(--muted);padding-top:13px;line-height:1.5}
   header{padding:12px 16px} .wrap{padding:14px 16px} .logo{height:34px}
 }
 </style>
+<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 </head>
 <body>
 <header>
@@ -193,7 +195,7 @@ async function fetchLive() {
   liveBtn.disabled=true; liveBtn.textContent='CONNECTING…';
   errorbox.style.display='none';
   try {
-    const r=await fetch(ENDPOINT, {
+    const r=await MCVSite.fetch(ENDPOINT, {
       method:'GET',
       headers:{'Accept':'application/json'},
       cache:'no-store'
@@ -225,3 +227,4 @@ updateClock(); setInterval(updateClock,1000);
 </script>
 </body>
 </html>
+
