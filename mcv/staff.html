@@ -303,6 +303,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .ops-metric .label{font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
 .ops-metric .value{margin-top:4px;font-size:16px;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
 .ops-metric .sub{margin-top:2px;font-size:10px;color:var(--muted)}
+.national-notices[hidden]{display:none}
+.national-notices .notice{padding:10px 0;line-height:1.5;overflow-wrap:anywhere;border-top:1px solid var(--line)}
+.national-notices .notice p{margin:0 0 8px}
+.national-notices .notice a{color:var(--blue);text-decoration:underline}
 .ops-alerts{display:grid;gap:7px;margin-top:12px}
 .ops-alert{padding:10px 11px;border-radius:7px;border-left:4px solid var(--blue);background:#f3f9fd;font-size:11px;line-height:1.4}
 .ops-alert.warn{border-left-color:var(--amber);background:#fff8e7}
@@ -663,6 +667,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="stat"><div class="stat-title">Platform TBC</div><div class="stat-value" id="stat-tbc">—</div><div class="stat-sub">Not allocated / withheld</div></div>
     <div class="stat"><div class="stat-title">ECS moves</div><div class="stat-value" id="stat-ecs">—</div><div class="stat-sub">Non-passenger movements</div></div>
     <div class="stat small"><div class="stat-title">Next booked departure</div><div class="stat-value" id="stat-next">—</div><div class="stat-sub" id="stat-next-dest">Awaiting data</div></div>
+  </section>
+  <section id="national-notices" class="alert-strip national-notices" aria-label="National Rail disruption notices" hidden>
+    <div class="alert-strip-head"><strong>National Rail disruption notices</strong><span id="national-notices-status">Manchester Victoria · Darwin Feed</span></div>
+    <div id="national-notices-content"></div>
   </section>
   <section class="alert-strip" aria-label="Operational alerts">
     <div class="alert-strip-head"><strong>Operational alerts</strong><span>Derived from current staff feed · advisory only</span></div>
@@ -1592,7 +1600,47 @@ function renderOperationalAlerts(){
   target.className='alert-items';
   target.innerHTML=unique.map(a=>`<div class="alert-item ${a.level}">${escapeHTML(a.text)}</div>`).join('');
 }
-function render(){updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
+
+function nationalRailMessages(raw){
+  const supplied=raw&&raw.nrccMessages;
+  const list=Array.isArray(supplied)?supplied:supplied?[supplied]:[];
+  const seen=new Set();
+  return list.map(item=>typeof item==='string'?item:item&&(item.xhtmlMessage||item.value||item.message||item.text)||'')
+    .filter(text=>typeof text==='string'&&text.trim()&&!seen.has(text.trim())&&seen.add(text.trim()));
+}
+function safeNationalRailNotice(markup){
+  const parsed=new DOMParser().parseFromString(markup,'text/html');
+  const output=document.createElement('div');output.className='notice';
+  const allowed=new Set(['P','BR','STRONG','B','EM','I','UL','OL','LI','A']);
+  function append(source,target){
+    for(const node of source.childNodes){
+      if(node.nodeType===3){target.appendChild(document.createTextNode(node.textContent));continue}
+      if(node.nodeType!==1||['SCRIPT','STYLE','IFRAME','OBJECT','TEMPLATE'].includes(node.tagName))continue;
+      if(!allowed.has(node.tagName)){append(node,target);continue}
+      const element=document.createElement(node.tagName.toLowerCase());
+      if(node.tagName==='A'){
+        try{const url=new URL(node.getAttribute('href'));if(['https:','http:'].includes(url.protocol)){
+          element.href=url.href;element.target='_blank';element.rel='noopener noreferrer';
+        }}catch{}
+      }
+      append(node,element);target.appendChild(element);
+    }
+  }
+  append(parsed.body,output);
+  return output;
+}
+function renderNationalRailNotices(){
+  const panel=$('national-notices'),target=$('national-notices-content');
+  const messages=state.nationalRailNotices||[];
+  panel.hidden=!messages.length;
+  if(!messages.length){target.replaceChildren();delete target.dataset.messages;return}
+  const key=JSON.stringify(messages);
+  if(target.dataset.messages!==key){target.replaceChildren(...messages.map(safeNationalRailNotice));target.dataset.messages=key}
+  const stale=state.lastError||Date.now()-state.lastGood>STALE_MS;
+  $('national-notices-status').textContent=stale?'Manchester Victoria · last received notices · feed update overdue':'Manchester Victoria · Darwin Feed';
+}
+
+function render(){renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
     const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
@@ -1603,15 +1651,16 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
       (Array.isArray(s.origin)&&s.origin.some(o=>String(o?.crs||'').toUpperCase()!=='MCV'))
     ));
     state.unitFeedMeta=json._mcv||{};
+    state.nationalRailNotices=nationalRailMessages(json);
     const next=parseServices(json);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
     if(!board.fallback){rememberRecentDepartures(next);compareFeeds(next)}state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=board.receivedAt;state.lastError=board.fallback?'Live update failed · showing last received board':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
     render();
-  }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();}
+  }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();renderNationalRailNotices();}
   finally{state.feedBusy=false;$('refresh').disabled=false}
 }
-function updateClock(){MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
+function updateClock(){renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
   const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
