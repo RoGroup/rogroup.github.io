@@ -244,7 +244,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 :root[data-theme="dark"] .detail-context{background:var(--card)}
 :root[data-theme="dark"] .details-content .detail-group h3{color:#f3f5ff}
 @media(max-width:760px){
-  .details-content{max-height:78dvh;overflow:auto;overscroll-behavior:contain}
+  .details-content{max-height:none;overflow:visible;overscroll-behavior:auto}
+  .details-content .detail-context{position:static}
   .detail-context{top:-14px;margin:-14px -14px 0;padding:13px 14px 11px}
   .details-content>.detail-group{margin-top:22px;padding-top:18px}
   .details-content .kv-label{font-size:12px;line-height:1.4}
@@ -274,6 +275,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-diagram-note{font-size:10px;line-height:1.5;color:var(--muted);margin-top:7px}
 :root[data-theme="dark"] .formation-diagram-coach.first-class{background:#55421a;color:#ffecae;border-color:#d9a936}
 
+/* Touch devices use the page scroll for service details, avoiding nested swipe traps. */
+@media (hover:none) and (pointer:coarse){
+  .details-content{max-height:none;overflow:visible;overscroll-behavior:auto}
+  .details-content .detail-context{position:static}
+}
 </style>
 
 
