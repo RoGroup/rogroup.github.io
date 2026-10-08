@@ -4,6 +4,34 @@
 <link rel="icon" type="image/png" sizes="800x800" href="/mcv/favicon.png?v=20261006">
 <link rel="apple-touch-icon" href="/mcv/favicon.png?v=20261006">
 <meta charset="utf-8">
+<script>
+(function(){
+  if('scrollRestoration' in history)history.scrollRestoration='manual';
+  let userInteracted=false,deadline=0,timers=[];
+  function stop(){userInteracted=true;timers.forEach(clearTimeout);timers=[];}
+  for(const event of ['pointerdown','touchstart','wheel','keydown']){
+    window.addEventListener(event,stop,{passive:true,capture:true});
+  }
+  function top(){
+    if(userInteracted||location.hash||Date.now()>deadline)return;
+    const root=document.documentElement,previous=root.style.scrollBehavior;
+    root.style.scrollBehavior='auto';window.scrollTo(0,0);root.style.scrollBehavior=previous;
+  }
+  function begin(){
+    if(userInteracted||location.hash)return;
+    deadline=Date.now()+3000;top();
+    requestAnimationFrame(()=>requestAnimationFrame(top));
+    for(const delay of [0,100,350,800,1500,2500])timers.push(setTimeout(top,delay));
+  }
+  window.addEventListener('DOMContentLoaded',begin,{once:true});
+  window.addEventListener('pageshow',event=>{
+    if(event.persisted)userInteracted=false;
+    begin();
+  });
+  window.addEventListener('load',top,{once:true});
+  window.addEventListener('scroll',top,{passive:true});
+})();
+</script>
 <script src="mcv-site.js?v=20261006-no-tools-4"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
@@ -768,11 +796,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <script src="mcv-data.js?v=20261006-leeds-procedure"></script>
 <script>
 'use strict';
-if ('scrollRestoration' in history) history.scrollRestoration='manual';
-function resetPageScroll(){
-  if(!location.hash) window.scrollTo({top:0,left:0,behavior:'auto'});
-}
-window.addEventListener('pageshow',resetPageScroll);
+
 
 const REFRESH_MS=20000, STALE_MS=60000;
 const RECENT_DEPARTED_MS=2*60*1000;
@@ -1738,13 +1762,13 @@ document.addEventListener('DOMContentLoaded',()=>{
   launch.type='button';launch.className='mobile-traksy-launch';launch.textContent='Full-screen Traksy';
   launch.setAttribute('aria-controls','signal-controls-exit');
   launch.addEventListener('click',()=>{
-    mobileTraksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus();
+    mobileTraksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
   });
   nav.append(launch);
 });
 
 $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
-$('signal-controls-exit').addEventListener('click',()=>{setSignalControls(false);if(mobileTraksyReturnFocus){mobileTraksyReturnFocus.focus();mobileTraksyReturnFocus=null}});
+$('signal-controls-exit').addEventListener('click',()=>{setSignalControls(false);if(mobileTraksyReturnFocus){mobileTraksyReturnFocus.focus({preventScroll:true});mobileTraksyReturnFocus=null}});
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
 const PREFERENCES_KEY='mcv-staff-preferences-v1';
