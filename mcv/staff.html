@@ -281,7 +281,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .details-content .detail-context{position:static}
 }
 .formation-diagram-coach.unit-boundary{margin-left:12px;border-left-width:3px}
-.formation-diagram-coach .coach-facilities{font-size:13px;line-height:1.3}
+.formation-diagram-coach .coach-facilities{display:flex;align-items:center;justify-content:center;gap:4px;min-height:16px;margin-top:2px;line-height:1}
+.coach-facilities svg{display:block;width:15px;height:15px;flex:none}
+.formation-diagram-note .facility-key{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
+.facility-key svg{width:14px;height:14px}
 </style>
 
 
@@ -1437,6 +1440,13 @@ function renderTable(){
   scrollArea.scrollTop=scrollTop;
 }
 
+function coachFacilityIcon(kind){
+  const shape=kind==='wheelchair'
+    ?'<circle cx="12" cy="4" r="2" fill="currentColor" stroke="none"/><path d="M11 8v6h6l3 6M11 10h5M8 11a6 6 0 1 0 7 8"/>'
+    :'<circle cx="5" cy="17" r="4"/><circle cx="19" cy="17" r="4"/><path d="m5 17 5-9 5 9H5m10 0-4-12H8m6 0h4l2 12"/>';
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+shape+'</svg>';
+}
+
 function formationDiagram(s,view=state.viewMode){
   const count=displayCarriages(s,view);
   const movement=allocationPrefix(s,view)==='arrival'?'Arrival':'Departure';
@@ -1470,13 +1480,13 @@ function formationDiagram(s,view=state.viewMode){
   if(pairEnds){
     for(const first of positions){wheelchair.add(first);bikes.add(first<=3?4-first:10-first)}
   }
-  const facilityNote=wheelchair.size?'♿ Wheelchair access · 🚲 Bike spaces · facilities based on the standard fleet layout.<br>':'';
+  const facilityNote=wheelchair.size?'<span class="facility-key">'+coachFacilityIcon('wheelchair')+' Wheelchair access</span> · <span class="facility-key">'+coachFacilityIcon('bike')+' Bike spaces</span> · facilities based on the standard fleet layout.<br>':'';
   const unitNote=double185?'Positions 1–3: unit '+units[0]+' · positions 4–6: unit '+units[1]+' (two 3-car Class 185s). Coach letters unconfirmed.':units.length===1&&geminiCount?'Unit '+units[0]+' · '+count+' carriages':units.length>1?'Units '+units.join(' + ')+' · individual unit boundaries not supplied':'';
   const direction=standardLayout?'Standard A–'+firstClassLetter+' coach layout · direction of travel not supplied':travelOrder?'← Direction of travel · front to rear as reported by Gemini':'Orientation not supplied · schematic carriage count only';
   const coaches=Array.from({length:count},(_,i)=>{
     const n=i+1,first=positions.has(n),letter=coachLetters?coachLetters[i]:'';
     const accessible=wheelchair.has(n),bike=bikes.has(n);
-    return '<div class="formation-diagram-coach'+(first?' first-class':'')+(double185&&n===4?' unit-boundary':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+(accessible?' · wheelchair access':'')+(bike?' · bike spaces':'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+(first?'<small>1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:'')+'</small>':'')+(accessible||bike?'<small class="coach-facilities" aria-hidden="true">'+(accessible?'♿':'')+(accessible&&bike?' ':'')+(bike?'🚲':'')+'</small>':'')+'</div>';
+    return '<div class="formation-diagram-coach'+(first?' first-class':'')+(double185&&n===4?' unit-boundary':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+(accessible?' · wheelchair access':'')+(bike?' · bike spaces':'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+(first||accessible||bike?'<small class="coach-facilities" aria-hidden="true">'+(first?'1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:''):'')+(accessible?coachFacilityIcon('wheelchair'):'')+(bike?coachFacilityIcon('bike'):'')+'</small>':'')+'</div>';
   }).join('');
   return '<div class="formation-diagram"><div class="formation-diagram-head"><span>'+movement+' carriage layout</span><span class="formation-diagram-source">'+(geminiCount?'Gemini Feed':'Darwin Feed')+' · '+count+' cars</span></div><div class="formation-diagram-direction">'+escapeHTML(direction)+'</div><div class="formation-diagram-scroll" tabindex="0" aria-label="Scrollable '+movement.toLowerCase()+' train schematic"><div class="formation-diagram-track" role="list" aria-label="'+count+' carriage positions">'+coaches+'</div></div>'+(travelOrder?'<div class="formation-diagram-ends"><span>Front</span><span>Rear</span></div>':'')+'<div class="formation-diagram-note">'+(standardLayout?'First class: Coach '+firstClassLetter+' / coach '+count+' in the standard A–'+firstClassLetter+' layout. Front/rear position not supplied.<br>':positions.size?'Highlighted carriage'+(positions.size===1?'':'s')+' contain first class · Gemini reported.<br>':'')+facilityNote+(unitNote?escapeHTML(unitNote)+'<br>':'')+(standardLayout?'Standard coach order shown; it may be reversed in the direction of travel.':coachLetters?'Coach letters follow the standard Class '+(is802?'802':'185')+' layout, oriented using Gemini’s reported First Class position.':'Numbers are diagram positions, not coach letters.')+'</div></div>';
 }
