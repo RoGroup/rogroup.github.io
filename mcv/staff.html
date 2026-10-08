@@ -301,11 +301,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .facility-key svg{width:14px;height:14px}
 #install-app[hidden]{display:none}
 @media(display-mode:standalone){#install-app{display:none}}
-.mobile-traksy-launch{display:none}
-@media(max-width:760px){
-  .mcv-site-nav .mobile-traksy-launch{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card);color:var(--navy);font:inherit;font-weight:800;cursor:pointer}
-  :root[data-theme="dark"] .mcv-site-nav .mobile-traksy-launch{color:var(--ink)}
-}
+.mcv-site-nav .traksy-launch{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card);color:var(--navy);font:inherit;font-weight:800;cursor:pointer}
+:root[data-theme="dark"] .mcv-site-nav .traksy-launch{color:var(--ink)}
 </style>
 
 
@@ -1736,21 +1733,21 @@ $('search').addEventListener('input',e=>{state.search=e.target.value.trim();rend
 $('overdue-first').addEventListener('change',e=>{state.overdueFirst=e.target.checked;renderTable()});
 $('theme-toggle').addEventListener('click',toggleTheme);
 
-let mobileTraksyReturnFocus=null;
+let traksyReturnFocus=null;
 document.addEventListener('DOMContentLoaded',()=>{
   const nav=document.querySelector('.mcv-site-nav');
   if(!nav)return;
   const launch=document.createElement('button');
-  launch.type='button';launch.className='mobile-traksy-launch';launch.textContent='Full-screen Traksy';
+  launch.type='button';launch.className='traksy-launch';launch.textContent='Full-screen Traksy';
   launch.setAttribute('aria-controls','signal-controls-exit');
   launch.addEventListener('click',()=>{
-    mobileTraksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
+    traksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
   });
   nav.append(launch);
 });
 
 $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
-$('signal-controls-exit').addEventListener('click',()=>{setSignalControls(false);if(mobileTraksyReturnFocus){mobileTraksyReturnFocus.focus({preventScroll:true});mobileTraksyReturnFocus=null}});
+$('signal-controls-exit').addEventListener('click',()=>{setSignalControls(false);if(traksyReturnFocus){traksyReturnFocus.focus({preventScroll:true});traksyReturnFocus=null}});
 $('refresh').addEventListener('click',()=>fetchDepartures());
 $('export').addEventListener('click',exportCSV);
 const PREFERENCES_KEY='mcv-staff-preferences-v1';
