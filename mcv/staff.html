@@ -280,6 +280,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .details-content{max-height:none;overflow:visible;overscroll-behavior:auto}
   .details-content .detail-context{position:static}
 }
+.formation-diagram-coach.unit-boundary{margin-left:12px;border-left-width:3px}
+.formation-diagram-coach .coach-facilities{font-size:13px;line-height:1.3}
 </style>
 
 
@@ -1456,13 +1458,27 @@ function formationDiagram(s,view=state.viewMode){
   const travelOrder=ordered&&!standardLayout;
   const firstClassEnd=baseLetters&&positions.size===1?[...positions][0]:0;
   const coachLetters=standardLayout?baseLetters:firstClassEnd===1?baseLetters.split('').reverse().join(''):firstClassEnd===count?baseLetters:'';
-  const unitNote=units.length===1&&geminiCount?'Unit '+units[0]+' · '+count+' carriages':units.length>1?'Units '+units.join(' + ')+' · individual unit boundaries not supplied':'';
+  const double185=isTpe&&count===6&&ordered&&!s.ecs&&!s.cancelled&&units.length===2&&classes.length===2&&classes.every(fleet=>/^Class 185(?:\/|$)/.test(fleet));
+  const wheelchair=new Set(),bikes=new Set();
+  if(coachLetters){
+    for(let i=0;i<count;i++){
+      if(coachLetters[i]===firstClassLetter)wheelchair.add(i+1);
+      if((is185&&coachLetters[i]==='A')||(is802&&['B','D'].includes(coachLetters[i])))bikes.add(i+1);
+    }
+  }
+  const pairEnds=double185&&positions.size===2&&[1,3].filter(n=>positions.has(n)).length===1&&[4,6].filter(n=>positions.has(n)).length===1;
+  if(pairEnds){
+    for(const first of positions){wheelchair.add(first);bikes.add(first<=3?4-first:10-first)}
+  }
+  const facilityNote=wheelchair.size?'♿ Wheelchair access · 🚲 Bike spaces · facilities based on the standard fleet layout.<br>':'';
+  const unitNote=double185?'Positions 1–3: unit '+units[0]+' · positions 4–6: unit '+units[1]+' (two 3-car Class 185s). Coach letters unconfirmed.':units.length===1&&geminiCount?'Unit '+units[0]+' · '+count+' carriages':units.length>1?'Units '+units.join(' + ')+' · individual unit boundaries not supplied':'';
   const direction=standardLayout?'Standard A–'+firstClassLetter+' coach layout · direction of travel not supplied':travelOrder?'← Direction of travel · front to rear as reported by Gemini':'Orientation not supplied · schematic carriage count only';
   const coaches=Array.from({length:count},(_,i)=>{
     const n=i+1,first=positions.has(n),letter=coachLetters?coachLetters[i]:'';
-    return '<div class="formation-diagram-coach'+(first?' first-class':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+(first?'<small>1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:'')+'</small>':'')+'</div>';
+    const accessible=wheelchair.has(n),bike=bikes.has(n);
+    return '<div class="formation-diagram-coach'+(first?' first-class':'')+(double185&&n===4?' unit-boundary':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+(accessible?' · wheelchair access':'')+(bike?' · bike spaces':'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+(first?'<small>1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:'')+'</small>':'')+(accessible||bike?'<small class="coach-facilities" aria-hidden="true">'+(accessible?'♿':'')+(accessible&&bike?' ':'')+(bike?'🚲':'')+'</small>':'')+'</div>';
   }).join('');
-  return '<div class="formation-diagram"><div class="formation-diagram-head"><span>'+movement+' carriage layout</span><span class="formation-diagram-source">'+(geminiCount?'Gemini Feed':'Darwin Feed')+' · '+count+' cars</span></div><div class="formation-diagram-direction">'+escapeHTML(direction)+'</div><div class="formation-diagram-scroll" tabindex="0" aria-label="Scrollable '+movement.toLowerCase()+' train schematic"><div class="formation-diagram-track" role="list" aria-label="'+count+' carriage positions">'+coaches+'</div></div>'+(travelOrder?'<div class="formation-diagram-ends"><span>Front</span><span>Rear</span></div>':'')+'<div class="formation-diagram-note">'+(standardLayout?'First class: Coach '+firstClassLetter+' / coach '+count+' in the standard A–'+firstClassLetter+' layout. Front/rear position not supplied.<br>':positions.size?'Highlighted carriage'+(positions.size===1?'':'s')+' contain first class · Gemini reported.<br>':'')+(unitNote?escapeHTML(unitNote)+'<br>':'')+(standardLayout?'Standard coach order shown; it may be reversed in the direction of travel.':coachLetters?'Coach letters follow the standard Class '+(is802?'802':'185')+' layout, oriented using Gemini’s reported First Class position.':'Numbers are diagram positions, not coach letters.')+'</div></div>';
+  return '<div class="formation-diagram"><div class="formation-diagram-head"><span>'+movement+' carriage layout</span><span class="formation-diagram-source">'+(geminiCount?'Gemini Feed':'Darwin Feed')+' · '+count+' cars</span></div><div class="formation-diagram-direction">'+escapeHTML(direction)+'</div><div class="formation-diagram-scroll" tabindex="0" aria-label="Scrollable '+movement.toLowerCase()+' train schematic"><div class="formation-diagram-track" role="list" aria-label="'+count+' carriage positions">'+coaches+'</div></div>'+(travelOrder?'<div class="formation-diagram-ends"><span>Front</span><span>Rear</span></div>':'')+'<div class="formation-diagram-note">'+(standardLayout?'First class: Coach '+firstClassLetter+' / coach '+count+' in the standard A–'+firstClassLetter+' layout. Front/rear position not supplied.<br>':positions.size?'Highlighted carriage'+(positions.size===1?'':'s')+' contain first class · Gemini reported.<br>':'')+facilityNote+(unitNote?escapeHTML(unitNote)+'<br>':'')+(standardLayout?'Standard coach order shown; it may be reversed in the direction of travel.':coachLetters?'Coach letters follow the standard Class '+(is802?'802':'185')+' layout, oriented using Gemini’s reported First Class position.':'Numbers are diagram positions, not coach letters.')+'</div></div>';
 }
 
 function reasonFor(s){return s.cancelled?s.note:s.delayed?s.lateReason:''}
