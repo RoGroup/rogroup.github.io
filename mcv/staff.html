@@ -265,7 +265,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-diagram-direction{font-size:10px;color:var(--muted);margin-top:6px;line-height:1.4}
 .formation-diagram-scroll{overflow-x:auto;padding:9px 2px 9px;scrollbar-width:thin}
 .formation-diagram-track{display:flex;gap:6px;min-width:100%;width:max-content;align-items:center;padding-bottom:5px}
-.formation-diagram-coach{position:relative;flex:1 0 42px;max-width:64px;height:42px;border:2px solid var(--blue);border-radius:7px;background:var(--card);color:var(--ink);display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:13px;font-weight:900;padding-top:9px}
+.formation-diagram-coach{position:relative;flex:1 0 42px;max-width:64px;border:2px solid var(--blue);border-radius:7px;background:var(--card);color:var(--ink);display:grid;grid-template-rows:20px 16px;gap:2px;align-content:start;justify-items:center;font-size:13px;font-weight:900;padding:12px 4px 7px;box-sizing:border-box;height:59px;line-height:20px}
 .formation-diagram-coach::before{content:'';position:absolute;top:5px;left:7px;width:10px;height:4px;border-radius:1px;background:var(--blue);box-shadow:16px 0 var(--blue);opacity:.65}
 .formation-diagram-coach::after{content:'';position:absolute;bottom:-5px;left:9px;width:6px;height:6px;background:var(--ink);border-radius:50%;box-shadow:20px 0 var(--ink)}
 .formation-diagram-coach.first-class{background:#fff0bd;border-color:#b78200;color:#4e3700}
@@ -281,8 +281,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .details-content .detail-context{position:static}
 }
 .formation-diagram-coach.unit-boundary{margin-left:12px;border-left-width:3px}
-.formation-diagram-coach .coach-facilities{display:flex;align-items:center;justify-content:center;gap:4px;min-height:16px;margin-top:2px;line-height:1}
-.coach-facilities svg{display:block;width:15px;height:15px;flex:none}
+.formation-diagram-coach .coach-facilities{display:flex;align-items:center;justify-content:center;gap:4px;height:16px;min-height:16px;margin:0;line-height:1;font-size:9px;white-space:nowrap}
+.coach-facilities svg{display:block;width:14px;height:14px;flex:none}
+.formation-diagram-coach>span{display:block;align-self:center;white-space:nowrap;line-height:20px}
+.formation-diagram-track{align-items:start;padding-bottom:8px}
 .formation-diagram-note .facility-key{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
 .facility-key svg{width:14px;height:14px}
 </style>
@@ -1486,7 +1488,7 @@ function formationDiagram(s,view=state.viewMode){
   const coaches=Array.from({length:count},(_,i)=>{
     const n=i+1,first=positions.has(n),letter=coachLetters?coachLetters[i]:'';
     const accessible=wheelchair.has(n),bike=bikes.has(n);
-    return '<div class="formation-diagram-coach'+(first?' first-class':'')+(double185&&n===4?' unit-boundary':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+(accessible?' · wheelchair access':'')+(bike?' · bike spaces':'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+(first||accessible||bike?'<small class="coach-facilities" aria-hidden="true">'+(first?'1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:''):'')+(accessible?coachFacilityIcon('wheelchair'):'')+(bike?coachFacilityIcon('bike'):'')+'</small>':'')+'</div>';
+    return '<div class="formation-diagram-coach'+(first?' first-class':'')+(double185&&n===4?' unit-boundary':'')+'" role="listitem" aria-label="Carriage position '+n+(letter?' · Coach '+letter:'')+(first?(standardLayout?' · first class, standard layout':' · first class reported'):'')+(accessible?' · wheelchair access':'')+(bike?' · bike spaces':'')+'"><span>'+n+(letter?' · '+letter:'')+'</span>'+'<small class="coach-facilities" aria-hidden="true">'+(first?'1st'+(firstClassLetter&&!standardLayout&&!coachLetters?' · '+firstClassLetter:''):'')+(accessible?coachFacilityIcon('wheelchair'):'')+(bike?coachFacilityIcon('bike'):'')+'</small>'+'</div>';
   }).join('');
   return '<div class="formation-diagram"><div class="formation-diagram-head"><span>'+movement+' carriage layout</span><span class="formation-diagram-source">'+(geminiCount?'Gemini Feed':'Darwin Feed')+' · '+count+' cars</span></div><div class="formation-diagram-direction">'+escapeHTML(direction)+'</div><div class="formation-diagram-scroll" tabindex="0" aria-label="Scrollable '+movement.toLowerCase()+' train schematic"><div class="formation-diagram-track" role="list" aria-label="'+count+' carriage positions">'+coaches+'</div></div>'+(travelOrder?'<div class="formation-diagram-ends"><span>Front</span><span>Rear</span></div>':'')+'<div class="formation-diagram-note">'+(standardLayout?'First class: Coach '+firstClassLetter+' / coach '+count+' in the standard A–'+firstClassLetter+' layout. Front/rear position not supplied.<br>':positions.size?'Highlighted carriage'+(positions.size===1?'':'s')+' contain first class · Gemini reported.<br>':'')+facilityNote+(unitNote?escapeHTML(unitNote)+'<br>':'')+(standardLayout?'Standard coach order shown; it may be reversed in the direction of travel.':coachLetters?'Coach letters follow the standard Class '+(is802?'802':'185')+' layout, oriented using Gemini’s reported First Class position.':'Numbers are diagram positions, not coach letters.')+'</div></div>';
 }
