@@ -1797,7 +1797,6 @@ for(const eventName of ['change','click'])document.addEventListener(eventName,e=
 });
 readPreferences();reflectPreferences();
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
-resetPageScroll();
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
