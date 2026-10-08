@@ -7,7 +7,9 @@
 <script src="mcv-site.js?v=20261006-no-tools-4"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#f2f5fa">
+<meta name="theme-color" content="#262262">
+<link rel="manifest" href="/mcv/staff.webmanifest">
+<script src="/mcv/staff-app.js" defer></script>
 <script>
 (function(){
   try{
@@ -287,6 +289,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .formation-diagram-track{align-items:start;padding-bottom:8px}
 .formation-diagram-note .facility-key{display:inline-flex;align-items:center;gap:4px;vertical-align:middle}
 .facility-key svg{width:14px;height:14px}
+#install-app[hidden]{display:none}
+@media(display-mode:standalone){#install-app{display:none}}
 </style>
 
 
@@ -669,7 +673,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a>
     <div class="titleblock"><h1>Manchester Victoria</h1><div class="subhead">Staff Display · Live Operations Overview</div></div>
   </div>
-  <div class="top-right"><button type="button" id="theme-toggle" class="button theme-toggle" aria-pressed="false" title="Switch to dark mode">Dark mode</button><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
+  <div class="top-right"><button type="button" id="install-app" class="button" hidden>Install app</button><button type="button" id="theme-toggle" class="button theme-toggle" aria-pressed="false" title="Switch to dark mode">Dark mode</button><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
 </header>
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
