@@ -1327,7 +1327,7 @@ function visibleServices(){
   return live.concat(recent);
 }
 function sortedServices(){const list=chronologicalServices();return state.sortMode==='platform'?list.sort(sortByPlatform):list}
-function overdue(s){const t=movementScheduledMs(s);return s.delayed&&Number.isFinite(t)&&t<Date.now()}
+function overdue(s){const t=movementScheduledMs(s);return !s.terminatesEarly&&s.delayed&&Number.isFinite(t)&&t<Date.now()}
 function changed(message,type='info',key=''){
   const now=Date.now();const sig=type+'|'+key+'|'+message;
   if(state.changes[0]?.sig===sig)return;
@@ -1605,7 +1605,7 @@ function renderDetails(){
       ${s.terminatesEarly?`<div class="ops-alert danger"><strong>TERMINATES EARLY AT VICTORIA</strong><br>Onward journey cancelled. This train still arrives at Victoria; passengers must leave the train here.</div>`:''}
       ${reason?`<div class="ops-alert ${s.cancelled?'danger':'warn'}"><strong>${s.cancelled||s.terminatesEarly?'Cancellation reason':'Delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="ops-alert warn"><strong>Disruption:</strong> No cause supplied by the current feed.</div>':'')}
       ${s.reverseFormation?'<div class="ops-alert warn"><strong>Formation:</strong> Staff feed reports this service is operating in reverse formation.</div>':''}
-      ${s.futureCancellation?'<div class="ops-alert danger"><strong>Future cancellation:</strong> A cancellation is flagged at a later location.</div>':''}
+      ${s.futureCancellation&&!s.terminatesEarly?'<div class="ops-alert danger"><strong>Future cancellation:</strong> A cancellation is flagged at a later location.</div>':''}
       ${s.futureDelay?'<div class="ops-alert warn"><strong>Future delay:</strong> A delay is flagged at a later location.</div>':''}
       ${s.uncertainty?`<div class="ops-alert warn"><strong>Uncertainty:</strong> ${escapeHTML(s.uncertainty)}</div>`:''}
       ${inward?`<div class="ops-alert ${inward.level}"><strong>Inward / dwell risk:</strong> ${escapeHTML(inward.text)}.</div>`:''}
@@ -1685,7 +1685,7 @@ function renderOperationalAlerts(){
     if(s.cancelled)alerts.push({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: cancelled`});
     else if(overdue(s))alerts.push({level:'warn',text:`${s.headcode||s.dest}: delayed past booked departure`});
     if(s.reverseFormation)alerts.push({level:'warn',text:`${s.headcode||s.dest}: reverse formation reported`});
-    if(s.futureCancellation)alerts.push({level:'danger',text:`${s.headcode||s.dest}: future cancellation flagged`});
+    if(s.futureCancellation&&!s.terminatesEarly)alerts.push({level:'danger',text:`${s.headcode||s.dest}: future cancellation flagged`});
     if(s.futureDelay)alerts.push({level:'warn',text:`${s.headcode||s.dest}: future delay flagged`});
     const inward=inwardRisk(s);if(inward)alerts.push({level:inward.level,text:`${s.headcode||s.dest}: ${inward.text}`});
     const change=latestPlatformChange(s);if(change&&Date.now()-change.at<15*60*1000)alerts.push({level:'warn',text:`${s.headcode||s.dest}: platform ${change.from}→${change.to} · ${relativeAge(change.at)} ago`});
