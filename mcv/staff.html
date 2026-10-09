@@ -1164,9 +1164,11 @@ function earlyTerminationAtVictoria(raw){
   const arrives=Boolean(raw.ata)||(!raw.isCancelled&&Boolean(raw.eta));
   if(!arrives)return false;
   const groups=raw.subsequentCallingPoints;
-  const points=(Array.isArray(groups)?groups:[]).flatMap(group=>Array.isArray(group.callingPoint)?group.callingPoint:[]);
+  const points=Array.isArray(raw.subsequentLocations)?raw.subsequentLocations:(Array.isArray(groups)?groups:[]).flatMap(group=>Array.isArray(group.callingPoint)?group.callingPoint:[]);
   const onward=points.filter(p=>p&&String(p.crs||'').toUpperCase()!=='MCV'&&p.isPass!==true&&p.isOperational!==true);
-  return onward.length>0&&onward.every(p=>p.isCancelled===true);
+  if(onward.length)return onward.every(p=>p.isCancelled===true);
+  const destinations=Array.isArray(raw.destination)?raw.destination:[];
+  return raw.futureCancellation===true&&!raw.std&&destinations.length===1&&String(destinations[0].crs||'').toUpperCase()==='MCV';
 }
 function earlyTerminationNotice(s){
   return s.terminatesEarly?'Terminates early at Victoria — onward journey cancelled'+(s.earlyTerminationAwaitingUpdate?' · awaiting arrival confirmation':''):'';
@@ -1434,7 +1436,7 @@ function selectFilter(){
     if(platform==='tbc'&&s.platform)return false;
     if(/^[1-6]$/.test(platform)&&!matchPlatform(s.platform,platform))return false;
     if(state.statusFilter==='delayed'&&!s.delayed)return false;
-    if(state.statusFilter==='cancelled'&&!s.cancelled)return false;
+    if(state.statusFilter==='cancelled'&&!(s.cancelled||s.terminatesEarly))return false;
     if(state.statusFilter==='issues'&&!(s.delayed||s.cancelled||s.terminatesEarly))return false;
     if(state.statusFilter==='overdue'&&!overdue(s))return false;
     if(q&&!([s.ecs?'ecs':'',s.headcode,s.uid,s.rid,s.serviceId,s.dest,s.destCrs,s.operator,s.operatorCode,s.platform,s.booked,s.expected,s.status,s.lateReason,s.origin,s.trainCategory,categoryName(s.trainCategory),s.activities,searchableUnits(s),...s.stops.flatMap(x=>[x.name,x.crs])].join(' ').toLowerCase().includes(q)))return false;
