@@ -885,13 +885,16 @@ function serviceHasArrival(s){return Number.isFinite(s.bookedArrivalMs)}
 function serviceHasDeparture(s){return Number.isFinite(s.bookedMs)}
 function serviceVisibleInView(s,view=state.viewMode){
   if(view==='arrivals')return serviceHasArrival(s)&&serviceFlow(s).key!=='origin';
-  if(view==='departures')return serviceHasDeparture(s)&&serviceFlow(s).key!=='terminate';
+  if(view==='departures'){
+    if(s.terminatesEarly)return !s.arrived&&serviceHasArrival(s);
+    return serviceHasDeparture(s)&&serviceFlow(s).key!=='terminate';
+  }
   return serviceHasArrival(s)||serviceHasDeparture(s);
 }
 function movementScheduledMs(s,view=state.viewMode){
   const flow=serviceFlow(s).key;
   if(view==='arrivals')return s.bookedArrivalMs;
-  if(view==='departures')return s.bookedMs;
+  if(view==='departures')return s.terminatesEarly?s.bookedArrivalMs:s.bookedMs;
   if(flow==='terminate'&&serviceHasArrival(s))return s.bookedArrivalMs;
   if(serviceHasDeparture(s))return s.bookedMs;
   return s.bookedArrivalMs;
@@ -899,7 +902,7 @@ function movementScheduledMs(s,view=state.viewMode){
 function movementExpectedMs(s,view=state.viewMode){
   const flow=serviceFlow(s).key;
   if(view==='arrivals')return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
-  if(view==='departures')return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
+  if(view==='departures')return s.terminatesEarly?(Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs):(Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs);
   if(flow==='terminate'&&serviceHasArrival(s))return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
   if(serviceHasDeparture(s))return Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:s.expectedMs;
   return Number.isFinite(s.actualArrivalMs)?s.actualArrivalMs:s.expectedArrivalMs;
@@ -1166,7 +1169,7 @@ function earlyTerminationAtVictoria(raw){
   return onward.length>0&&onward.every(p=>p.isCancelled===true);
 }
 function earlyTerminationNotice(s){
-  return s.terminatesEarly?'Terminates early at Victoria — onward journey cancelled':'';
+  return s.terminatesEarly?'Terminates early at Victoria — onward journey cancelled'+(s.earlyTerminationAwaitingUpdate?' · awaiting arrival confirmation':''):'';
 }
 
 function parseServices(json){
@@ -1292,9 +1295,20 @@ function rememberRecentDepartures(next){
   }
   purgeRecentDeparted();
 }
+function retainPendingEarlyTerminations(next,previous){
+  function identity(s){
+    const id=s.rid||s.serviceId||((s.uid||s.headcode)+'|'+s.serviceDate);
+    return id&&id!=='|'?id:s.key;
+  }
+  const seen=new Set(next.map(identity));
+  const retained=previous.filter(s=>s.terminatesEarly&&!s.arrived&&!seen.has(identity(s)))
+    .map(s=>({...s,earlyTerminationAwaitingUpdate:true}));
+  return next.concat(retained);
+}
+
 function visibleServices(){
   purgeRecentDeparted();
-  const live=state.services.filter(s=>!(s.departed&&serviceFlow(s).key!=='terminate'));
+  const live=state.services.filter(s=>s.terminatesEarly||!(s.departed&&serviceFlow(s).key!=='terminate'));
   const keys=new Set(live.map(s=>s.key));
   const recent=[...state.recentDeparted.values()].filter(s=>!keys.has(s.key));
   return live.concat(recent);
@@ -1465,7 +1479,7 @@ function renderTable(){
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus)}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}${s.terminatesEarly?'<div class="detail-small">Expected arrival</div>':''}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
   updateDisplayHTML($('departures'),tableHTML,true);
   scrollArea.scrollTop=scrollTop;
@@ -1722,7 +1736,7 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     ));
     state.unitFeedMeta=json._mcv||{};
     state.nationalRailNotices=nationalRailMessages(json);
-    const next=parseServices(json);
+    const next=retainPendingEarlyTerminations(parseServices(json),state.services);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
     if(!board.fallback){rememberRecentDepartures(next);compareFeeds(next)}state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=board.receivedAt;state.lastError=board.fallback?'Live update failed · showing last received board':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
