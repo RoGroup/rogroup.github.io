@@ -43,6 +43,10 @@
     add('TRUST','Last TRUST capture',stamp(trust.feedAt),!captureFresh);
     add('TRUST','Timetable extract',stamp(trust.scheduleAt),!scheduleFresh);
     const count=(key)=>Number.isInteger(meta[key])&&meta[key]>=0?String(meta[key]):'Not supplied';
+    add('Booked timetable','Fallback status',meta.timetableAvailable===true?'Available independently of TRUST activations':meta.timetableAvailable===false?'Unavailable or stale':'Not supplied',meta.timetableAvailable!==true);
+    add('Booked timetable','Timetable extract',stamp(meta.timetableScheduleAt),!fresh(meta.timetableScheduleAt,36*3600000));
+    add('Booked timetable','Publisher snapshot',stamp(meta.timetableSnapshotAt),!fresh(meta.timetableSnapshotAt,360000));
+    add('Booked timetable','Matched patterns',count('timetableCallingPatternsMatched'));
     add('TRUST','Joined to this board','ECS '+count('trustServicesAdded')+' · movement reports '+count('trustMovementsMatched')+' · booked patterns '+count('trustCallingPatternsMatched')+' · histories '+count('trustHistoriesMatched'));
 
     add('Publisher','Latest accepted snapshot',stamp(snapshot.updatedAt),!fresh(snapshot.updatedAt,360000));
@@ -61,7 +65,7 @@
       if(service.stops?.length)calls=service.callingPointsReturned===0?'Destination-only display fallback; no calling pattern returned':service.callingPointsSource?'Booked timetable fallback · '+service.stops.length+' stops':service.source==='TRUST'?'TRUST booked ECS route · '+service.stops.length+' stops':'Darwin supplied '+service.stops.length+' calling points';
       else{
         warning=true;
-        calls=service.terminatesEarly?'Terminates early; an onward booked fallback is withheld':service.cancelled?'Service cancelled; booked fallback is withheld':service.futureCancellation||service.stopsRemoved||service.routeDiverted?'Live alteration/cancellation flagged; booked fallback is withheld':missing.length?'Required matching identifiers are missing':trustWarning?'TRUST unavailable or stale; no booked fallback is available':'No matched pattern returned; upstream reason not supplied';
+        calls=service.terminatesEarly?'Terminates early; an onward booked fallback is withheld':service.cancelled?'Service cancelled; booked fallback is withheld':service.futureCancellation||service.stopsRemoved||service.routeDiverted?'Live alteration/cancellation flagged; booked fallback is withheld':missing.length?'Required matching identifiers are missing':trustWarning&&meta.timetableAvailable!==true?'TRUST unavailable or stale; no matched booked fallback was returned':'No matched pattern returned; upstream reason not supplied';
       }
       add('Selected service','Calling points',calls,warning);
       const history=service.trustHistory;

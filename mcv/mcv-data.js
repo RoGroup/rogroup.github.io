@@ -1139,7 +1139,7 @@
           platform_withheld: !text(service.platform),
           platform_hidden: service.platformIsHidden === true,
           calling_points: points,
-          calling_points_source: !hasDarwinCallingPoints(service) && trustCallingPointsFresh(service.trustCallingPoints) ? 'TRUST timetable' : 'Darwin',
+          calling_points_source: !hasDarwinCallingPoints(service) && trustCallingPointsFresh(service.trustCallingPoints) ? (service.trustCallingPoints.source==='Booked calling pattern'?'Booked calling pattern':'TRUST timetable') : 'Darwin',
           trust_calling_points: service.trustCallingPoints || null,
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
@@ -1237,5 +1237,3 @@
     fetchLegacyBoard: fetchLegacyBoard
   });
 })(typeof window !== 'undefined' ? window : globalThis);
-
-

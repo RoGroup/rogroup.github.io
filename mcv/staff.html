@@ -796,8 +796,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-trust-history"></script>
-<script src="mcv-diagnostics.js?v=20261022-1"></script>
+<script src="mcv-data.js?v=20261022-booked-patterns"></script>
+<script src="mcv-diagnostics.js?v=20261022-booked-patterns"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
 <script>
@@ -1296,8 +1296,8 @@ function parseServices(json){
       reportTimes:Object.fromEntries(['sta','std','ata','atd','eta','etd'].map(field=>[field,String(darwinServices[index]?.[field]||'')])),
       unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,trustHistory:raw.trust_history||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
-      get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
-      get callingPointsSource(){return raw.calling_points_source==='TRUST timetable'&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?'TRUST timetable':''},
+      get stops(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
+      get callingPointsSource(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?raw.calling_points_source:''},
       callingPointsReturned:points.length,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
@@ -1752,8 +1752,8 @@ function renderDetails(){
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
 
       </div>
-      ${!showBefore&&s.callingPointsSource?'<div class="reason blue"><strong>TRUST timetable · booked stops</strong><br>Live calling points were not supplied by Darwin. These are scheduled stops; live changes and forecasts are not supplied.</div>':''}
-      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
+      ${!showBefore&&s.callingPointsSource?'<div class="reason blue"><strong>Booked calling pattern</strong><br>Live calling points were not supplied by Darwin. These are scheduled stops; live changes and forecasts are not supplied.</div>':''}
+      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">No matched booked calling pattern is available. Darwin calling points may appear closer to departure.</div>'))}
     </section>
 
     ${renderTrustHistory(s,state.trustHistoryOpen.has(s.key))}

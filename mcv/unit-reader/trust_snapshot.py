@@ -360,20 +360,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
         return [{"callingPoint": result}] if result else []
 
     def passenger_points(parts):
-        result = []
-        for point, clocks in parts:
-            # Public calls only: an operational stop is not a passenger call.
-            label = place(point)
-            value = next((value for value in (point.get("public_arrival"), point.get("public_departure"))
-                          if isinstance(value, str) and value != "0000" and re.fullmatch(r"(?:[01]\d|2[0-3])[0-5]\d", value)), None)
-            working = clocks.get("arrival") or clocks.get("departure")
-            if not working or not re.fullmatch(r"[A-Z]{3}", label["crs"]) or label["crs"].startswith("X") or value is None:
-                continue
-            public = working.replace(hour=int(value[:2]), minute=int(value[2:]), second=0)
-            public = min((public + dt.timedelta(days=offset) for offset in (-1, 0, 1)), key=lambda candidate: abs((candidate-working).total_seconds()))
-            if abs((public-working).total_seconds()) > 1800:
-                continue
-            result.append({**label, "st": public.isoformat()})
+        result = booked_passenger_points(parts, db)
         return [{"callingPoint": result}] if result else []
 
     next_tiploc = route[index + 1][0]["tiploc_code"] if index + 1 < len(route) else ""
@@ -396,6 +383,84 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
             "lastReportAt": last_report.isoformat() if last_report else None,
             "departureDirection": direction, "directionPoint": next_tiploc}
     }
+
+
+def build_booked_patterns(folder, services, now=None):
+    """Match the current Darwin board directly to the effective daily timetable.
+
+    No TRUST activation or raw-feed freshness is required for booked calls.
+    Never creates services or supplies actuals, forecasts or live platforms.
+    """
+    now = now or dt.datetime.now(UTC)
+    with closing(open_readonly(Path(folder) / "schedules.sqlite3")) as db:
+        header = json.loads(db.execute("SELECT value FROM metadata WHERE name='header'").fetchone()[0])
+        stamp = int(header["timestamp"])
+        if not 0 <= now.timestamp() - stamp <= SCHEDULE_MAX_AGE:
+            return {"version": 1, "available": False, "routes": []}
+        identities = [(s.get("uid"), s.get("trainid"), s.get("sdd")) for s in services]
+        routes = []
+        for service, identity in zip(services, identities):
+            uid, headcode, date = identity
+            if identities.count(identity) != 1 or not re.fullmatch(r"[A-Z]\d{5}", str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}", str(headcode or "")):
+                continue
+            if any(service.get(flag) for flag in ("isCancelled", "filterLocationCancelled", "futureCancellation", "diversion", "affectedByDiversion")) or service.get("isPassengerService") is False:
+                continue
+            if (service.get("subsequentLocations") or any(group.get("callingPoint") for group in service.get("subsequentCallingPoints", []))):
+                continue
+            try:
+                result = lookup(db, uid, date)
+                if result["status"] != "scheduled":
+                    continue
+                schedule = result["schedule"]
+                if schedule["schedule_segment"].get("signalling_id") != headcode or schedule["schedule_segment"].get("CIF_train_category") == "EE":
+                    continue
+                route = timed_route(schedule, date)
+                indices = [i for i, (stop, _) in enumerate(route) if stop["tiploc_code"] == "MNCRVIC"]
+                if len(indices) != 1:
+                    continue
+                index = indices[0]
+                times = route[index][1]
+                if not times.get("departure") or "pass" in times or not now-dt.timedelta(minutes=30) <= times["departure"].astimezone(UTC) <= now+dt.timedelta(hours=24):
+                    continue
+                def matches(value, planned):
+                    if not value or planned is None:
+                        return False
+                    if re.fullmatch(r"\d\d:\d\d(?::\d\d)?", value):
+                        return value[:5] == planned.strftime("%H:%M")
+                    moment = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if moment.tzinfo is None:
+                        moment = moment.replace(tzinfo=LONDON)
+                        if moment.utcoffset() != moment.replace(fold=1).utcoffset() or moment.astimezone(UTC).astimezone(LONDON).replace(tzinfo=None) != moment.replace(tzinfo=None):
+                            return False
+                    return int(moment.timestamp() // 60) == int(planned.timestamp() // 60)
+                if not all(matches(str(service.get(field) or ""), times.get(name)) for field, name in (("sta", "arrival"), ("std", "departure")) if service.get(field)) or not service.get("std"):
+                    continue
+                calls = booked_passenger_points(route[index+1:], db)
+                if 0 < len(calls) <= 100:
+                    routes.append({"uid": uid, "trainid": headcode, "sdd": date,
+                        "sta": times["arrival"].isoformat() if times.get("arrival") else None,
+                        "std": times["departure"].isoformat(), "callingPoints": calls})
+            except (ValueError, TypeError, KeyError):
+                continue
+        return {"version": 1, "available": True, "updatedAt": now.isoformat(),
+                "scheduleAt": dt.datetime.fromtimestamp(stamp, UTC).isoformat(), "routes": routes[:200]}
+
+
+def booked_passenger_points(parts, db):
+    result = []
+    for point, clocks in parts:
+        row = db.execute("SELECT crs, description FROM locations WHERE tiploc=?", (point["tiploc_code"],)).fetchone()
+        crs = row[0] if row else ""
+        value = next((value for value in (point.get("public_arrival"), point.get("public_departure"))
+                      if isinstance(value, str) and value != "0000" and re.fullmatch(r"(?:[01]\d|2[0-3])[0-5]\d", value)), None)
+        working = clocks.get("arrival") or clocks.get("departure")
+        if not working or not re.fullmatch(r"[A-Z]{3}", crs or "") or crs.startswith("X") or value is None:
+            continue
+        public = working.replace(hour=int(value[:2]), minute=int(value[2:]), second=0)
+        public = min((public+dt.timedelta(days=offset) for offset in (-1,0,1)), key=lambda candidate: abs((candidate-working).total_seconds()))
+        if abs((public-working).total_seconds()) <= 1800:
+            result.append({"tiploc": point["tiploc_code"], "crs": crs, "locationName": row[1] or point["tiploc_code"], "st": public.isoformat()})
+    return result
 
 
 def build_snapshot(folder, now=None, services=None):
@@ -469,4 +534,3 @@ if __name__ == "__main__":
     parser.add_argument("--folder", type=Path, default=Path(__file__).resolve().parent)
     args = parser.parse_args()
     print(json.dumps(build_snapshot(args.folder), indent=2))
-

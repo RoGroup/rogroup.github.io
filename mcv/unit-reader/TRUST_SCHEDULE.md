@@ -300,3 +300,57 @@ node test_recent_worker.mjs
 node test_trust_worker.mjs
 node test_feed_diagnostics.mjs
 ```
+
+## Booked calling patterns before TRUST activation
+
+The publisher now also reads the effective daily timetable directly for existing
+Darwin board services lacking an onward calling pattern. It no longer requires
+TRUST activation or a fresh TRUST capture to supply these **booked** calls.
+`build_booked_patterns()` uses only `schedules.sqlite3`; it never invents services,
+actuals, forecasts or current platform assignments. The existing activated TRUST
+ECS, reports and histories continue to use their own feed freshness rules.
+
+Only a unique matching UID/headcode/service-date identity is eligible. Schedule
+selection retains cancellation/overlay precedence and rejects ambiguous or
+unresolved bank-holiday rules. There must be one stopping visit at Victoria,
+a departure within the next 24 hours (or at most 30 minutes past), and agreement
+with every supplied booked Victoria time. Origin operating date is retained
+across midnight. Ambiguous/nonexistent daylight-saving schedule clocks are
+withheld. Passenger calls require a public time and public CRS; passing points
+and operational stops are excluded.
+
+The separate `timetable` property travels in the existing authenticated
+`/unit-ingest` snapshot, using the existing KV write and 256 KB upload limit.
+Optional calling patterns are trimmed if the overall payload becomes too large.
+No new feed, secret, binding or upload frequency is required. A fresh publisher
+snapshot (six minutes) and daily extract (36 hours) are required independently
+of Gemini reader status and TRUST availability.
+
+The Worker matches unique board/snapshot identities, all supplied booked Victoria
+minutes and the final public destination. It never appends calls to a partial
+Darwin route. Darwin cancellation, diversion and future-cancellation flags,
+matched TRUST correction histories and unreinstated TRUST cancellation histories
+withhold the new fallback. It creates no new board services. The public board
+remains unchanged.
+
+The staff details label fallback calls **Booked calling pattern**, without live
+forecasts. Darwin calling points automatically take precedence when supplied.
+Expired patterns disappear from already-rendered service data as well as later
+fetches. Feed diagnostics now report the independent timetable snapshot, extract
+age and matched-pattern count, rather than treating TRUST availability as a
+prerequisite for all booked patterns.
+
+Deploy the matching Worker and run `install-trust-publisher.sh` from the same
+commit. The existing installer already downloads the changed projector and its
+expanded Python tests before restarting the publisher; raw consumers and the
+daily timetable refresh do not need changing. The publisher logs:
+
+```
+Booked calling patterns: available=True; N matched services
+```
+
+`N=0` is normal when Darwin already supplies calls or no safe match is available.
+Read `_mcv.timetableAvailable`, `_mcv.timetableCallingPatternsMatched`,
+`_mcv.timetableSnapshotAt` and `_mcv.timetableScheduleAt` on `/staff-departures`
+for the accepted board-level result. Allow the normal 120-second first publisher
+cycle and KV/cache propagation after deployment.

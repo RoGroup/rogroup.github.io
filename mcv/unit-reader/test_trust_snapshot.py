@@ -6,7 +6,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from trust_snapshot import build_snapshot, index_archive, index_history_archive, project_history, project_train, timed_route, reported_time, UTC
+from trust_snapshot import build_booked_patterns, build_snapshot, index_archive, index_history_archive, project_history, project_train, timed_route, reported_time, UTC
 
 NOW = dt.datetime(2026, 10, 22, 3, 40, tzinfo=UTC)
 SCHEDULE = {
@@ -258,6 +258,73 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(result["services"], [])
 
 
+
+class BookedPatternTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.folder = Path(self.temp.name)
+        self.db = sqlite3.connect(self.folder / "schedules.sqlite3")
+        self.addCleanup(self.db.close)
+        self.db.executescript("""CREATE TABLE metadata(name TEXT,value TEXT);
+            CREATE TABLE locations(tiploc TEXT,crs TEXT,description TEXT);
+            CREATE TABLE schedules(uid TEXT,stp TEXT,start_date TEXT,end_date TEXT,days TEXT,applicable TEXT,bank_holiday TEXT,payload_zlib BLOB);""")
+        self.db.execute("INSERT INTO metadata VALUES ('header',?)", (json.dumps({"timestamp": int(NOW.timestamp())}),))
+        self.db.executemany("INSERT INTO locations VALUES (?,?,?)", [("ORIGIN","ORG","Origin"),("MNCRVIC","MCV","Manchester Victoria"),("PASSING","PAS","Passing"),("OPERATE","OPR","Operational"),("CHST","CTR","Chester")])
+        self.schedule = {"CIF_train_uid":"P28858","schedule_segment":{"signalling_id":"2N01","CIF_train_category":"OO","schedule_location":[
+            {"tiploc_code":"ORIGIN","departure":"0900","public_departure":"0900"},
+            {"tiploc_code":"MNCRVIC","arrival":"0958","departure":"1000","public_arrival":"0958","public_departure":"1000"},
+            {"tiploc_code":"PASSING","pass":"1015","public_arrival":"1015"},
+            {"tiploc_code":"OPERATE","arrival":"1030","departure":"1031","public_arrival":"0000","public_departure":"0000"},
+            {"tiploc_code":"CHST","arrival":"1130","public_arrival":"1130"}]}}
+        self.service = {"uid":"P28858","trainid":"2N01","sdd":"2026-10-22","sta":"2026-10-22T09:58:00","std":"2026-10-22T10:00:00","destination":[{"crs":"CTR"}]}
+        self.save()
+
+    def save(self, stp='P', payload=True, holiday=''):
+        self.db.execute("INSERT INTO schedules VALUES ('P28858',?,'2026-10-01','2026-12-01','1111111','Y',?,?)", (stp,holiday,zlib.compress(json.dumps(self.schedule).encode()) if payload else None))
+        self.db.commit()
+
+    def build(self, services=None, now=NOW):
+        return build_booked_patterns(self.folder, [self.service] if services is None else services, now)
+
+    def test_later_service_without_trust_activation_and_public_calls_only(self):
+        self.assertFalse((self.folder / "trust.sqlite3").exists())
+        result = self.build()
+        self.assertTrue(result['available'])
+        self.assertEqual(len(result['routes']),1)
+        route = result['routes'][0]
+        self.assertEqual([p['crs'] for p in route['callingPoints']],['CTR'])
+        self.assertEqual(route['callingPoints'][0]['st'],'2026-10-22T11:30:00+01:00')
+        self.assertNotIn('ata',route)
+        self.assertNotIn('platform',route)
+
+    def test_wrong_identity_booked_times_and_live_pattern_are_withheld(self):
+        for change in ({'uid':'P99999'},{'trainid':'2N02'},{'sdd':'2026-10-23'},{'sta':'2026-10-22T09:59:00'},{'std':'2026-10-22T10:01:00'},
+                       {'isCancelled':True},{'futureCancellation':True},{'diversion':True},{'isPassengerService':False},
+                       {'subsequentLocations':[{'crs':'CTR'}]},{'subsequentCallingPoints':[{'callingPoint':[{'crs':'CTR'}]}]}):
+            self.assertEqual(self.build([{**self.service,**change}])['routes'],[],str(change))
+        self.assertEqual(self.build([self.service,self.service])['routes'],[])
+        self.assertEqual(len(self.build([{**self.service,'sta':'2026-10-22T08:58:00Z','std':'2026-10-22T09:00:00Z'}])['routes']),1)
+
+    def test_stale_timetable_cancelled_overlay_and_ambiguous_schedules(self):
+        self.assertFalse(self.build(now=NOW+dt.timedelta(hours=37))['available'])
+        for stp,payload,holiday in [('C',False,''),('O',False,''),('P',True,''),('O',True,'X')]:
+            self.save(stp,payload,holiday)
+            self.assertEqual(self.build()['routes'],[])
+            self.db.execute("DELETE FROM schedules WHERE rowid=(SELECT max(rowid) FROM schedules)")
+            self.db.commit()
+
+    def test_origin_date_and_midnight_are_preserved(self):
+        stops = self.schedule['schedule_segment']['schedule_location']
+        stops[0]['departure']='2300'
+        stops[1].update(arrival='2358',departure='2359')
+        stops[2]['pass']='0015';stops[3].update(arrival='0030',departure='0031')
+        stops[4].update(arrival='0130',public_arrival='0130')
+        self.db.execute('DELETE FROM schedules');self.save()
+        service={**self.service,'sta':'2026-10-22T23:58:00','std':'2026-10-22T23:59:00'}
+        result=self.build([service],now=NOW+dt.timedelta(hours=8))
+        self.assertEqual(result['routes'][0]['callingPoints'][0]['st'],'2026-10-23T01:30:00+01:00')
+        self.assertEqual(result['routes'][0]['sdd'],'2026-10-22')
+
 if __name__ == "__main__":
     unittest.main()
-

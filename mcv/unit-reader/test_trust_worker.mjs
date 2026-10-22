@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('./worker.mjs', import.meta.url), 'utf8');
-const worker = await import('data:text/javascript;base64,' + Buffer.from(source + '\nexport {validateTrustSnapshot, mergeTrustServices};').toString('base64'));
+const worker = await import('data:text/javascript;base64,' + Buffer.from(source + '\nexport {validateTrustSnapshot, mergeTrustServices,validateBookedPatterns,mergeBookedPatterns};').toString('base64'));
 const now = Date.now();
 const stamp = new Date(now).toISOString();
 const service = {
@@ -206,3 +206,43 @@ worker.mergeTrustServices(historyBoard,{trust:{...historySnapshot,feedAt:new Dat
 assert.equal(historyBoard.trainServices[0].trustHistory,undefined);
 console.log('TRUST ECS, movement reports, calling patterns and histories: identity, dwell, lifecycle, expiry, public isolation and UI checks passed');
 
+// Daily timetable fallback is independent of TRUST capture and Gemini status.
+const timetable=worker.validateBookedPatterns({version:1,available:true,updatedAt:stamp,scheduleAt:stamp,routes:[pattern]});
+const daily={trainServices:[{...missingPattern}]};
+worker.mergeTrustServices(daily,{trust:{version:1,available:false,services:[]}});
+worker.mergeBookedPatterns(daily,{readerRunning:false,timetable});
+assert.equal(daily._mcv.trustAvailable,false);
+assert.equal(daily._mcv.timetableCallingPatternsMatched,1);
+assert.equal(daily.trainServices[0].trustCallingPoints.source,'Booked calling pattern');
+assert.equal(daily.trainServices[0].etd,missingPattern.etd);
+assert.equal(daily.trainServices[0].platform,missingPattern.platform);
+assert.equal(daily.trainServices[0].ata,undefined);
+const dailyLegacy=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:daily.trainServices}).results[0];
+assert.equal(dailyLegacy.calling_points_source,'Booked calling pattern');
+assert.equal(dailyLegacy.calling_points[0].expected_departs,null);
+for(const change of [{isCancelled:true},{filterLocationCancelled:true},{futureCancellation:true},{diversion:true},{affectedByDiversion:true},
+  {isPassengerService:false},{uid:'P00001'},{std:'2026-10-22T04:49:00+01:00'},{sdd:'2026-10-23'},
+  {destination:[{crs:'LDS'}]},{destination:[{crs:'CTR'},{crs:'LDS'}]},
+  {subsequentLocations:[{crs:'CTR'}]},{subsequentCallingPoints:[{callingPoint:[{crs:'CTR',isCancelled:true}]}]},
+  {trustHistory:{reconciliationRequired:true}},{trustHistory:{events:[{kind:'cancellation'}]}}]){
+  const board={trainServices:[{...missingPattern,...change}]};worker.mergeBookedPatterns(board,{timetable});
+  assert.equal(board.trainServices[0].trustCallingPoints,undefined,JSON.stringify(change));
+}
+for(const changes of [{updatedAt:new Date(now-361000).toISOString()},{scheduleAt:new Date(now-37*3600000).toISOString()},{updatedAt:new Date(now+60000).toISOString()}]){
+  const board={trainServices:[{...missingPattern}]};worker.mergeBookedPatterns(board,{timetable:{...timetable,...changes}});
+  assert.equal(board._mcv.timetableAvailable,false);assert.equal(board.trainServices[0].trustCallingPoints,undefined);
+}
+for(const [rows,routes] of [[[missingPattern,missingPattern],[pattern]],[[missingPattern],[pattern,pattern]]]){
+  const board={trainServices:rows.map(row=>({...row}))};worker.mergeBookedPatterns(board,{timetable:{...timetable,routes}});
+  assert.ok(board.trainServices.every(row=>!row.trustCallingPoints));
+}
+assert.throws(()=>worker.validateBookedPatterns({...timetable,routes:[{...pattern,uid:'unsafe'}]}));
+const replaced={trainServices:[{...missingPattern,subsequentCallingPoints:[{callingPoint:[{locationName:'Live Chester',crs:'CTR',st:pattern.callingPoints[0].st}]}]}]};
+worker.mergeTrustServices(replaced,{});worker.mergeBookedPatterns(replaced,{timetable});
+assert.equal(replaced.trainServices[0].trustCallingPoints,undefined,'Darwin live pattern replaces the fallback');
+const replacedLegacy=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:replaced.trainServices}).results[0];
+assert.equal(replacedLegacy.calling_points_source,'Darwin');
+const expiredDaily=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[{...missingPattern,trustCallingPoints:{...daily.trainServices[0].trustCallingPoints,expiresAt:new Date(now-1).toISOString()}}]}).results[0];
+assert.equal(expiredDaily.calling_points_source,'Darwin');
+assert.equal(expiredDaily.calling_points.length,0);
+console.log('Independent booked patterns: daily schedule freshness, exact identity, public stops, live replacement, alteration guards and UI expiry passed');

@@ -131,7 +131,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-trust-v18',
+          '/__cache/mcv-staff-movements-trust-v19-booked',
           origin,
           () => buildStaffMovements(env)
         );
@@ -458,6 +458,7 @@ async function buildStaffMovements(env) {
   };
   const snapshot = await readUnitSnapshot(env).catch(() => null);
   mergeTrustServices(staffBoard, snapshot);
+  mergeBookedPatterns(staffBoard, snapshot);
   await enrichUnits(staffBoard, env, snapshot);
   return staffBoard;
 }
@@ -495,6 +496,7 @@ async function buildStaffDetails(
   };
   const snapshot = await readUnitSnapshot(env).catch(() => null);
   mergeTrustServices(board, snapshot);
+  mergeBookedPatterns(board, snapshot);
   await enrichUnits(board, env, snapshot);
   return board;
 }
@@ -1151,6 +1153,7 @@ async function ingestUnits(request, env, origin) {
       }
     }
     if (snapshot.trust != null) snapshot.trust = validateTrustSnapshot(snapshot.trust);
+    if (snapshot.timetable != null) snapshot.timetable = validateBookedPatterns(snapshot.timetable);
     snapshot.updatedAt = new Date().toISOString();
     await env.UNIT_ALLOCATIONS.put(UNIT_SNAPSHOT_KEY, JSON.stringify(snapshot), {expirationTtl:900});
     return jsonResponse({ok:true, services:snapshot.services.length},200,origin);
@@ -1274,6 +1277,21 @@ function validateTrustSnapshot(input) {
   });
   return {version:1, available:true, services, movements:cleanMovements, routes:cleanRoutes, histories:cleanHistories, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
 }
+const timetableClock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+const londonMinute = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+function sameBookedMinute(darwin, planned) {
+    if (!darwin || !planned) return false;
+    if (/^\d\d:\d\d(?::\d\d)?$/.test(String(darwin))) return String(darwin).slice(0,5) === timetableClock.format(new Date(planned));
+    // Staff Darwin timestamps without an offset are London wall clocks.
+    // Date.parse would interpret these in the Worker's UTC runtime.
+    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?$/.test(String(darwin))) {
+      const parts = Object.fromEntries(londonMinute.formatToParts(new Date(planned)).map(part=>[part.type,part.value]));
+      return String(darwin).slice(0,16) === `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    }
+    const a = Date.parse(darwin), b = Date.parse(planned);
+    return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
+}
+
 function mergeTrustServices(board, snapshot) {
   const trust = snapshot?.trust;
   const now = Date.now();
@@ -1299,20 +1317,6 @@ function mergeTrustServices(board, snapshot) {
     const key = identity(row);
     routes.set(key, routes.has(key) ? null : row);
   }
-  const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-  const londonMinute = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
-  const sameBookedMinute = (darwin, planned) => {
-    if (!darwin || !planned) return false;
-    if (/^\d\d:\d\d(?::\d\d)?$/.test(String(darwin))) return String(darwin).slice(0,5) === clock.format(new Date(planned));
-    // Staff Darwin timestamps without an offset are London wall clocks.
-    // Date.parse would interpret these in the Worker's UTC runtime.
-    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?$/.test(String(darwin))) {
-      const parts = Object.fromEntries(londonMinute.formatToParts(new Date(planned)).map(part=>[part.type,part.value]));
-      return String(darwin).slice(0,16) === `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-    }
-    const a = Date.parse(darwin), b = Date.parse(planned);
-    return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
-  };
   const matches = (service,row) => {
     if (!row || service.mcvSource === 'TRUST' || original.filter(item=>identity(item)===identity(service)).length !== 1) return false;
     const fields = ['sta','std'].filter(field=>service[field]);
@@ -1445,4 +1449,39 @@ async function searchRecent(url, env, origin) {
   const page=rows.slice(offset,offset+20);
   return jsonResponse({version:1,available:true,startedAt:archive.startedAt,updatedAt:archive.updatedAt,retentionHours:48,
     stale:now-Date.parse(archive.updatedAt)>20*60000,total:rows.length,nextOffset:offset+page.length<rows.length?offset+page.length:null,services:page},200,origin);
+}
+
+function validateBookedPatterns(input) {
+  if (!input || input.version!==1 || typeof input.available!=='boolean') throw Error('Invalid timetable snapshot');
+  if (!input.available) return {version:1,available:false,routes:[]};
+  // Reuse the same strict identity/place/time schema as activated booked routes.
+  const clean=validateTrustSnapshot({version:1,available:true,services:[],routes:input.routes,
+    updatedAt:input.updatedAt,feedAt:input.scheduleAt,scheduleAt:input.scheduleAt});
+  return {version:1,available:true,updatedAt:clean.updatedAt,scheduleAt:clean.scheduleAt,routes:clean.routes};
+}
+function mergeBookedPatterns(board,snapshot) {
+  const timetable=snapshot?.timetable,now=Date.now();
+  const fresh=(stamp,max)=>Number.isFinite(Date.parse(stamp))&&now-Date.parse(stamp)>=-30000&&now-Date.parse(stamp)<=max;
+  const available=Boolean(timetable?.available&&fresh(timetable.updatedAt,360000)&&fresh(timetable.scheduleAt,36*3600000));
+  board._mcv={...(board._mcv||{}),timetableAvailable:available,timetableSnapshotAt:timetable?.updatedAt||null,timetableScheduleAt:timetable?.scheduleAt||null,timetableCallingPatternsMatched:0};
+  if(!available)return;
+  const identity=row=>[row.uid,row.trainid,row.sdd].join('|');
+  const routes=new Map();
+  for(const row of timetable.routes||[]){const key=identity(row);routes.set(key,routes.has(key)?null:row)}
+  const services=board.trainServices||[];
+  const expiresAt=new Date(Math.min(Date.parse(timetable.updatedAt)+360000,Date.parse(timetable.scheduleAt)+36*3600000)).toISOString();
+  for(const service of services){
+    if(service.mcvSource==='TRUST'||service.isPassengerService===false||service.trustCallingPoints||!service.std||
+      service.isCancelled||service.filterLocationCancelled||service.futureCancellation||service.diversion||service.affectedByDiversion||service.trustHistory?.reconciliationRequired)continue;
+    const lifecycle=(service.trustHistory?.events||[]).filter(event=>['cancellation','reinstatement'].includes(event.kind));
+    if(lifecycle.at(-1)?.kind==='cancellation')continue;
+    if((service.subsequentLocations||[]).length||(service.subsequentCallingPoints||[]).some(group=>(group.callingPoint||[]).length))continue;
+    if(services.filter(item=>identity(item)===identity(service)).length!==1)continue;
+    const route=routes.get(identity(service));
+    if(!route||!['sta','std'].filter(field=>service[field]).every(field=>sameBookedMinute(service[field],route[field])))continue;
+    const destinations=service.destination||[],last=route.callingPoints.at(-1);
+    if(destinations.length!==1||!last||![last.crs,last.tiploc].includes(String(destinations[0].crs||'').toUpperCase()))continue;
+    service.trustCallingPoints={source:'Booked calling pattern',expiresAt,callingPoints:route.callingPoints};
+    board._mcv.timetableCallingPatternsMatched++;
+  }
 }

@@ -156,6 +156,12 @@ def run_once(db, token):
         # TRUST preparation must not stop Gemini allocation publication.
         payload["trust"] = {"version": 1, "available": False, "services": []}
         print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
+    try:
+        from trust_snapshot import build_booked_patterns
+        payload["timetable"] = build_booked_patterns(FOLDER, services)
+    except Exception as error:
+        payload["timetable"] = {"version": 1, "available": False, "routes": []}
+        print(f"Booked calling patterns unavailable: {type(error).__name__}: {error}", flush=True)
     recent = None
     try:
         from recent_services import capture
@@ -176,6 +182,8 @@ def run_once(db, token):
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("histories"):
         payload["trust"]["histories"].pop()
     # Timetable supplements are optional; drop them before movement reports/ECS.
+    while len(json.dumps(payload).encode()) > 240000 and payload["timetable"].get("routes"):
+        payload["timetable"]["routes"].pop()
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("routes"):
         payload["trust"]["routes"].pop()
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"]["services"]:
@@ -193,6 +201,7 @@ def run_once(db, token):
     print(f"TRUST Victoria movement reports: {len(payload['trust'].get('movements', []))}", flush=True)
     print(f"TRUST booked calling patterns: {len(payload['trust'].get('routes', []))}", flush=True)
     print(f"TRUST journey histories: {len(payload['trust'].get('histories', []))}", flush=True)
+    print(f"Booked calling patterns: available={payload['timetable']['available']}; {len(payload['timetable']['routes'])} matched services", flush=True)
     if recent is not None:
         try:
             from recent_services import mark_uploaded
@@ -225,5 +234,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
