@@ -1,7 +1,7 @@
 /* Shared navigation, feed health and bounded requests for the MCV screens. */
 (function(global){
   'use strict';
-  const RELEASE='2026.10.06.3';
+  const RELEASE='2026.10.22.1';
   const REQUEST_TIMEOUT=12000;
   const pending=new Map();
   const health={receivedAt:0,generatedAt:0,error:false,meta:null,feedName:'Darwin Feed'};
@@ -46,7 +46,15 @@
       else if(Number.isFinite(synced))gemini='Updated '+ageText(synced);
       else gemini='Snapshot not supplied';
     }
-    return {darwin,gemini,warning:offline||stale||health.error,stale,offline,hasData:health.receivedAt>0};
+    const trustStamp=Date.parse(meta?.trustSnapshotAt||'');
+    let trust='Waiting for snapshot';
+    if(meta){
+      if(Number.isFinite(trustStamp)&&(now-trustStamp>360000||trustStamp>now+30000))trust='Stale · last update '+ageText(trustStamp);
+      else if(meta.trustAvailable===false)trust='Unavailable';
+      else if(meta.trustAvailable===true&&Number.isFinite(trustStamp))trust='Updated '+ageText(trustStamp);
+      else trust='Snapshot not supplied';
+    }
+    return {darwin,gemini,trust,trustWarning:offline||stale||health.error||!/^(?:Updated|Waiting)/.test(trust),warning:offline||stale||health.error,stale,offline,hasData:health.receivedAt>0};
   }
   // Coalesce identical GETs only when callers do not provide independent cancellation.
   // Read the response body inside the deadline, then give each caller its own clone.
@@ -95,9 +103,11 @@
     if(panel){
       const darwin=panel.querySelector('[data-feed="darwin"]');
       const gemini=panel.querySelector('[data-feed="gemini"]');
+      const trust=panel.querySelector('[data-feed="trust"]');
       darwin.textContent=health.feedName+' · '+snapshot.darwin;
       darwin.classList.toggle('mcv-feed-warning',snapshot.warning);
       if(gemini){gemini.textContent='Gemini Feed · '+snapshot.gemini;gemini.classList.toggle('mcv-feed-warning',!/^(?:Updated|Waiting)/.test(snapshot.gemini));}
+      if(trust){trust.textContent='TRUST Feed · '+snapshot.trust;trust.classList.toggle('mcv-feed-warning',snapshot.trustWarning);}
     }
     const warning=document.getElementById('mcv-stale-warning');
     if(warning){
@@ -133,7 +143,7 @@
     }
     if(staff){
       const panel=document.createElement('div');panel.id='mcv-feed-health';panel.className='mcv-feed-health';panel.setAttribute('aria-label','Live feed health');
-      panel.innerHTML='<span data-feed="darwin">Darwin Feed · Waiting for data</span>'+(page==='staff.html'||page==='staff-platform.html'?'<span data-feed="gemini">Gemini Feed · Waiting for snapshot</span>':'');
+      panel.innerHTML='<span data-feed="darwin">Darwin Feed · Waiting for data</span>'+(page==='staff.html'||page==='staff-platform.html'?'<span data-feed="gemini">Gemini Feed · Waiting for snapshot</span><span data-feed="trust">TRUST Feed · Waiting for snapshot</span>':'');
       if(unattended){panel.classList.add('mcv-health-compact');const host=document.querySelector('footer,.footer');if(host)host.append(panel);else document.body.append(panel);}
       else {const host=document.querySelector('.mcv-site-nav,header,.top');if(host)host.insertAdjacentElement('afterend',panel);else document.body.prepend(panel);}
     }
@@ -145,3 +155,4 @@
   global.MCVSite={release:RELEASE,fetch:request,reportBoard,reportFallback,healthSnapshot};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })(window);
+
