@@ -229,7 +229,7 @@
       CHNL159: 'Chinley Signal Cy159',
       NWTNHDD: 'Newton Heath TMD',
       ARDWTMD: 'Ardwick TMD',
-      MNCRVRS: 'Manchester Victoria Turnback'
+      MNCRVRS: 'Manchester Victoria West Turnback'
     };
 
     if (operationalLocations[code]) return operationalLocations[code];
