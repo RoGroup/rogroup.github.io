@@ -217,6 +217,11 @@
 
     const operationalLocations = {
       ALERTNS: 'Allerton TMD',
+      LNGSGHT: 'Longsight TMD',
+      LNGSEMD: 'Longsight TMD',
+      LNGSEUR: 'Longsight TMD',
+      LNGSTCS: 'Longsight TMD',
+      LONGSIGHT: 'Longsight TMD',
       EDGHDHS: 'Edge Hill TMD',
       XEG: 'Edge Hill TMD',
       CHNL159: 'Chinley Signal Cy159',
