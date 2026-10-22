@@ -241,11 +241,32 @@
     return rawName || code;
   }
 
-  function displayDestinationName(name, crs, headcode) {
+  function displayDestinationName(name, crs, headcode, service) {
     const base = displayStationName(name, crs);
     const code = text(crs).toUpperCase();
     const plain = text(base).replace(/\s+via\s+.*$/i, '').toUpperCase();
     const train = text(headcode).toUpperCase();
+    const source = service || {};
+    const northern = text(source.operatorCode).toUpperCase() === 'NT' ||
+      /^(northern|northern rail|northern trains(?: limited)?)$/i.test(text(source.operator));
+    if (northern && (code === 'LDS' || plain === 'LEEDS')) {
+      if (/^1[EJ][0-9]{2}$/.test(train)) return 'Leeds via Bradford Int';
+      if (/^2I[0-9]{2}$/.test(train)) {
+        const groups = Array.isArray(source.subsequentCallingPoints) ? source.subsequentCallingPoints : [];
+        const points = Array.isArray(source.subsequentLocations) ? source.subsequentLocations :
+          groups.filter(function (group) { return group && group.serviceChangeRequired !== true && group.assocIsCancelled !== true; })
+            .flatMap(function (group) { return Array.isArray(group.callingPoint) ? group.callingPoint : []; });
+        const active = points.filter(function (point) {
+          return point && point.isCancelled !== true && point.isPass !== true && point.isOperational !== true;
+        });
+        const bradford = active.some(function (point) {
+          return text(point.crs).toUpperCase() === 'BDI' || /^bradford interchange$/i.test(text(point.locationName));
+        });
+        if (bradford) return 'Leeds via Bradford Int';
+        if (active.length) return 'Leeds via Brighouse';
+        // Wait for calling points before choosing the route for a 2I Leeds service.
+      }
+    }
     if (code === 'BBN' || plain === 'BLACKBURN') {
       if (/^2B[0-9]{2}$/.test(train)) return 'Blackburn via Bolton';
       if (/^2N9[0-9]$/.test(train)) return 'Blackburn via Todmorden';
@@ -524,7 +545,7 @@
     const destinations = Array.isArray(raw.destination) ? raw.destination : [];
     const destinationNames = destinations
       .map(function (destination) {
-        return displayDestinationName(destination && destination.locationName, destination && destination.crs, raw.trainid);
+        return displayDestinationName(destination && destination.locationName, destination && destination.crs, raw.trainid, raw);
       })
       .filter(Boolean);
 
@@ -575,7 +596,7 @@
       destinationCrs: destinationCrs,
       destinations: destinations.map(function (destinationEntry) {
         return {
-          name: displayDestinationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs, raw.trainid),
+          name: displayDestinationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs, raw.trainid, raw),
           crs: text(destinationEntry && destinationEntry.crs).toUpperCase(),
           via: text(destinationEntry && destinationEntry.via)
         };
@@ -1058,10 +1079,10 @@
           status: statusPair[0],
           status_text: statusPair[1],
           destination: {
-            name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid),
+            name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service),
             crs: text(destination.crs)
           },
-          destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid),
+          destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service),
           destination_crs: text(destination.crs),
           origin: {
             name: text(origin.locationName || origin.name),
