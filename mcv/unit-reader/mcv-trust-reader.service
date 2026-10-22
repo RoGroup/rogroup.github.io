@@ -1,0 +1,23 @@
+[Unit]
+Description=MCV TRUST movement capture
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/mcv-unit-reader
+ExecStart=/opt/mcv-unit-reader/.venv/bin/python -u /opt/mcv-unit-reader/trust_reader.py
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=45
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/mcv-unit-reader
+
+[Install]
+WantedBy=multi-user.target
