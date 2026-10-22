@@ -156,6 +156,14 @@ def run_once(db, token):
         # TRUST preparation must not stop Gemini allocation publication.
         payload["trust"] = {"version": 1, "available": False, "services": []}
         print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
+    recent = None
+    try:
+        from recent_services import capture
+        archive, due = capture(FOLDER, services, entries, payload["trust"])
+        if due:
+            recent = archive
+    except Exception as error:
+        print(f"Recent-service capture failed: {type(error).__name__}: {error}", flush=True)
     # Retain the earliest workings if their booked routes make a large upload.
     # Keep identity + Victoria reports + recent evidence if histories are large.
     for history in payload["trust"].get("histories", []):
@@ -185,6 +193,18 @@ def run_once(db, token):
     print(f"TRUST Victoria movement reports: {len(payload['trust'].get('movements', []))}", flush=True)
     print(f"TRUST booked calling patterns: {len(payload['trust'].get('routes', []))}", flush=True)
     print(f"TRUST journey histories: {len(payload['trust'].get('histories', []))}", flush=True)
+    if recent is not None:
+        try:
+            from recent_services import mark_uploaded
+            request = urllib.request.Request(BASE + "/recent-ingest", data=json.dumps(recent).encode(),
+                headers={"Content-Type": "application/json", "Authorization": "Bearer " + token}, method="POST")
+            with urllib.request.urlopen(request, timeout=30) as response:
+                if response.status != 200:
+                    raise RuntimeError("Archive upload failed")
+            mark_uploaded(FOLDER)
+            print(f"Recent-service archive published: {len(recent['services'])} captured services", flush=True)
+        except Exception as error:
+            print(f"Recent-service upload failed: {type(error).__name__}: {error}", flush=True)
 
 
 def main():

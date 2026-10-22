@@ -106,6 +106,7 @@ export default {
     if (url.pathname === '/unit-ingest') {
       return ingestUnits(request, env, origin);
     }
+    if (url.pathname === '/recent-ingest') return ingestRecent(request, env, origin);
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -116,6 +117,7 @@ export default {
       return jsonResponse({ error: 'Method not allowed' }, 405, origin);
     }
     try {
+      if (url.pathname === '/recent-services') return await searchRecent(url, env, origin);
       if (url.pathname === '/departures') {
         return await cachedJson(
           request,
@@ -159,7 +161,8 @@ export default {
               '/departures',
               '/staff-departures',
               '/staff-details',
-              '/units'
+              '/units',
+              '/recent-services'
             ],
             staffMode: 'arrival+departure+on-demand-details'
           },
@@ -1366,3 +1369,80 @@ function mergeTrustServices(board, snapshot) {
   board._mcv.servicesReturned = output.length;
 }
 
+
+// Historical observations have their own KV key and ten-minute upload cadence.
+// They never enter live board joins or extend live freshness windows.
+const RECENT_KEY = 'mcv-recent-services-v1';
+function validateRecent(input) {
+  const now = Date.now();
+  const timestamp = value => typeof value === 'string' && /(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value));
+  if (!input || input.version !== 1 || input.retentionHours !== 48 || !timestamp(input.startedAt) || !timestamp(input.updatedAt) ||
+      Date.parse(input.startedAt)>now+90000 || Math.abs(now-Date.parse(input.updatedAt))>600000 || !Array.isArray(input.services) || input.services.length>1200) throw Error('Invalid recent archive');
+  const keys = new Set();
+  const services = input.services.map(row => {
+    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^\d[A-Z]\d{2}$/.test(row.headcode) || !/^\d{4}-\d\d-\d\d$/.test(row.date) ||
+        !['Darwin','TRUST'].includes(row.source) || typeof row.cancelled !== 'boolean') throw Error('Invalid recent identity');
+    for (const field of ['sta','std']) if (row[field] !== '' && !timestamp(row[field])) throw Error('Invalid recent booked time');
+    if (!row.sta && !row.std) throw Error('Missing recent booked time');
+    for (const field of ['firstSeen','lastSeen']) if (!timestamp(row[field]) || Date.parse(row[field])>now+90000) throw Error('Invalid capture time');
+    if (Date.parse(row.firstSeen)>Date.parse(row.lastSeen)) throw Error('Reversed capture times');
+    const clean = {};
+    for (const field of ['uid','headcode','date','source','cancelled','sta','std','firstSeen','lastSeen']) clean[field]=row[field];
+    for (const field of ['origin','destination','platform','ata','atd','eta','etd']) {
+      if (typeof row[field] !== 'string' || row[field].length>240) throw Error('Invalid archive label');
+      clean[field]=row[field];
+    }
+    const key = [row.uid,row.headcode,row.date,row.sta,row.std].join('|');
+    if (keys.has(key)) throw Error('Duplicate archive identity');
+    keys.add(key);
+    if (row.allocation != null) {
+      const a = row.allocation;
+      if (!['allocated','unallocated'].includes(a.status) || !timestamp(a.capturedAt) || Date.parse(a.capturedAt)>Date.parse(row.lastSeen)) throw Error('Invalid archived allocation');
+      for (const field of ['arrivalUnits','departureUnits']) if (!Array.isArray(a[field]) || a[field].length>20 || a[field].some(unit=>typeof unit !== 'string' || !/^\d{6}$/.test(unit))) throw Error('Invalid archived units');
+      clean.allocation = {status:a.status,capturedAt:a.capturedAt,arrivalUnits:a.arrivalUnits,departureUnits:a.departureUnits};
+    }
+    if (row.history != null) {
+      const h = row.history;
+      if (!timestamp(h.capturedAt) || Date.parse(h.capturedAt)>Date.parse(row.lastSeen)) throw Error('Invalid history capture');
+      const validated = validateTrustSnapshot({version:1,available:true,services:[],updatedAt:input.updatedAt,feedAt:input.updatedAt,scheduleAt:input.updatedAt,
+        histories:[{uid:row.uid,trainid:row.headcode,sdd:row.date,sta:row.sta||null,std:row.std||null,events:h.events,reconciliationRequired:h.reconciliationRequired}]}).histories[0];
+      clean.history={events:validated.events,reconciliationRequired:validated.reconciliationRequired,capturedAt:h.capturedAt};
+    }
+    return clean;
+  });
+  return {version:1,retentionHours:48,startedAt:input.startedAt,updatedAt:new Date().toISOString(),services};
+}
+async function ingestRecent(request, env, origin) {
+  if (request.method !== 'POST') return jsonResponse({error:'Method not allowed'},405,origin);
+  if (!env.UNIT_ALLOCATIONS || !env.UNIT_INGEST_KEY) return jsonResponse({error:'Archive storage not configured'},503,origin);
+  const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
+  if (!token || !await secureTokenEqual(token,env.UNIT_INGEST_KEY)) return jsonResponse({error:'Unauthorized'},401,origin);
+  try {
+    if (Number(request.headers.get('Content-Length'))>6000000) return jsonResponse({error:'Archive too large'},413,origin);
+    const body=await request.text();
+    if (new TextEncoder().encode(body).length>6000000) return jsonResponse({error:'Archive too large'},413,origin);
+    const archive=validateRecent(JSON.parse(body));
+    await env.UNIT_ALLOCATIONS.put(RECENT_KEY,JSON.stringify(archive),{expirationTtl:172800});
+    return jsonResponse({ok:true,services:archive.services.length},200,origin);
+  } catch (error) {
+    console.error(error);
+    return jsonResponse({error:'Unable to accept recent-service archive'},400,origin);
+  }
+}
+async function searchRecent(url, env, origin) {
+  const q=(url.searchParams.get('q')||'').trim().toUpperCase();
+  const date=url.searchParams.get('date')||'';
+  const offset=Number(url.searchParams.get('offset')||0);
+  if (q.length<2 || q.length>40 || !/^[A-Z0-9]+$/.test(q) || (date && !/^\d{4}-\d\d-\d\d$/.test(date)) || !Number.isInteger(offset) || offset<0 || offset>1200) return jsonResponse({error:'Enter at least two letters or digits of a headcode, UID or unit number'},400,origin);
+  const archive=env.UNIT_ALLOCATIONS ? await env.UNIT_ALLOCATIONS.get(RECENT_KEY,{type:'json',cacheTtl:60}) : null;
+  if (!archive || archive.version!==1 || !Array.isArray(archive.services)) return jsonResponse({version:1,available:false,services:[],message:'Archive not published yet. The updated server publisher and Worker are required.'},200,origin);
+  const now=Date.now(), cutoff=now-48*3600000;
+  const rows=archive.services.filter(row=>{
+    const times=[row.sta,row.std].filter(Boolean).map(Date.parse);
+    const units=[...(row.allocation?.arrivalUnits||[]),...(row.allocation?.departureUnits||[])];
+    return Math.min(...times)<=now && Math.max(...times)>=cutoff && (!date || row.date===date) && [row.headcode,row.uid,...units].some(value=>value.includes(q));
+  }).sort((a,b)=>Date.parse(b.std||b.sta)-Date.parse(a.std||a.sta));
+  const page=rows.slice(offset,offset+20);
+  return jsonResponse({version:1,available:true,startedAt:archive.startedAt,updatedAt:archive.updatedAt,retentionHours:48,
+    stale:now-Date.parse(archive.updatedAt)>20*60000,total:rows.length,nextOffset:offset+page.length<rows.length?offset+page.length:null,services:page},200,origin);
+}

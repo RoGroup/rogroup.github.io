@@ -225,3 +225,78 @@ wrong/future/off-route reports, lifecycle suppression and reinstatement,
 departure expiry, incremental replay, stale input, Worker input sanitisation,
 Darwin deduplication, public isolation and shared-adapter dates/statuses.
 
+
+## Recent-service search
+
+The staff screen includes a collapsed **Recent service search** panel. Search by
+headcode, UID or six-digit unit (partial matches of at least two letters/digits),
+optionally filtered by service date. Results are ordered by booked Victoria time,
+20 per page. Each result opens separately; its TRUST reports also start closed.
+All displayed times use Europe/London. Service date is the supplied operating
+service date, which can differ from the calendar date of a call after midnight.
+
+This is an archive of **observed staff-board records**, not a full historical
+Darwin or TRUST query. Capture starts when the updated publisher first runs;
+there is no backfill of earlier services. A record can be incomplete if it left
+the board before its final reports arrived. Forecasts, cancellations, platforms
+and actuals show what was supplied at the last capture; forecasts are not treated
+as actuals. TRUST movement reports remain separately labelled in their timeline.
+There is no inference that an unreported train ran, stopped or was cancelled.
+
+`recent_services.py` persists observations in
+`/opt/mcv-unit-reader/recent-services.sqlite3`, independent of raw feed databases.
+Records survive publisher restarts. Identity includes UID, headcode, service date
+and both supplied booked Victoria datetimes, canonicalised to UTC (offset-free
+Darwin datetimes mean London wall clocks). Records without reliable identifiers
+or dated booked times are excluded. Headcode alone never joins evidence. Only
+exact, unique current projection histories are captured; no raw TRUST data or XML
+is published. If confirmed Gemini allocation or matched TRUST history disappears
+from a later capture, its previous evidence retains its original capture time.
+An explicit Gemini unallocated response replaces older allocated units.
+
+Retention is 48 hours by booked Victoria time, capped at 1,200 records and about
+5.5 MB of published records; the oldest rows are omitted if the byte cap is hit.
+The publisher captures every normal two-minute board cycle and uploads the
+archive at most once every ten minutes after successful upload, using the same
+Bearer token as `/unit-ingest`. An upload failure retries on a later normal cycle.
+Archive failures do not stop normal board/allocation publication. No Kafka topic,
+SSH session or additional server listener is needed.
+
+The matching Worker adds authenticated `POST /recent-ingest` (6 MB hard limit,
+strict field/evidence validation) and read-only `GET /recent-services` using the
+existing `UNIT_ALLOCATIONS` KV binding and a separate key
+`mcv-recent-services-v1`. KV expiry is 48 hours from the last archive upload;
+queries independently exclude individual records older than 48 hours and future
+booked services. Historical evidence never enters live board joins or extends
+live freshness windows. The search marks archive uploads over 20 minutes old as
+overdue while retaining the last captured records. It reports when capture began;
+no result means no matching captured record, not proof a service did not run.
+The endpoint has the same read access model and allowed origins as existing staff
+endpoints; it introduces no crew/personal data.
+
+Deployment requires **both** the matching `worker.mjs` in Cloudflare and the
+publisher installer from the same Git commit. The installer downloads and tests
+`recent_services.py` before switching the publisher. No KV binding or secret
+changes are needed. After restart the first normal cycle waits 120 seconds;
+allow another minute for KV propagation. Subsequent archive uploads are ten
+minutes apart. Verify with:
+
+```sh
+journalctl -u mcv-unit-publisher -n 40 --no-pager
+curl -fsS 'https://mcv-rdm-proxy.railstaffhub.uk/recent-services?q=2N'
+```
+
+Look for `Recent-service archive published: ... captured services` and
+`available:true`. A zero-result successful search is normal until an appropriate
+service has been observed and its booked time has passed. Rollback may restore
+the previous publisher and Worker; the separate archive file/key can be left in
+place and is not used by the live board.
+
+Checks:
+
+```sh
+python -m unittest -v test_recent_services.py test_trust_snapshot.py
+node test_recent_worker.mjs
+node test_trust_worker.mjs
+node test_feed_diagnostics.mjs
+```

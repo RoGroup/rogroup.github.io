@@ -311,6 +311,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .trust-history-toggle{width:100%;min-height:44px;justify-content:space-between;text-align:left;white-space:normal;cursor:pointer}
 #trust-journey-report-body[hidden]{display:none}
 .feed-diagnostics{margin:0 0 18px}.diagnostics-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}.diagnostics-heading h2{font-size:14px;margin:0}.diagnostics-body{padding:0 16px 16px}.diagnostics-body[hidden]{display:none}.diagnostics-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.diagnostics-table{width:100%;border-collapse:collapse;font-size:12px}.diagnostics-table th,.diagnostics-table td{padding:9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.diagnostics-table th{width:34%;color:var(--navy)}.diagnostics-table .diagnostics-group th{width:auto;color:var(--blue);padding-top:18px}.diagnostics-warning{border-left:3px solid var(--amber)}:root[data-theme="dark"] .diagnostics-table th{color:#f3f5ff}:root[data-theme="dark"] .diagnostics-table .diagnostics-group th{color:var(--blue)}
+#recent-more[hidden]{display:none}.recent-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}.recent-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}.recent-form input{padding:10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:var(--card,#fff);color:var(--ink);max-width:100%;min-height:42px}.recent-record{border-top:1px solid var(--line);padding:12px 0}.recent-record summary{cursor:pointer;line-height:1.7;overflow-wrap:anywhere}.recent-record-body{padding:10px}.recent-facts{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px;font-size:13px}.recent-facts dt{font-weight:700}.recent-facts dd{margin:0;overflow-wrap:anywhere}.recent-history{margin:14px 0}.recent-history li{padding:5px 0;font-size:13px}:root[data-theme="dark"] .recent-form input{background:#171d31;color:#f3f5ff}@media(max-width:600px){.recent-form label{width:100%}.recent-form input{width:100%}.recent-record-body{padding:8px 0}.recent-facts{grid-template-columns:1fr}.recent-facts dd{margin-bottom:7px}}
 </style>
 
 
@@ -701,6 +702,15 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="diagnostics-heading"><h2>Feed diagnostics</h2><button type="button" id="diagnostics-toggle" class="button" aria-expanded="false" aria-controls="diagnostics-body">Show diagnostics ▾</button></div>
     <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
   </section>
+  <section class="panel feed-diagnostics" aria-label="Recent service search">
+    <div class="diagnostics-heading"><h2>Recent service search</h2><button type="button" id="recent-toggle" class="button" aria-expanded="false" aria-controls="recent-body">Show search ▾</button></div>
+    <div id="recent-body" class="diagnostics-body" hidden>
+      <p class="detail-small">Search captured Manchester Victoria services from the last 48 hours by headcode, UID or unit. Records show the last observation, including any captured actual timings and TRUST reports.</p>
+      <form id="recent-form" class="recent-form"><label>Headcode, UID or unit<input id="recent-query" type="search" minlength="2" maxlength="40" placeholder="e.g. 2N01, P12345 or 150123" required></label><label>Service date (optional)<input id="recent-date" type="date"></label><button type="submit" id="recent-submit" class="button primary">Search recent services</button></form>
+      <p id="recent-status" class="detail-small" role="status" aria-live="polite">Archive coverage builds from when capture starts. Only services observed by the publisher are included.</p>
+      <div id="recent-results"></div><button type="button" id="recent-more" class="button" hidden>Show more results</button>
+    </div>
+  </section>
   <section class="stats" aria-label="Station summary">
     <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub" id="stat-total-split">Awaiting data</div></div>
     <div class="stat alert"><div class="stat-title">Delayed</div><div class="stat-value" id="stat-delay">—</div><div class="stat-sub" id="stat-overdue">Awaiting data</div></div>
@@ -786,6 +796,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 
 <script src="mcv-data.js?v=20261022-trust-history"></script>
 <script src="mcv-diagnostics.js?v=20261022-1"></script>
+<script src="mcv-recent.js?v=20261022-1"></script>
 <script>
 'use strict';
 
