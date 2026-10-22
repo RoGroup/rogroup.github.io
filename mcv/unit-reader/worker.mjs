@@ -106,6 +106,7 @@ export default {
     if (url.pathname === '/unit-ingest') {
       return ingestUnits(request, env, origin);
     }
+    if (url.pathname === '/td-ingest') return ingestTD(request, env, origin);
     if (url.pathname === '/recent-ingest') return ingestRecent(request, env, origin);
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -117,6 +118,7 @@ export default {
       return jsonResponse({ error: 'Method not allowed' }, 405, origin);
     }
     try {
+      if (url.pathname === '/td-map') return readTD(env, origin);
       if (url.pathname === '/recent-services') return await searchRecent(url, env, origin);
       if (url.pathname === '/departures') {
         return await cachedJson(
@@ -1497,4 +1499,46 @@ function mergeBookedPatterns(board,snapshot) {
     service.trustCallingPoints={source:'Booked calling pattern',expiresAt,callingPoints:route.callingPoints};
     board._mcv.timetableCallingPatternsMatched++;
   }
+}
+
+
+// Independent, bounded TD map snapshot; existing board responses are unchanged.
+const TD_KEY='mcv-td-map-v1';
+function validateTD(input) {
+  const now=Date.now()/1000;
+  if (!input || input.version!==1 || input.area!=='M3' || typeof input.scanLimited!=='boolean' ||
+      !Number.isFinite(input.generatedAt) || Math.abs(now-input.generatedAt)>120 ||
+      !Number.isFinite(input.feedAt) || input.feedAt<0 || input.feedAt>now+30) throw Error('Invalid TD snapshot');
+  const clean={version:1,area:'M3',generatedAt:input.generatedAt,feedAt:input.feedAt,scanLimited:input.scanLimited};
+  for (const field of ['berths','events']) {
+    if (!Array.isArray(input[field]) || input[field].length>60) throw Error('Too many TD rows');
+    clean[field]=input[field].map(row=>{
+      if (!row || !/^\d[A-Z]\d{2}$/.test(row.headcode) || !/^[A-Z0-9]{4}$/.test(row.berth) || !/^[A-Z0-9]{0,4}$/.test(row.from) ||
+          !['arrival','departure','description'].includes(row.event) || !Number.isFinite(row.time) || row.time<now-900 || row.time>now+30 ||
+          !Array.isArray(row.platforms) || !row.platforms.length || row.platforms.length>6 || row.platforms.some(p=>!(/^[1-6]$/.test(p))) ||
+          (row.offset!==null && (!Number.isInteger(row.offset) || Math.abs(row.offset)>120))) throw Error('Invalid TD row');
+      return {headcode:row.headcode,berth:row.berth,from:row.from,event:row.event,time:row.time,platforms:row.platforms,offset:row.offset};
+    });
+  }
+  return clean;
+}
+async function ingestTD(request,env,origin) {
+  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders(origin)});
+  if(request.method!=='POST')return jsonResponse({error:'Method not allowed'},405,origin);
+  if(!env.UNIT_ALLOCATIONS || !env.UNIT_INGEST_KEY)return jsonResponse({error:'TD storage not configured'},503,origin);
+  const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
+  if(!token || !await secureTokenEqual(token,env.UNIT_INGEST_KEY))return jsonResponse({error:'Unauthorized'},401,origin);
+  try {
+    if(Number(request.headers.get('Content-Length'))>32000)return jsonResponse({error:'Too large'},413,origin);
+    const body=await request.text();
+    if(new TextEncoder().encode(body).length>32000)return jsonResponse({error:'Too large'},413,origin);
+    const data=validateTD(JSON.parse(body));
+    await env.UNIT_ALLOCATIONS.put(TD_KEY,JSON.stringify(data),{expirationTtl:600});
+    return jsonResponse({ok:true},200,origin);
+  } catch {return jsonResponse({error:'Invalid TD snapshot'},400,origin);}
+}
+async function readTD(env,origin) {
+  const data=env.UNIT_ALLOCATIONS ? await env.UNIT_ALLOCATIONS.get(TD_KEY,{type:'json',cacheTtl:60}) : null;
+  if(!data)return jsonResponse({version:1,available:false,berths:[],events:[]},200,origin);
+  return jsonResponse({...data,available:true,stale:Date.now()/1000-data.feedAt>180 || Date.now()/1000-data.generatedAt>180},200,origin);
 }

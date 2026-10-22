@@ -1,0 +1,18 @@
+[Unit]
+Description=MCV Victoria TD map snapshot publisher
+After=network-online.target mcv-td-reader.service
+Wants=network-online.target
+[Service]
+WorkingDirectory=/opt/mcv-td-reader
+ExecStart=/opt/mcv-unit-reader/.venv/bin/python -u /opt/mcv-td-reader/td_map_publish.py
+Restart=on-failure
+RestartSec=15
+UMask=0077
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true
+MemoryMax=256M
+CPUQuota=50%
+[Install]
+WantedBy=multi-user.target

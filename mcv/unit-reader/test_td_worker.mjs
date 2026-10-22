@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import worker from './worker.mjs';
+const now=Date.now()/1000;
+const snapshot={version:1,area:'M3',generatedAt:now,feedAt:now,scanLimited:false,berths:[{headcode:'2I30',berth:'0581',from:'0702',time:now-10,platforms:['5'],event:'arrival',offset:49}],events:[]};
+let saved=null,writes=0;
+const env={UNIT_INGEST_KEY:'test-td-key',UNIT_ALLOCATIONS:{put:async(key,value,options)=>{assert.equal(key,'mcv-td-map-v1');assert.equal(options.expirationTtl,600);saved=JSON.parse(value);writes++},get:async()=>saved}};
+const call=(path,options={})=>worker.fetch(new Request('https://test.example'+path,options),env,{});
+const post=(data,token='test-td-key')=>call('/td-ingest',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify(data)});
+assert.equal((await post(snapshot,'wrong')).status,401);assert.equal(writes,0);
+assert.equal((await (await call('/td-map')).json()).available,false);
+assert.equal((await post(snapshot)).status,200);assert.equal(writes,1);
+let result=await (await call('/td-map')).json();assert.equal(result.stale,false);assert.equal(result.berths[0].platforms[0],'5');
+for(const data of [{...snapshot,generatedAt:now-500},{...snapshot,area:'M2'},{...snapshot,berths:[{...snapshot.berths[0],headcode:'<script>'}]},{...snapshot,berths:[{...snapshot.berths[0],platforms:['99']}]},{...snapshot,berths:[{...snapshot.berths[0],time:now-1000}]}])assert.equal((await post(data)).status,400);
+assert.equal(writes,1);
+saved.feedAt=now-181;assert.equal((await (await call('/td-map')).json()).stale,true);
+assert.equal((await call('/td-ingest')).status,405);
+assert.equal((await call('/td-map',{headers:{Origin:'https://evil.example'}})).status,403);
+console.log('TD Worker validation, authentication, freshness and isolation checks passed');
