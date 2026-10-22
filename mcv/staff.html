@@ -1678,7 +1678,6 @@ function renderDetails(){
     </div>
     ${s.source==='TRUST'?'<div class="reason blue"><strong>TRUST Feed:</strong> Activated ECS working. Route and calling times are booked timetable data; no arrival or departure forecast is supplied. Platform '+(s.trust?.platformSource==='reported'?'reported by TRUST.':'is booked and may change.')+'</div>':''}
     ${s.source!=='TRUST'&&MCVData.trustMovementText(s.trustMovement)?`<div class="reason blue"><strong>${escapeHTML(MCVData.trustMovementText(s.trustMovement))}</strong><br>Recorded movement report. The platform shown here belongs to that report; the current allocation is shown separately above.</div>`:''}
-    ${MCVServiceReport.actionsHTML()}
     ${rttUrl?`<div><a class="button rtt-button" href="${escapeHTML(rttUrl)}" target="_blank" rel="noopener noreferrer">Open in RealTimeTrains ↗</a></div>`:''}
     <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
@@ -1771,6 +1770,7 @@ function renderDetails(){
       ${extra('Arrival forecast type',s.arrivalType||'Not supplied')}
       ${extra('Departure forecast type',s.departureType||'Not supplied')}
     </div>
+    ${MCVServiceReport.actionsHTML()}
     <div class="data-fresh"><strong>Data freshness:</strong> feed generated ${escapeHTML(state.feedGeneratedAt?fmt(state.feedGeneratedAt):'not supplied')} (${escapeHTML(ageText(state.feedGeneratedAt))}) · received by this page ${escapeHTML(state.lastGood?ukClock.format(state.lastGood):'—')} · auto-refresh every 20 seconds.</div></section>
 
 `;
