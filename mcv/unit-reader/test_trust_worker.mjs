@@ -94,6 +94,12 @@ for(const [rows,movements] of [[[darwin,darwin],[report]],[[darwin],[report,repo
 const clockOnly={trainServices:[{...darwin,sta:'04:37',std:'04:48'}]};
 worker.mergeTrustServices(clockOnly,{trust:reports});
 assert.equal(clockOnly._mcv.trustMovementsMatched,1);
+const londonWall={trainServices:[{...darwin,sta:'2026-10-22T04:37:00',std:'2026-10-22T04:48:00'}]};
+worker.mergeTrustServices(londonWall,{trust:reports});
+assert.equal(londonWall._mcv.trustMovementsMatched,1,'Darwin offset-free timestamps are London wall clocks in BST');
+const wrongDate={trainServices:[{...darwin,sta:'2026-10-23T04:37:00',std:'2026-10-23T04:48:00'}]};
+worker.mergeTrustServices(wrongDate,{trust:reports});
+assert.equal(wrongDate._mcv.trustMovementsMatched,0,'Wall-clock matching must preserve the calendar date');
 worker.mergeTrustServices(enhanced,{trust:{...reports,feedAt:new Date(now-301000).toISOString()}});
 assert.equal(enhanced.trainServices[0].trustMovement,undefined,'Stale reports must disappear');
 for(const changes of [{reportedPlatform:'<script>'},{ata:null},{lastReportAt:stamp},{atd:service.ata,std:null}]){

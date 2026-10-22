@@ -129,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-trust-v15',
+          '/__cache/mcv-staff-movements-trust-v16',
           origin,
           () => buildStaffMovements(env)
         );
@@ -1265,9 +1265,16 @@ function mergeTrustServices(board, snapshot) {
     reports.set(key, reports.has(key) ? null : row);
   }
   const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  const londonMinute = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
   const sameBookedMinute = (darwin, planned) => {
     if (!darwin || !planned) return false;
     if (/^\d\d:\d\d(?::\d\d)?$/.test(String(darwin))) return String(darwin).slice(0,5) === clock.format(new Date(planned));
+    // Staff Darwin timestamps without an offset are London wall clocks.
+    // Date.parse would interpret these in the Worker's UTC runtime.
+    if (/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.\d+)?)?$/.test(String(darwin))) {
+      const parts = Object.fromEntries(londonMinute.formatToParts(new Date(planned)).map(part=>[part.type,part.value]));
+      return String(darwin).slice(0,16) === `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+    }
     const a = Date.parse(darwin), b = Date.parse(planned);
     return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
   };
