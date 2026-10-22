@@ -94,7 +94,7 @@ KV caching, the Worker expires feed timestamps after five minutes and snapshots
 after six minutes. Booked route direction is
 only inferred from recognised immediate onward TIPLOCs, not UP/DOWN.
 
-`trust-projection.sqlite3` indexes lifecycle messages and MCV movements from
+The original `trust-projection.sqlite3` indexes lifecycle messages and MCV movements from
 the existing raw archive incrementally. It commits its cursor with the index,
 so restarts can retry safely. Index events expire after 48 hours. If the raw
 archive is replaced and its row IDs reset, the projector fails closed; stop
@@ -159,6 +159,59 @@ reports `_mcv.trustCallingPatternsMatched`. No extra reader, KV binding or
 database import is needed. No activation or no suitable timetable means the
 existing missing-pattern message remains. Optional routes are dropped first
 if the combined upload reaches its size budget. Public endpoints are unchanged.
+
+## Last report, captured journey history and completed dwell
+
+`histories` is an optional part of the same publisher snapshot. The publisher
+prioritises services on the current staff board. Projection requires a unique
+activation identity, an applicable timetable and one stopping visit to MCV
+within six hours past/two hours ahead. The Worker again requires the exact
+UID, headcode, operating date and all supplied MCV booked minutes; ambiguous
+identities are withheld. Histories are also attached to standalone TRUST ECS.
+
+The new disposable index is `trust-history-projection.sqlite3`, separate from
+the old MCV-only index so previewing an upgrade does not change the old
+publisher's interpretation of movements. It scans retained lifecycle messages
+first, then retains movement reports for train IDs activated against MCV UIDs.
+It uses the existing raw archive, not another consumer. The first replay may
+take several minutes; timetable refreshes replay movement matching against the
+new schedule set. Raw capture and index retention remain 48 hours. Missing
+activation, capture started mid-journey, very late activation or missing reports
+can leave gaps: the UI does not describe this as a complete journey record.
+If the raw archive is replaced and row IDs reset, rebuild the disposable
+`trust-history-projection.sqlite3` with the publisher stopped before restarting.
+
+Reports are matched to an unambiguous location and planned event in the
+applicable route, with the existing BST/winter and actual-minus-planned clock
+checks. Unknown, future, off-route, failed-stop and corrected events are not
+presented as movement evidence. Corrections withdraw the corresponding
+location/event type. After an origin/identity/location change the history shows
+the lifecycle message but withholds subsequent movement interpretation until
+route reconciliation is implemented. Earlier reports remain explicitly dated.
+
+Staff service details show the last matched movement's location, report time,
+age, reported platform and lateness relative to the working timetable. This
+is a last report, not a continuously tracked position. The timeline includes
+arrivals, departures and passes, plus activation, cancellation, reinstatement
+and origin/identity/location changes. Lifecycle timestamps are receipt times,
+labelled `Received`, rather than guessed conversions of their event clocks.
+Darwin's current status, platform and forecasts remain authoritative in the
+existing display. A cancellation/reinstatement entry is historical evidence.
+
+Completed dwell at Victoria is calculated in the Worker only when exactly one
+matched arrival and departure report survive validation, departure is not before
+arrival, and the interval is at most 12 hours. It does not show an accumulating
+occupancy timer from an arrival alone. Corrections or missing reports can make
+dwell unavailable. History is bounded to 48 movement events (preserving Victoria
+reports) and 12 lifecycle messages, and expires with TRUST snapshot freshness,
+including when the board falls back to cached data. Oversized uploads compact
+histories to Victoria/lifecycle/latest reports, then drop optional histories.
+
+Update the server using this commit's `install-trust-publisher.sh`, and deploy
+the same commit's `worker.mjs`. The installer previews counts under the service
+account before replacing files, retaining the old publisher backup. No reader,
+secret or KV binding changes are needed. Verify `TRUST journey histories: N`
+in publisher logs and `_mcv.trustHistoriesMatched` on `/staff-departures`.
 
 ## Checks
 

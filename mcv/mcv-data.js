@@ -1145,6 +1145,7 @@
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
           trust_movement: service.trustMovement || null,
+          trust_history: service.trustHistory || null,
           feed_source: service.mcvSource === 'TRUST' ? 'TRUST' : 'Darwin',
           trust_info: service.mcvSource === 'TRUST' ? service.trust || null : null,
           late_reason: reasonText(service.delayReason),
@@ -1180,6 +1181,7 @@
   }
 
   global.MCVData = Object.freeze({
+    trustHistoryFresh: function(history){return Boolean(history && Number.isFinite(Date.parse(history.expiresAt || '')) && Date.parse(history.expiresAt)>Date.now());},
     trustCallingPointsFresh: trustCallingPointsFresh,
     trustMovementText: trustMovementText,
     VERSION: VERSION,

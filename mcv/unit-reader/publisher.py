@@ -151,12 +151,22 @@ def run_once(db, token):
                "readerRunning": running, "services": entries}
     try:
         from trust_snapshot import build_snapshot
-        payload["trust"] = build_snapshot(FOLDER)
+        payload["trust"] = build_snapshot(FOLDER, services=services)
     except Exception as error:
         # TRUST preparation must not stop Gemini allocation publication.
         payload["trust"] = {"version": 1, "available": False, "services": []}
         print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
     # Retain the earliest workings if their booked routes make a large upload.
+    # Keep identity + Victoria reports + recent evidence if histories are large.
+    for history in payload["trust"].get("histories", []):
+        if len(json.dumps(payload).encode()) <= 240000:
+            break
+        events = history["events"]
+        essential = [event for event in events if event["tiploc"] == "MNCRVIC" or event["timeBasis"] == "received"]
+        latest = [event for event in events if event["timeBasis"] == "actual"][-1:]
+        history["events"] = sorted({json.dumps(event,sort_keys=True):event for event in essential+latest}.values(), key=lambda event:event["at"])
+    while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("histories"):
+        payload["trust"]["histories"].pop()
     # Timetable supplements are optional; drop them before movement reports/ECS.
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("routes"):
         payload["trust"]["routes"].pop()
@@ -174,6 +184,7 @@ def run_once(db, token):
     print(f"TRUST snapshot: available={payload['trust']['available']}; {len(payload['trust']['services'])} ECS workings", flush=True)
     print(f"TRUST Victoria movement reports: {len(payload['trust'].get('movements', []))}", flush=True)
     print(f"TRUST booked calling patterns: {len(payload['trust'].get('routes', []))}", flush=True)
+    print(f"TRUST journey histories: {len(payload['trust'].get('histories', []))}", flush=True)
 
 
 def main():

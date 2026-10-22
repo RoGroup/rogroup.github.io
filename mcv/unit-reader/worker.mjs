@@ -129,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-trust-v17',
+          '/__cache/mcv-staff-movements-trust-v18',
           origin,
           () => buildStaffMovements(env)
         );
@@ -1251,15 +1251,33 @@ function validateTrustSnapshot(input) {
     if (!callingPoints.length || callingPoints.some(point=>!point.st || !point.crs || !point.tiploc)) throw new Error('Invalid TRUST booked call');
     return {uid:row.uid,trainid:row.trainid,sdd:row.sdd,sta:row.sta ?? null,std:row.std ?? null,callingPoints};
   });
-  return {version:1, available:true, services, movements:cleanMovements, routes:cleanRoutes, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
+  const histories = input.histories ?? [];
+  if (!Array.isArray(histories) || histories.length > 200) throw new Error('Invalid TRUST histories');
+  const movementKinds = new Set(['arrival','departure','pass']);
+  const lifecycleKinds = new Set(['activation','cancellation','reinstatement','origin-change','identity-change','location-change']);
+  const cleanHistories = histories.map(row => {
+    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+        !/^\d{4}-\d\d-\d\d$/.test(row.sdd) || !iso(row.sta) || !iso(row.std) || !(row.sta || row.std) ||
+        typeof row.reconciliationRequired !== 'boolean' || !Array.isArray(row.events) || row.events.length < 1 || row.events.length > 60) throw new Error('Invalid TRUST history identity');
+    const events = row.events.map(event => {
+      if (!event || !(movementKinds.has(event.kind) || lifecycleKinds.has(event.kind)) || !event.at || !iso(event.at) || Date.parse(event.at) > Date.now()+90000 ||
+          event.timeBasis !== (movementKinds.has(event.kind) ? 'actual' : 'received')) throw new Error('Invalid TRUST history event');
+      for (const key of ['locationName','crs','tiploc','platform']) if (typeof event[key] !== 'string' || event[key].length > 120) throw new Error('Invalid TRUST history label');
+      if (movementKinds.has(event.kind) && (!event.tiploc || !event.locationName || !Number.isInteger(event.delaySeconds) || Math.abs(event.delaySeconds)>43200)) throw new Error('Invalid TRUST movement evidence');
+      if (lifecycleKinds.has(event.kind) && event.delaySeconds != null) throw new Error('Invalid TRUST lifecycle evidence');
+      return Object.fromEntries(['kind','at','timeBasis','locationName','crs','tiploc','platform','delaySeconds'].map(key=>[key,event[key] ?? null]));
+    }).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+    return {uid:row.uid,trainid:row.trainid,sdd:row.sdd,sta:row.sta ?? null,std:row.std ?? null,events,reconciliationRequired:row.reconciliationRequired};
+  });
+  return {version:1, available:true, services, movements:cleanMovements, routes:cleanRoutes, histories:cleanHistories, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
 }
 function mergeTrustServices(board, snapshot) {
   const trust = snapshot?.trust;
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
-  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0};
-  for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;}
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
+  for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;delete service.trustHistory;}
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
   const output = [...original];
@@ -1325,6 +1343,24 @@ function mergeTrustServices(board, snapshot) {
         (existing.uid === service.uid || existing.trainid === service.trainid))) continue;
     output.push({...service, trust:{...service.trust, expiresAt}});
     board._mcv.trustServicesAdded++;
+  }
+  const histories = new Map();
+  for (const row of trust.histories || []) {
+    const key = identity(row);
+    histories.set(key,histories.has(key) ? null : row);
+  }
+  for (const service of output) {
+    const row = histories.get(identity(service));
+    if (!row || output.filter(item=>identity(item)===identity(service)).length !== 1) continue;
+    const fields = ['sta','std'].filter(field=>service[field]);
+    if (!fields.length || !fields.every(field=>sameBookedMinute(service[field],row[field]))) continue;
+    const actual = row.events.filter(event=>event.timeBasis==='actual');
+    const arrivals = actual.filter(event=>event.tiploc==='MNCRVIC' && event.kind==='arrival');
+    const departures = actual.filter(event=>event.tiploc==='MNCRVIC' && event.kind==='departure');
+    const dwell = arrivals.length===1 && departures.length===1 ? (Date.parse(departures[0].at)-Date.parse(arrivals[0].at))/1000 : null;
+    service.trustHistory = {source:'TRUST',events:row.events,lastReport:actual.at(-1) || null,
+      dwellSeconds:dwell!==null && dwell>=0 && dwell<=43200 ? dwell : null,reconciliationRequired:row.reconciliationRequired,expiresAt};
+    board._mcv.trustHistoriesMatched++;
   }
   board.trainServices = output;
   board._mcv.servicesReturned = output.length;

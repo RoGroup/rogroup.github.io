@@ -145,5 +145,64 @@ assert.equal(context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[exp
 worker.mergeTrustServices(routeBoard,{trust:{...routeSnapshot,feedAt:new Date(now-301000).toISOString()}});
 assert.equal(routeBoard.trainServices[0].trustCallingPoints,undefined);
 assert.throws(()=>worker.validateTrustSnapshot({...snapshot,routes:[{...pattern,callingPoints:[{...pattern.callingPoints[0],st:null}]}]}));
-console.log('TRUST ECS, movement reports and booked calling patterns: matching, precedence, expiry, public isolation and adapter checks passed');
+const historyEvent=(kind,at,tiploc='MNCRVIC',timeBasis='actual')=>({kind,at,tiploc,timeBasis,crs:tiploc==='MNCRVIC'?'MCV':'',locationName:tiploc==='MNCRVIC'?'Manchester Victoria':'Deal Street',platform:'4',delaySeconds:timeBasis==='actual'?0:null});
+const historyRow={uid:darwin.uid,trainid:darwin.trainid,sdd:darwin.sdd,sta:darwin.sta,std:darwin.std,reconciliationRequired:false,
+  dwellSeconds:99999,lastReport:{unsafe:true},events:[
+    historyEvent('activation','2026-10-22T03:30:00Z','','received'),
+    historyEvent('arrival','2026-10-22T03:35:00Z'),
+    historyEvent('departure','2026-10-22T03:48:00Z'),
+    historyEvent('pass','2026-10-22T03:49:30Z','MNCRDST'),
+    historyEvent('cancellation','2026-10-22T03:50:00Z','','received'),
+    historyEvent('reinstatement','2026-10-22T03:51:00Z','','received')
+  ]};
+const historySnapshot=worker.validateTrustSnapshot({...snapshot,services:[],histories:[historyRow]});
+assert.equal(historySnapshot.histories[0].dwellSeconds,undefined,'Dwell must be calculated from evidence');
+const historyBoard={trainServices:[{...darwin}]};
+worker.mergeTrustServices(historyBoard,{trust:historySnapshot});
+const attached=historyBoard.trainServices[0].trustHistory;
+assert.equal(historyBoard._mcv.trustHistoriesMatched,1);
+assert.equal(attached.lastReport.tiploc,'MNCRDST');
+assert.equal(attached.dwellSeconds,13*60);
+assert.equal(historyBoard.trainServices[0].isCancelled,true,'History must not override Darwin cancellation');
+assert.equal(historyBoard.trainServices[0].etd,'Delayed');
+assert.equal(historyBoard.trainServices[0].platform,'5');
+for(const changes of [{uid:'P99999'},{trainid:'2N02'},{sdd:'2026-10-23'},{std:'2026-10-22T04:49:00'}]){
+  const board={trainServices:[{...darwin,...changes}]};
+  worker.mergeTrustServices(board,{trust:historySnapshot});
+  assert.equal(board.trainServices[0].trustHistory,undefined);
+}
+for(const [rows,histories] of [[[darwin,darwin],[historyRow]],[[darwin],[historyRow,historyRow]]]){
+  const board={trainServices:rows.map(row=>({...row}))};
+  worker.mergeTrustServices(board,{trust:{...historySnapshot,histories}});
+  assert.ok(board.trainServices.every(row=>!row.trustHistory));
+}
+for(const events of [historyRow.events.filter(event=>event.kind!=='departure'),[historyEvent('arrival','2026-10-22T03:48:00Z'),historyEvent('departure','2026-10-22T03:35:00Z')]]){
+  const board={trainServices:[{...darwin}]};
+  worker.mergeTrustServices(board,{trust:{...historySnapshot,histories:[{...historyRow,events}]}});
+  assert.equal(board.trainServices[0].trustHistory.dwellSeconds,null,'Incomplete or reversed reports must not produce a dwell time');
+}
+const ecsHistory={...historyRow,uid:service.uid,trainid:service.trainid};
+const ecsBoard={trainServices:[]};
+worker.mergeTrustServices(ecsBoard,{trust:{...historySnapshot,services:[service],histories:[ecsHistory]}});
+assert.ok(ecsBoard.trainServices[0].trustHistory,'Standalone TRUST ECS can also show journey reports');
+for(const changes of [{kind:'unsafe'},{timeBasis:'forecast'},{delaySeconds:0.5},{at:new Date(now+120000).toISOString()}]){
+  assert.throws(()=>worker.validateTrustSnapshot({...snapshot,histories:[{...historyRow,events:[{...historyRow.events[1],...changes}]}]}));
+}
+const convertedHistory=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:historyBoard.trainServices}).results[0];
+assert.equal(convertedHistory.trust_history.dwellSeconds,780);
+assert.equal(context.MCVData.trustHistoryFresh(attached),true);
+assert.equal(context.MCVData.trustHistoryFresh({...attached,expiresAt:new Date(now-1).toISOString()}),false);
+context.escapeHTML=context.MCVData.escapeHTML;
+context.station=(name,crs)=>context.MCVData.displayStationName(name,crs);
+context.relativeAge=()=> '1m';
+const staffHTML=readFileSync(new URL('../staff.html',import.meta.url),'utf8');
+vm.runInContext(staffHTML.slice(staffHTML.indexOf('function trustDuration('),staffHTML.indexOf('function renderDetails(')),context);
+const historyHTML=context.renderTrustHistory({trustHistory:attached});
+for(const label of ['Last movement report','Deal Street','Completed dwell at Victoria','13m','Cancellation reported','Reinstatement reported','Received '])assert.ok(historyHTML.includes(label),label);
+assert.equal(context.renderTrustHistory({trustHistory:{...attached,expiresAt:new Date(now-1).toISOString()}}),'');
+const unsafe={...attached,lastReport:{...attached.lastReport,locationName:'<script>alert(1)</script>'}};
+assert.ok(!context.renderTrustHistory({trustHistory:unsafe}).includes('<script>'));
+worker.mergeTrustServices(historyBoard,{trust:{...historySnapshot,feedAt:new Date(now-301000).toISOString()}});
+assert.equal(historyBoard.trainServices[0].trustHistory,undefined);
+console.log('TRUST ECS, movement reports, calling patterns and histories: identity, dwell, lifecycle, expiry, public isolation and UI checks passed');
 

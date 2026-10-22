@@ -16,12 +16,14 @@ cd "$staging"
 "$python" -m unittest -v test_trust_snapshot.py
 publisher_user=$(systemctl show mcv-unit-publisher --property=User --value)
 publisher_user=${publisher_user:-root}
+preview='import json,sys; from pathlib import Path; from trust_snapshot import build_snapshot; s=build_snapshot(Path(sys.argv[1])); print(json.dumps({"available":s["available"],"reason":s.get("reason"),"ecs":len(s["services"]),"movements":len(s.get("movements",[])),"callingPatterns":len(s.get("routes",[])),"journeyHistories":len(s.get("histories",[]))},indent=2))'
+echo 'Previewing TRUST data. The first journey-history replay may take a few minutes.'
 # Preview under the actual service account, so permissions are checked before
 # replacing the currently working publisher. No messages are consumed or sent.
 if [[ $publisher_user == root ]]; then
-    "$python" -u trust_snapshot.py --folder "$folder"
+    "$python" -u -c "$preview" "$folder"
 else
-    runuser -u "$publisher_user" -- "$python" -u "$staging/trust_snapshot.py" --folder "$folder"
+    runuser -u "$publisher_user" -- "$python" -u -c "$preview" "$folder"
 fi
 for file in publisher.py trust_snapshot.py test_trust_snapshot.py; do
     if [[ -e "$folder/$file" ]]; then
@@ -35,3 +37,4 @@ install -m 644 publisher.py "$folder/publisher.py"
 systemctl restart mcv-unit-publisher
 systemctl is-active mcv-unit-publisher
 echo 'Publisher updated. First upload is after 120 seconds. Deploy the matching worker.mjs in Cloudflare.'
+

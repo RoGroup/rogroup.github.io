@@ -1,4 +1,4 @@
-"""Project captured TRUST activations into conservative, staff-only ECS rows.
+"""Project captured TRUST evidence into staff ECS, timetable and journey data.
 
 No Kafka consumer here: index the existing durable archive incrementally.
 Movement times are matched to their scheduled event before interpreting them.
@@ -109,6 +109,153 @@ def timed_route(schedule, operating_date):
             times[field] = moment
         route.append((stop, times))
     return route
+
+
+def index_history_archive(raw, cache, schedules, schedule_stamp, now):
+    """Index lifecycle events first, then retain movements for MCV schedules.
+
+    A separate disposable index keeps upgrades compatible with the old publisher.
+    The first pass allows a movement preceding its activation in the same replay
+    to be joined. A later activation can leave earlier reports absent; the UI
+    therefore describes captured reports, never a complete journey record.
+    """
+    cache.executescript("""
+        CREATE TABLE IF NOT EXISTS history_progress (
+            id INTEGER PRIMARY KEY CHECK(id=1), lifecycle_row INTEGER,
+            movement_row INTEGER, schedule_stamp INTEGER);
+        INSERT OR IGNORE INTO history_progress VALUES (1,0,0,0);
+        CREATE TABLE IF NOT EXISTS events (
+            batch_row INTEGER, ordinal INTEGER, received_at INTEGER,
+            train_id TEXT, kind TEXT, queue_time INTEGER, body TEXT,
+            PRIMARY KEY(batch_row,ordinal));
+        CREATE INDEX IF NOT EXISTS history_train ON events(train_id);
+    """)
+    cache.commit()
+    target = raw.execute("SELECT coalesce(max(rowid),0) FROM trust_batches").fetchone()[0]
+    life_cursor, movement_cursor, previous_stamp = cache.execute("SELECT lifecycle_row,movement_row,schedule_stamp FROM history_progress WHERE id=1").fetchone()
+    if life_cursor > target or movement_cursor > target:
+        raise ValueError("TRUST archive replaced; rebuild trust-history-projection.sqlite3")
+    if previous_stamp != schedule_stamp:
+        with cache:
+            cache.execute("DELETE FROM events WHERE kind='0003'")
+            cache.execute("UPDATE history_progress SET movement_row=0,schedule_stamp=? WHERE id=1", (schedule_stamp,))
+        movement_cursor = 0
+
+    def replay(cursor, movements, relevant=None):
+        column = "movement_row" if movements else "lifecycle_row"
+        while cursor < target:
+            rows = raw.execute("SELECT rowid,received_at,payload_zlib,parse_error FROM trust_batches WHERE rowid>? AND rowid<=? ORDER BY rowid LIMIT 500", (cursor,target)).fetchall()
+            if not rows:
+                break
+            with cache:
+                for batch, received, compressed, error in rows:
+                    if error:
+                        continue
+                    for ordinal, event in enumerate(json.loads(zlib.decompress(compressed))):
+                        header, body = event["header"], event["body"]
+                        kind, train = header.get("msg_type"), body.get("train_id")
+                        if not train or (movements and (kind != "0003" or train not in relevant)):
+                            continue
+                        if not movements and kind not in {"0001","0002","0005","0006","0007","0008"}:
+                            continue
+                        try:
+                            queue = int(header.get("msg_queue_timestamp") or received*1000)
+                        except (ValueError,TypeError):
+                            queue = received*1000
+                        cache.execute("INSERT OR IGNORE INTO events VALUES (?,?,?,?,?,?,?)", (batch,ordinal,received,train,kind,queue,json.dumps(body)))
+                cursor = rows[-1][0]
+                cache.execute(f"UPDATE history_progress SET {column}=? WHERE id=1", (cursor,))
+    replay(life_cursor, False)
+    uids = {row[0] for row in schedules.execute("SELECT DISTINCT uid FROM schedules WHERE payload_zlib IS NOT NULL")}
+    relevant = {train for train, body in cache.execute("SELECT train_id,body FROM events WHERE kind='0001'") if json.loads(body).get("train_uid") in uids}
+    replay(movement_cursor, True, relevant)
+    with cache:
+        cache.execute("DELETE FROM events WHERE received_at<?", (int(now.timestamp())-2*86400,))
+
+
+def project_history(schedule, activation, events, db, now):
+    """Return captured evidence separately from live status or location claims."""
+    uid, headcode, date = schedule["CIF_train_uid"], schedule["schedule_segment"].get("signalling_id", ""), activation["tp_origin_timestamp"]
+    train_id = activation["train_id"]
+    if not re.fullmatch(r"[A-Z]\d{5}",uid) or not re.fullmatch(r"[0-9][A-Z]\d{2}",headcode) or not re.fullmatch(r"[A-Z0-9]{10}",train_id) or train_id[2:6] != headcode:
+        return None
+    route = timed_route(schedule,date)
+    visits = [(stop,times) for stop,times in route if stop["tiploc_code"] == "MNCRVIC"]
+    if len(visits) != 1 or "pass" in visits[0][1]:
+        return None
+    clocks = visits[0][1]
+    booked = clocks.get("departure") or clocks.get("arrival")
+    if not booked or not now-dt.timedelta(hours=6) <= booked <= now+dt.timedelta(hours=2):
+        return None
+    tiplocs = list({stop["tiploc_code"] for stop,_ in route})
+    if len(tiplocs) > 500:
+        return None
+    location_rows = list(db.execute("SELECT tiploc,stanox,crs,description FROM locations WHERE tiploc IN ("+",".join("?" for _ in tiplocs)+")",tiplocs))
+    locations = {row[0]:row for row in location_rows}
+    by_stanox = {}
+    for stop,times in route:
+        row = locations.get(stop["tiploc_code"])
+        if row and row[1]:
+            by_stanox.setdefault(str(row[1]).zfill(5),[]).append((stop,times))
+
+    def place(tiploc):
+        row = locations.get(tiploc)
+        crs = str(row[2] or "") if row else ""
+        if not re.fullmatch(r"[A-Z]{3}",crs) or crs.startswith("X"):
+            crs = ""
+        return {"tiploc":tiploc,"crs":crs,"locationName":str(row[3] or tiploc) if row else tiploc}
+
+    corrected = {(str(body.get("loc_stanox","")).zfill(5),body.get("event_type")) for kind,body,_ in events if kind == "0003" and str(body.get("correction_ind","")).lower() == "true"}
+    lifecycle_names = {"0001":"activation","0002":"cancellation","0005":"reinstatement","0006":"origin-change","0007":"identity-change","0008":"location-change"}
+    lifecycle, movements = [], {}
+    seen_lifecycle = set()
+    changed = False
+    for kind,body,received in events:
+        if kind in lifecycle_names:
+            if received <= now.timestamp()+30:
+                entry = {"kind":lifecycle_names[kind],"at":dt.datetime.fromtimestamp(received,UTC).isoformat(),"timeBasis":"received",
+                         "tiploc":"","crs":"","locationName":"Location not supplied","platform":"","delaySeconds":None}
+                candidates = by_stanox.get(str(body.get("loc_stanox","")).zfill(5),[])
+                if len(candidates) == 1:
+                    entry.update(place(candidates[0][0]["tiploc_code"]))
+                # Duplicate deliveries do not create duplicate history entries.
+                fingerprint = (kind,json.dumps(body,sort_keys=True))
+                if fingerprint not in seen_lifecycle:
+                    lifecycle.append(entry)
+                    seen_lifecycle.add(fingerprint)
+            if kind in {"0006","0007","0008"}:
+                changed = True
+            continue
+        if kind != "0003" or changed or (str(body.get("loc_stanox","")).zfill(5),body.get("event_type")) in corrected or body.get("route") == "F":
+            continue
+        event, planned = body.get("event_type"), body.get("planned_event_type")
+        field = "arrival" if event == "ARRIVAL" and planned in {"ARRIVAL","DESTINATION"} else "departure" if event == "DEPARTURE" and planned in {"DEPARTURE","ORIGIN"} else "pass" if event == "PASS" and planned == "PASS" else None
+        if not field:
+            continue
+        matches = []
+        for stop,times in by_stanox.get(str(body.get("loc_stanox","")).zfill(5),[]):
+            actual = reported_time(body,times.get(field),now)
+            if actual and actual <= now:
+                matches.append((stop,times[field],actual))
+        if len(matches) != 1:
+            continue
+        stop,planned_time,actual = matches[0]
+        platform = str(body.get("platform") or "").strip()
+        if not re.fullmatch(r"[A-Z0-9 -]{1,10}",platform):
+            platform = ""
+        movements[(stop["tiploc_code"],field,planned_time.isoformat())] = {**place(stop["tiploc_code"]),"kind":field,"at":actual.isoformat(),"timeBasis":"actual",
+            "delaySeconds":int((actual-planned_time).total_seconds()),"platform":platform}
+    if not movements and not lifecycle:
+        return None
+    # Keep lifecycle events even on services with many reporting points.
+    mcv_reports = [item for item in movements.values() if item["tiploc"] == "MNCRVIC"]
+    other_reports = sorted([item for item in movements.values() if item["tiploc"] != "MNCRVIC"],key=lambda item:item["at"])
+    remaining = max(0,48-len(mcv_reports))
+    history = sorted([*mcv_reports,*(other_reports[-remaining:] if remaining else []),*lifecycle[-12:]],key=lambda item:item["at"])
+    return {"uid":uid,"trainid":headcode,"sdd":date,
+        "sta":clocks["arrival"].isoformat() if clocks.get("arrival") else None,
+        "std":clocks["departure"].isoformat() if clocks.get("departure") else None,
+        "events":history,"reconciliationRequired":changed or bool(corrected) or any(kind == "0003" and (body.get("route") == "F" or str(body.get("offroute_ind","")).lower() == "true") for kind,body,_ in events)}
 
 
 def reported_time(body, scheduled, now):
@@ -251,7 +398,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
     }
 
 
-def build_snapshot(folder, now=None):
+def build_snapshot(folder, now=None, services=None):
     folder = Path(folder)
     now = now or dt.datetime.now(UTC)
     unavailable = {"version": 1, "available": False, "services": []}
@@ -266,17 +413,19 @@ def build_snapshot(folder, now=None):
         location = schedules.execute("SELECT stanox FROM locations WHERE tiploc='MNCRVIC'").fetchone()
         if not location or not location[0]:
             raise ValueError("Missing Victoria STANOX")
-        with closing(sqlite3.connect(folder / "trust-projection.sqlite3", timeout=10)) as cache:
-            index_archive(raw, cache, str(location[0]).zfill(5))
+        with closing(sqlite3.connect(folder / "trust-history-projection.sqlite3", timeout=10)) as cache:
+            index_history_archive(raw, cache, schedules, schedule_stamp, now)
             by_train = {}
-            for train, kind, body in cache.execute("SELECT train_id, kind, body FROM events ORDER BY queue_time, received_at, batch_row, ordinal"):
-                by_train.setdefault(train, []).append((kind, json.loads(body)))
+            for train, kind, body, received in cache.execute("SELECT train_id, kind, body,received_at FROM events ORDER BY queue_time, received_at, batch_row, ordinal"):
+                by_train.setdefault(train, []).append((kind, json.loads(body), received))
             output = []
             movements = []
             routes = []
+            histories = []
+            requested = {(row.get("uid"),row.get("trainid"),row.get("sdd")) for row in services} if services is not None else None
             counts = {"matchedEcs": 0, "withheld": 0}
             for events in by_train.values():
-                activations = [body for kind, body in events if kind == "0001"]
+                activations = [body for kind, body, _ in events if kind == "0001"]
                 if not activations:
                     continue
                 dates = {a.get("tp_origin_timestamp") for a in activations}
@@ -288,12 +437,17 @@ def build_snapshot(folder, now=None):
                     result = lookup(schedules, activation.get("train_uid"), activation.get("tp_origin_timestamp"))
                     if result["status"] != "scheduled":
                         continue
-                    service = project_train(result["schedule"], activation, events, schedules, now, ecs_only=False)
+                    local_events = [(kind,body) for kind,body,_ in events if kind != "0003" or str(body.get("loc_stanox","")).zfill(5) == str(location[0]).zfill(5)]
+                    service = project_train(result["schedule"], activation, local_events, schedules, now, ecs_only=False)
+                    if requested is None or (activation.get("train_uid"),result["schedule"]["schedule_segment"].get("signalling_id"),activation.get("tp_origin_timestamp")) in requested:
+                        history = project_history(result["schedule"],activation,events,schedules,now)
+                        if history:
+                            histories.append(history)
                 except (ValueError, TypeError, KeyError):
                     counts["withheld"] += 1
                     continue
                 if service and service["category"] == "EE":
-                    output.append(service)
+                    output.append({key:value for key,value in service.items() if key != "timetableCallingPoints"})
                 if service and (service["ata"] or service["atd"]):
                     movements.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std", "ata", "atd")}
                     | {"reportedPlatform": service["platform"] if service["trust"]["platformSource"] == "reported" else "",
@@ -306,7 +460,7 @@ def build_snapshot(folder, now=None):
             return {"version": 1, "available": True, "updatedAt": now.isoformat(),
                     "feedAt": dt.datetime.fromtimestamp(latest[0], UTC).isoformat(),
                     "scheduleAt": dt.datetime.fromtimestamp(schedule_stamp, UTC).isoformat(),
-                    "services": output[:100], "movements": movements[:200], "routes": routes[:200], "diagnostics": counts}
+                    "services": output[:100], "movements": movements[:200], "routes": routes[:200], "histories": histories[:200], "diagnostics": counts}
 
 
 if __name__ == "__main__":

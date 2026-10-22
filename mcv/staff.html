@@ -777,7 +777,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-trust-calls"></script>
+<script src="mcv-data.js?v=20261022-trust-history"></script>
 <script>
 'use strict';
 
@@ -1271,7 +1271,7 @@ function parseServices(json){
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
-      unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,
+      unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,trustHistory:raw.trust_history||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
       get callingPointsSource(){return raw.calling_points_source==='TRUST timetable'&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?'TRUST timetable':''},
@@ -1588,6 +1588,28 @@ function trtsDirection(s){
   return inferred?{label:inferred,note:'Inferred from the passenger route to '+(firstWest||firstEast?point.name:s.dest)+'; direction is not supplied directly by Darwin.'}:{label:'Not confirmed',note:'Direction cannot be established from the supplied onward route.'};
 }
 
+function trustDuration(seconds){
+  const value=Math.max(0,Math.round(seconds)),hours=Math.floor(value/3600),minutes=Math.floor(value%3600/60),rest=value%60;
+  return [hours?hours+'h':'',minutes?minutes+'m':'',rest?rest+'s':''].filter(Boolean).join(' ')||'0s';
+}
+function renderTrustHistory(s){
+  const history=s.trustHistory;
+  if(!MCVData.trustHistoryFresh(history))return '';
+  const labels={arrival:'Arrived',departure:'Departed',pass:'Passed',activation:'Activation reported',cancellation:'Cancellation reported',reinstatement:'Reinstatement reported','origin-change':'Change of origin reported','identity-change':'Change of identity reported','location-change':'Change of location reported'};
+  const stamp=value=>new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(value));
+  const delay=event=>event.delaySeconds==null?'':event.delaySeconds===0?'On working timetable':trustDuration(Math.abs(event.delaySeconds))+(event.delaySeconds>0?' late':' early')+' vs working timetable';
+  const place=event=>station(event.locationName,event.crs||event.tiploc);
+  const last=history.lastReport;
+  const latest=last?`${labels[last.kind]} ${place(last)} · ${stamp(last.at)} · ${relativeAge(Date.parse(last.at))} ago`:'';
+  const events=history.events||[];
+  return `<section class="detail-group"><h3>TRUST journey reports</h3>
+    <div class="reason blue"><strong>Last movement report</strong><br>${escapeHTML(latest||'No matched movement report captured yet.')}${last?`<br>${escapeHTML(delay(last))}${last.platform?' · Reported platform '+escapeHTML(last.platform):''}`:''}</div>
+    <div class="keyvalues"><div><div class="kv-label">Completed dwell at Victoria</div><div class="kv-value">${history.dwellSeconds!=null?escapeHTML(trustDuration(history.dwellSeconds)):'Not available'}</div><div class="detail-small">${history.dwellSeconds!=null?'Calculated from matched TRUST arrival and departure reports.':'Both arrival and departure reports are needed.'}</div></div></div>
+    ${history.reconciliationRequired?'<div class="reason">Some movement reports are withheld following a correction or route/identity change.</div>':''}
+    <div class="detail-small">Captured reporting-point history; gaps are possible. Locations show where the train was reported at the stated time. Lifecycle times show when the message was received. All times Europe/London.</div>
+    <ol class="stops">${events.map(event=>`<li><div class="stop-name">${escapeHTML(labels[event.kind]||event.kind)}${event.tiploc?' · '+escapeHTML(place(event)):''}</div><div class="stop-sub">${event.timeBasis==='received'?'Received ':'Reported '}${escapeHTML(stamp(event.at))}${event.delaySeconds!=null?' · '+escapeHTML(delay(event)):''}${event.platform?' · Reported platform '+escapeHTML(event.platform):''}</div></li>`).join('')}</ol>
+    </section>`;
+}
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
@@ -1696,6 +1718,7 @@ function renderDetails(){
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
     </section>
 
+    ${renderTrustHistory(s)}
     <section class="detail-group"><h3>Next movements on ${escapeHTML(s.platform?'Platform '+s.platform:'this platform')}</h3>
       ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
     </section>

@@ -6,7 +6,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from trust_snapshot import build_snapshot, index_archive, project_train, timed_route, reported_time, UTC
+from trust_snapshot import build_snapshot, index_archive, index_history_archive, project_history, project_train, timed_route, reported_time, UTC
 
 NOW = dt.datetime(2026, 10, 22, 3, 40, tzinfo=UTC)
 SCHEDULE = {
@@ -38,6 +38,77 @@ class ProjectionTests(unittest.TestCase):
 
     def project(self, events=(), now=NOW, schedule=SCHEDULE):
         return project_train(schedule, ACTIVATION, list(events), self.db, now)
+
+    def history_report(self, tiploc, field, delay=0):
+        self.db.execute("UPDATE locations SET stanox=? WHERE tiploc=?", ({"NWTNHDD":"31500","MNCRVIC":"31510","MNCRDST":"31511","CHST":"40000"}[tiploc],tiploc))
+        planned = next(times[field] for stop,times in timed_route(SCHEDULE,ACTIVATION["tp_origin_timestamp"]) if stop["tiploc_code"] == tiploc)
+        encoded = int(planned.replace(tzinfo=UTC).timestamp()*1000)
+        return {"train_id":ACTIVATION["train_id"],"loc_stanox":{"NWTNHDD":"31500","MNCRVIC":"31510","MNCRDST":"31511","CHST":"40000"}[tiploc],
+            "event_type":field.upper(),"planned_event_type":field.upper(),"planned_timestamp":str(encoded),"actual_timestamp":str(encoded+delay*1000),"platform":"4"}
+
+    def history(self, rows, now=None):
+        now = now or dt.datetime(2026,10,22,3,52,tzinfo=UTC)
+        events = [(kind,body,int(NOW.timestamp())) for kind,body in rows]
+        return project_history(SCHEDULE,ACTIVATION,events,self.db,now)
+
+    def test_journey_history_matches_origin_victoria_and_passing_reports(self):
+        origin = self.history_report("NWTNHDD","departure")
+        origin["planned_event_type"] = "ORIGIN"
+        departure = self.history_report("MNCRVIC","departure",60)
+        passed = self.history_report("MNCRDST","pass",60)
+        row = self.history([("0001",ACTIVATION),("0003",origin),("0003",ARRIVAL),("0003",departure),("0003",passed),("0003",passed)])
+        actual = [event for event in row["events"] if event["timeBasis"] == "actual"]
+        self.assertEqual(len(actual),4,"Duplicate delivery must not duplicate a movement")
+        self.assertEqual(actual[-1]["tiploc"],"MNCRDST")
+        self.assertEqual(actual[-1]["at"],"2026-10-22T03:50:30+00:00")
+        self.assertEqual(actual[-1]["delaySeconds"],60)
+        self.assertEqual([event["kind"] for event in actual if event["tiploc"] == "MNCRVIC"],["arrival","departure"])
+
+    def test_history_keeps_lifecycle_messages_without_inventing_route_after_change(self):
+        arrival = self.history_report("MNCRVIC","arrival")
+        passed = self.history_report("MNCRDST","pass")
+        row = self.history([("0003",arrival),("0002",{"train_id":ACTIVATION["train_id"]}),("0005",{"train_id":ACTIVATION["train_id"]}),("0006",{"train_id":ACTIVATION["train_id"]}),("0003",passed)])
+        kinds = [event["kind"] for event in row["events"]]
+        self.assertIn("cancellation",kinds)
+        self.assertIn("reinstatement",kinds)
+        self.assertIn("origin-change",kinds)
+        self.assertNotIn("pass",kinds)
+        self.assertTrue(row["reconciliationRequired"])
+        self.assertTrue(all(event["timeBasis"] == "received" for event in row["events"] if event["kind"] != "arrival"))
+
+    def test_history_withholds_corrected_future_offroute_and_wrong_planned_reports(self):
+        arrival = self.history_report("MNCRVIC","arrival")
+        row = self.history([("0001",ACTIVATION),("0003",arrival),("0003",{**arrival,"correction_ind":"true"})])
+        self.assertFalse(any(event["timeBasis"] == "actual" for event in row["events"]))
+        self.assertTrue(row["reconciliationRequired"])
+        for changes in ({"offroute_ind":"true"},{"planned_timestamp":"0"},{"actual_timestamp":str(int(arrival["actual_timestamp"])+3600000)},{"route":"F"}):
+            row = self.history([("0001",ACTIVATION),("0003",{**arrival,**changes})])
+            self.assertFalse(any(event["timeBasis"] == "actual" for event in row["events"]))
+
+    def test_history_index_replays_related_movements_before_activation_and_refreshes(self):
+        origin = self.history_report("NWTNHDD","departure")
+        self.db.execute("CREATE TABLE schedules(uid TEXT,payload_zlib BLOB)")
+        self.db.execute("INSERT INTO schedules VALUES ('P28858',X'00')")
+        raw,cache = sqlite3.connect(":memory:"),sqlite3.connect(":memory:")
+        self.addCleanup(raw.close);self.addCleanup(cache.close)
+        raw.execute("CREATE TABLE trust_batches(received_at INTEGER,payload_zlib BLOB,parse_error TEXT)")
+        def add(events):
+            raw.execute("INSERT INTO trust_batches VALUES (?,?,NULL)",(int(NOW.timestamp()),zlib.compress(json.dumps(events).encode())))
+            raw.commit()
+        add([{"header":{"msg_type":"0003"},"body":origin}])
+        add([{"header":{"msg_type":"0001"},"body":ACTIVATION},
+             {"header":{"msg_type":"0003"},"body":ARRIVAL},
+             {"header":{"msg_type":"0001"},"body":{**ACTIVATION,"train_id":"XX2N00XX22","train_uid":"P99999"}},
+             {"header":{"msg_type":"0003"},"body":{**origin,"train_id":"XX2N00XX22"}}])
+        for _ in range(2):
+            index_history_archive(raw,cache,self.db,1,NOW)
+            self.assertEqual(cache.execute("SELECT count(*) FROM events WHERE kind='0003'").fetchone()[0],2)
+        add([{"header":{"msg_type":"0003"},"body":origin}])
+        index_history_archive(raw,cache,self.db,2,NOW)
+        self.assertEqual(cache.execute("SELECT count(*) FROM events WHERE kind='0003'").fetchone()[0],3)
+        raw.execute("DELETE FROM trust_batches");raw.commit()
+        with self.assertRaises(ValueError):
+            index_history_archive(raw,cache,self.db,2,NOW)
 
     def test_real_3d32_bst_report_matches_clock_without_double_summer_time(self):
         result = self.project([("0003", ARRIVAL)])
@@ -168,6 +239,8 @@ class ProjectionTests(unittest.TestCase):
         result = build_snapshot(self.folder, NOW)
         self.assertTrue(result["available"])
         self.assertEqual(len(result["services"]), 1)
+        self.assertEqual(len(result["histories"]), 1)
+        self.assertEqual(build_snapshot(self.folder,NOW,services=[])["histories"], [])
         self.assertEqual(result["services"][0]["ata"], "2026-10-22T04:35:00+01:00")
         self.assertEqual(result["movements"][0]["reportedPlatform"], "4")
         passenger = json.loads(json.dumps(SCHEDULE))
