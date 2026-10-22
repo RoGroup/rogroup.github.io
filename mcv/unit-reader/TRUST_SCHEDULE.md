@@ -130,6 +130,36 @@ Workers ignore it, so components can be updated independently. Confirm
 `_mcv.trustMovementsMatched` on `/staff-departures`. A zero count is valid if
 no recent reports satisfy the match checks.
 
+## Booked calling points when Darwin omits the pattern
+
+The snapshot also carries optional `routes` for activated, unambiguously
+matched stopping services in the existing projection window. The route uses
+the applicable imported Network Rail timetable, not a forecast from TRUST.
+Passenger calls require a nonzero public arrival/departure time and a station CRS;
+passing locations and operational-only stops are excluded. ECS uses booked
+operational stops. Only stops after MCV are supplied by this fallback.
+
+The Worker matches the same unique UID/headcode/operating date and MCV booked
+minutes as movement reports, and requires its last call to match Darwin's sole
+destination. It supplies `trustCallingPoints` only if Darwin supplies no onward
+calling points or subsequent locations at all. Partial live patterns, cancelled
+calls, cancelled trains, diversions, future cancellations and trains without a
+booked MCV departure do not receive fallback calls. Lifecycle changes and
+ambiguous timetable variants remain withheld by the existing projector.
+
+Both staff displays label the result `TRUST timetable · booked stops`. The
+staff details show booked public times without invented forecasts; CSV exports
+identify the calling-point source. Darwin data is left intact and takes over
+on the next update that supplies a pattern. Fallback calls expire with the
+shared TRUST freshness deadline, including retained departed rows.
+
+Update the publisher with the same installer and deploy the matching Worker.
+The publisher logs `TRUST booked calling patterns: N`; the staff endpoint
+reports `_mcv.trustCallingPatternsMatched`. No extra reader, KV binding or
+database import is needed. No activation or no suitable timetable means the
+existing missing-pattern message remains. Optional routes are dropped first
+if the combined upload reaches its size budget. Public endpoints are unchanged.
+
 ## Checks
 
 ```bash

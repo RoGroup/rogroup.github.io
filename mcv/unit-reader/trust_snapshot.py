@@ -212,6 +212,23 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
                 result.append({**place(point), "st": clock.isoformat()})
         return [{"callingPoint": result}] if result else []
 
+    def passenger_points(parts):
+        result = []
+        for point, clocks in parts:
+            # Public calls only: an operational stop is not a passenger call.
+            label = place(point)
+            value = next((value for value in (point.get("public_arrival"), point.get("public_departure"))
+                          if isinstance(value, str) and value != "0000" and re.fullmatch(r"(?:[01]\d|2[0-3])[0-5]\d", value)), None)
+            working = clocks.get("arrival") or clocks.get("departure")
+            if not working or not re.fullmatch(r"[A-Z]{3}", label["crs"]) or label["crs"].startswith("X") or value is None:
+                continue
+            public = working.replace(hour=int(value[:2]), minute=int(value[2:]), second=0)
+            public = min((public + dt.timedelta(days=offset) for offset in (-1, 0, 1)), key=lambda candidate: abs((candidate-working).total_seconds()))
+            if abs((public-working).total_seconds()) > 1800:
+                continue
+            result.append({**label, "st": public.isoformat()})
+        return [{"callingPoint": result}] if result else []
+
     next_tiploc = route[index + 1][0]["tiploc_code"] if index + 1 < len(route) else ""
     direction = "West" if next_tiploc in {"MNCRDST", "SLFDORD", "SALFDSC", "MNCRVRS"} else "East" if next_tiploc in {"MILESPL", "THRPSBJ", "NWTNHDD"} else ""
     operator = schedule.get("atoc_code") or ""
@@ -226,6 +243,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
         "ata": arrival.astimezone(LONDON).isoformat() if arrival else None, "atd": departure.astimezone(LONDON).isoformat() if departure else None,
         "platform": reported_platform or str(stop.get("platform") or "").strip(),
         "previousCallingPoints": points(route[:index]), "subsequentCallingPoints": points(route[index + 1:]),
+        "timetableCallingPoints": points(route[index + 1:]) if segment.get("CIF_train_category") == "EE" else passenger_points(route[index + 1:]),
         "mcvSource": "TRUST", "trust": {"trainId": train_id,
             "platformSource": "reported" if reported_platform else "booked",
             "lastReportAt": last_report.isoformat() if last_report else None,
@@ -255,6 +273,7 @@ def build_snapshot(folder, now=None):
                 by_train.setdefault(train, []).append((kind, json.loads(body)))
             output = []
             movements = []
+            routes = []
             counts = {"matchedEcs": 0, "withheld": 0}
             for events in by_train.values():
                 activations = [body for kind, body in events if kind == "0001"]
@@ -279,12 +298,15 @@ def build_snapshot(folder, now=None):
                     movements.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std", "ata", "atd")}
                     | {"reportedPlatform": service["platform"] if service["trust"]["platformSource"] == "reported" else "",
                        "lastReportAt": service["trust"]["lastReportAt"]})
+                if service and service["timetableCallingPoints"]:
+                    routes.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std")}
+                        | {"callingPoints": service["timetableCallingPoints"][0]["callingPoint"]})
             output.sort(key=lambda row: row.get("std") or row["sta"])
             counts["matchedEcs"] = len(output)
             return {"version": 1, "available": True, "updatedAt": now.isoformat(),
                     "feedAt": dt.datetime.fromtimestamp(latest[0], UTC).isoformat(),
                     "scheduleAt": dt.datetime.fromtimestamp(schedule_stamp, UTC).isoformat(),
-                    "services": output[:100], "movements": movements[:200], "diagnostics": counts}
+                    "services": output[:100], "movements": movements[:200], "routes": routes[:200], "diagnostics": counts}
 
 
 if __name__ == "__main__":

@@ -157,6 +157,9 @@ def run_once(db, token):
         payload["trust"] = {"version": 1, "available": False, "services": []}
         print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
     # Retain the earliest workings if their booked routes make a large upload.
+    # Timetable supplements are optional; drop them before movement reports/ECS.
+    while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("routes"):
+        payload["trust"]["routes"].pop()
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"]["services"]:
         payload["trust"]["services"].pop()
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("movements"):
@@ -170,6 +173,7 @@ def run_once(db, token):
     print(f"Published {len(entries)} services; {matched} have unit allocations; reader active={running}", flush=True)
     print(f"TRUST snapshot: available={payload['trust']['available']}; {len(payload['trust']['services'])} ECS workings", flush=True)
     print(f"TRUST Victoria movement reports: {len(payload['trust'].get('movements', []))}", flush=True)
+    print(f"TRUST booked calling patterns: {len(payload['trust'].get('routes', []))}", flush=True)
 
 
 def main():

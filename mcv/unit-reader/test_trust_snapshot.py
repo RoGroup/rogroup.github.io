@@ -70,6 +70,37 @@ class ProjectionTests(unittest.TestCase):
         mismatch = {**ARRIVAL, "event_type": "DEPARTURE"}
         self.assertIsNone(self.project([("0003", mismatch)])["atd"])
 
+    def test_passenger_calling_patterns_exclude_passes_and_operational_stops(self):
+        passenger = json.loads(json.dumps(SCHEDULE))
+        passenger["schedule_segment"]["CIF_train_category"] = "OO"
+        stops = passenger["schedule_segment"]["schedule_location"]
+        stops[-1]["public_arrival"] = "0547"
+        stops.insert(-1, {"tiploc_code":"TESTST", "arrival":"0500", "departure":"0501", "public_arrival":None, "public_departure":None})
+        self.db.execute("INSERT INTO locations VALUES ('TESTST','TST','OPERATIONAL STOP',NULL)")
+        row = project_train(passenger, ACTIVATION, [], self.db, NOW, ecs_only=False)
+        calls = row["timetableCallingPoints"][0]["callingPoint"]
+        self.assertEqual([point["crs"] for point in calls], ["CTR"])
+        self.assertEqual(calls[0]["st"], "2026-10-22T05:47:00+01:00")
+        self.assertNotIn("et",calls[0])
+        self.assertIsNone(row["ata"], "A booked pattern does not require a movement report")
+        stops[-2].update(public_arrival="0000",public_departure="0501")
+        pickup = project_train(passenger, ACTIVATION, [], self.db, NOW, ecs_only=False)
+        self.assertEqual([point["crs"] for point in pickup["timetableCallingPoints"][0]["callingPoint"]], ["TST","CTR"])
+        stops[-2]["public_departure"] = "0000"
+        stops[-1]["public_arrival"] = None
+        self.assertEqual(project_train(passenger, ACTIVATION, [], self.db, NOW, ecs_only=False)["timetableCallingPoints"], [])
+
+    def test_passenger_public_call_after_midnight_keeps_next_date(self):
+        passenger = json.loads(json.dumps(SCHEDULE))
+        passenger["schedule_segment"]["CIF_train_category"] = "OO"
+        stops = passenger["schedule_segment"]["schedule_location"]
+        stops[0]["departure"] = "2350"
+        stops[1].update(arrival="2355",departure="2356")
+        stops[2]["pass"] = "2357"
+        stops[3].update(arrival="0005",public_arrival="0006")
+        row = project_train(passenger, ACTIVATION, [], self.db, dt.datetime(2026,10,22,22,56,tzinfo=UTC), ecs_only=False)
+        self.assertEqual(row["timetableCallingPoints"][0]["callingPoint"][0]["st"], "2026-10-23T00:06:00+01:00")
+
     def test_departed_rows_expire_and_lifecycle_changes_are_withheld(self):
         departure = {**ARRIVAL, "event_type": "DEPARTURE", "planned_event_type": "DEPARTURE",
                      "planned_timestamp": "1792644480000", "actual_timestamp": "1792644480000"}
@@ -141,12 +172,14 @@ class ProjectionTests(unittest.TestCase):
         self.assertEqual(result["movements"][0]["reportedPlatform"], "4")
         passenger = json.loads(json.dumps(SCHEDULE))
         passenger["schedule_segment"]["CIF_train_category"] = "OO"
+        passenger["schedule_segment"]["schedule_location"][-1]["public_arrival"] = "0546"
         with sqlite3.connect(self.folder / "schedules.sqlite3") as target:
             target.execute("UPDATE schedules SET payload_zlib=?", (zlib.compress(json.dumps(passenger).encode()),))
         with patch("trust_snapshot.time.time", return_value=NOW.timestamp()):
             result = build_snapshot(self.folder, NOW)
         self.assertEqual(result["services"], [], "Passenger reports must not create standalone TRUST trains")
         self.assertEqual(result["movements"][0]["ata"], "2026-10-22T04:35:00+01:00")
+        self.assertEqual(result["routes"][0]["callingPoints"][0]["crs"], "CTR")
         result = build_snapshot(self.folder, NOW + dt.timedelta(minutes=4))
         self.assertFalse(result["available"])
         self.assertEqual(result["services"], [])

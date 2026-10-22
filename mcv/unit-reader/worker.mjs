@@ -129,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-trust-v16',
+          '/__cache/mcv-staff-movements-trust-v17',
           origin,
           () => buildStaffMovements(env)
         );
@@ -1242,15 +1242,24 @@ function validateTrustSnapshot(input) {
     if (typeof row.reportedPlatform !== 'string' || !/^(?:[1-6](?:[AB])?)?$/.test(row.reportedPlatform)) throw new Error('Invalid TRUST reported platform');
     return Object.fromEntries(['uid','trainid','sdd','sta','std','ata','atd','lastReportAt','reportedPlatform'].map(key=>[key,row[key] ?? null]));
   });
-  return {version:1, available:true, services, movements:cleanMovements, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
+  const routes = input.routes ?? [];
+  if (!Array.isArray(routes) || routes.length > 200) throw new Error('Invalid TRUST calling patterns');
+  const cleanRoutes = routes.map(row => {
+    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+        !/^\d{4}-\d\d-\d\d$/.test(row.sdd) || !iso(row.sta) || !iso(row.std) || !(row.sta || row.std)) throw new Error('Invalid TRUST calling pattern identity');
+    const callingPoints = places(row.callingPoints,100);
+    if (!callingPoints.length || callingPoints.some(point=>!point.st || !point.crs || !point.tiploc)) throw new Error('Invalid TRUST booked call');
+    return {uid:row.uid,trainid:row.trainid,sdd:row.sdd,sta:row.sta ?? null,std:row.std ?? null,callingPoints};
+  });
+  return {version:1, available:true, services, movements:cleanMovements, routes:cleanRoutes, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
 }
 function mergeTrustServices(board, snapshot) {
   const trust = snapshot?.trust;
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
-  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0};
-  for (const service of board.trainServices || []) delete service.trustMovement;
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0};
+  for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;}
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
   const output = [...original];
@@ -1263,6 +1272,11 @@ function mergeTrustServices(board, snapshot) {
   for (const row of trust.movements || []) {
     const key = identity(row);
     reports.set(key, reports.has(key) ? null : row);
+  }
+  const routes = new Map();
+  for (const row of trust.routes || []) {
+    const key = identity(row);
+    routes.set(key, routes.has(key) ? null : row);
   }
   const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
   const londonMinute = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
@@ -1278,13 +1292,27 @@ function mergeTrustServices(board, snapshot) {
     const a = Date.parse(darwin), b = Date.parse(planned);
     return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
   };
+  const matches = (service,row) => {
+    if (!row || service.mcvSource === 'TRUST' || original.filter(item=>identity(item)===identity(service)).length !== 1) return false;
+    const fields = ['sta','std'].filter(field=>service[field]);
+    return fields.length > 0 && fields.every(field=>sameBookedMinute(service[field],row[field]));
+  };
   for (const service of original) {
     const row = reports.get(identity(service));
-    if (!row || service.mcvSource === 'TRUST' || original.filter(item=>identity(item)===identity(service)).length !== 1) continue;
-    const fields = ['sta','std'].filter(field=>service[field]);
-    if (!fields.length || !fields.every(field=>sameBookedMinute(service[field],row[field]))) continue;
-    service.trustMovement = {...row, source:'TRUST', location:'Manchester Victoria', expiresAt};
-    board._mcv.trustMovementsMatched++;
+    if (matches(service,row)) {
+      service.trustMovement = {...row, source:'TRUST', location:'Manchester Victoria', expiresAt};
+      board._mcv.trustMovementsMatched++;
+    }
+    const route = routes.get(identity(service));
+    if (!matches(service,route) || !service.std || service.isCancelled || service.futureCancellation || service.diversion || service.affectedByDiversion) continue;
+    // Any supplied Darwin pattern, including cancelled or operational calls,
+    // takes precedence. Never append booked calls to a partial live pattern.
+    if ((service.subsequentLocations || []).length || (service.subsequentCallingPoints || []).some(group=>(group.callingPoint || []).length)) continue;
+    const destinations = service.destination || [];
+    const last = route.callingPoints.at(-1);
+    if (destinations.length !== 1 || !last || ![last.crs,last.tiploc].includes(String(destinations[0].crs || '').toUpperCase())) continue;
+    service.trustCallingPoints = {source:'TRUST timetable',expiresAt,callingPoints:route.callingPoints};
+    board._mcv.trustCallingPatternsMatched++;
   }
   for (const service of trust.services || []) {
     if (output.length >= 200 || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false) continue;

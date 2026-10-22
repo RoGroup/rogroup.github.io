@@ -777,7 +777,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-trust-reports"></script>
+<script src="mcv-data.js?v=20261022-trust-calls"></script>
 <script>
 'use strict';
 
@@ -1273,7 +1273,9 @@ function parseServices(json){
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
       unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
-      stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
+      get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
+      get callingPointsSource(){return raw.calling_points_source==='TRUST timetable'&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?'TRUST timetable':''},
+      previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
@@ -1307,7 +1309,7 @@ function rememberRecentDepartures(next){
     let departedAt=Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:NaN;
     if(!Number.isFinite(departedAt)&&before&&!before.departed)departedAt=now;
     if(Number.isFinite(departedAt)&&departedAt<=now+60000&&now-departedAt<=RECENT_DEPARTED_MS){
-      state.recentDeparted.set(s.key,{...s,recentlyDeparted:true,recentDepartedAt:departedAt});
+      state.recentDeparted.set(s.key,Object.assign(Object.defineProperties({},Object.getOwnPropertyDescriptors(s)),{recentlyDeparted:true,recentDepartedAt:departedAt}));
     }
   }
   purgeRecentDeparted();
@@ -1319,7 +1321,7 @@ function retainPendingEarlyTerminations(next,previous){
   }
   const seen=new Set(next.map(identity));
   const retained=previous.filter(s=>s.terminatesEarly&&!s.arrived&&!seen.has(identity(s)))
-    .map(s=>({...s,earlyTerminationAwaitingUpdate:true}));
+    .map(s=>Object.assign(Object.defineProperties({},Object.getOwnPropertyDescriptors(s)),{earlyTerminationAwaitingUpdate:true}));
   return next.concat(retained);
 }
 
@@ -1690,6 +1692,7 @@ function renderDetails(){
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
 
       </div>
+      ${!showBefore&&s.callingPointsSource?'<div class="reason blue"><strong>TRUST timetable · booked stops</strong><br>Live calling points were not supplied by Darwin. These are scheduled stops; live changes and forecasts are not supplied.</div>':''}
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
     </section>
 
@@ -1802,9 +1805,9 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
 }
 function updateClock(){renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
-  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)'];
+  const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)','Calling points source'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
-  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,displayCarriages(s)||'',s.reverseFormation?'Yes':'No',firstClassPosition(s)||s.firstClassNotice?.replace('FIRST CLASS: ','')||'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId,allocatedUnits(s,'arrivals').join(' + '),allocatedUnits(s,'departures').join(' + '),allocationFresh(s)?s.unitAllocation?.messageTime||'':''])];
+  const rows=[cols,...list.map(s=>[state.viewMode,serviceFlow(s).label,s.bookedArrival,s.booked,s.expectedArrival,s.expected,s.headcode||'',s.ecs?'ECS':'Passenger',s.trainCategory?(s.trainCategory+' '+categoryName(s.trainCategory)):'',s.origin,s.dest,s.destCrs,s.operator,displayCarriages(s)||'',s.reverseFormation?'Yes':'No',firstClassPosition(s)||s.firstClassNotice?.replace('FIRST CLASS: ','')||'',s.platform||'TBC',s.status,timeDiff(s)??'',reasonFor(s),(s.previousStops||[]).map(x=>x.name).join(' > '),s.stops[0]?.name||'',s.stops.map(x=>x.name).join(' > '),s.uid,s.rid,s.serviceId,allocatedUnits(s,'arrivals').join(' + '),allocatedUnits(s,'departures').join(' + '),allocationFresh(s)?s.unitAllocation?.messageTime||'':'',s.stops.length?(s.callingPointsSource||s.source):'Not supplied'])];
   const blob=new Blob(['\ufeff'+rows.map(row=>row.map(safe).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`Manchester_Victoria_staff_${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),10000)
 }

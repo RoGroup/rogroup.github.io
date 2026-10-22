@@ -110,5 +110,40 @@ const converted=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[
 assert.equal(converted.trust_movement.reportedPlatform,'4');
 assert.match(context.MCVData.trustMovementText(movement),/arrived 04:35.*reported P4/);
 assert.equal(context.MCVData.trustMovementText({...movement,expiresAt:new Date(now-1).toISOString()}),'');
-console.log('TRUST ECS and passenger reports: matching, lifecycle boundaries, expiry, public isolation and adapter checks passed');
+const pattern={uid:report.uid,trainid:report.trainid,sdd:report.sdd,sta:report.sta,std:report.std,
+  callingPoints:[{locationName:'CHESTER',crs:'CTR',tiploc:'CHST',st:'2026-10-22T05:46:00+01:00'}]};
+const routeSnapshot=worker.validateTrustSnapshot({...snapshot,services:[],routes:[pattern]});
+const missingPattern={...darwin,isCancelled:false,destination:[{crs:'CTR'}]};
+const routeBoard={trainServices:[{...missingPattern}]};
+worker.mergeTrustServices(routeBoard,{trust:routeSnapshot});
+assert.equal(routeBoard._mcv.trustCallingPatternsMatched,1);
+assert.equal(routeBoard.trainServices[0].subsequentCallingPoints,undefined,'Keep original Darwin data separate');
+for(const changes of [{isCancelled:true},{futureCancellation:true},{diversion:{reason:'altered'}},{destination:[{crs:'LDS'}]},
+  {subsequentCallingPoints:[{callingPoint:[{crs:'CTR',isCancelled:true}]}]},
+  {subsequentLocations:[{crs:'CTR',isPass:true}]},{std:null},{uid:'P22222'}]){
+  const board={trainServices:[{...missingPattern,...changes}]};
+  worker.mergeTrustServices(board,{trust:routeSnapshot});
+  assert.equal(board.trainServices[0].trustCallingPoints,undefined,'Darwin patterns/alterations and exact matching must win');
+}
+for(const [rows,routes] of [[[missingPattern,missingPattern],[pattern]],[[missingPattern],[pattern,pattern]]]){
+  const board={trainServices:rows.map(row=>({...row}))};
+  worker.mergeTrustServices(board,{trust:{...routeSnapshot,routes}});
+  assert.ok(board.trainServices.every(row=>!row.trustCallingPoints));
+}
+const timetableLegacy=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:routeBoard.trainServices}).results[0];
+assert.equal(timetableLegacy.calling_points_source,'TRUST timetable');
+assert.equal(timetableLegacy.calling_points[0].station.crs,'CTR');
+assert.equal(timetableLegacy.calling_points[0].expected_arrives,null,'Booked-only stops must not invent forecasts');
+assert.equal(timetableLegacy.calling_points[0].arrives,'2026-10-22T04:46:00.000Z');
+const overnightFallback={...routeBoard.trainServices[0],trustCallingPoints:{...routeBoard.trainServices[0].trustCallingPoints,callingPoints:[{...pattern.callingPoints[0],st:'2026-10-23T00:06:00+01:00'}]}};
+assert.equal(context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[overnightFallback]}).results[0].calling_points[0].arrives,'2026-10-22T23:06:00.000Z','Preserve the absolute date of calls after midnight');
+const supplied=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[{...routeBoard.trainServices[0],subsequentCallingPoints:[{callingPoint:[{crs:'LDS',locationName:'LEEDS',st:'06:00'}]}]}]}).results[0];
+assert.equal(supplied.calling_points_source,'Darwin');
+assert.equal(supplied.calling_points[0].station.crs,'LDS');
+const expiredRoute={...routeBoard.trainServices[0],trustCallingPoints:{...routeBoard.trainServices[0].trustCallingPoints,expiresAt:new Date(now-1).toISOString()}};
+assert.equal(context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:[expiredRoute]}).results[0].calling_points.length,0);
+worker.mergeTrustServices(routeBoard,{trust:{...routeSnapshot,feedAt:new Date(now-301000).toISOString()}});
+assert.equal(routeBoard.trainServices[0].trustCallingPoints,undefined);
+assert.throws(()=>worker.validateTrustSnapshot({...snapshot,routes:[{...pattern,callingPoints:[{...pattern.callingPoints[0],st:null}]}]}));
+console.log('TRUST ECS, movement reports and booked calling patterns: matching, precedence, expiry, public isolation and adapter checks passed');
 

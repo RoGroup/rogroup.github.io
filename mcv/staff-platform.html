@@ -302,7 +302,7 @@ body{user-select:none}
   </footer>
 </div>
 
-<script src="mcv-data.js?v=20261022-trust-reports"></script>
+<script src="mcv-data.js?v=20261022-trust-calls"></script>
 <script>
 'use strict';
 
@@ -395,7 +395,8 @@ function parseServices(json){
       status:status,
       lateReason:String(raw.late_reason||'').trim(),
       cancelReason:String(raw.cancel_reason||'').trim(),
-      stops:stopNames
+      get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:stopNames},
+      get callingPointsSource(){return raw.calling_points_source==='TRUST timetable'&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?'TRUST timetable':''}
     };
   }).filter(function(service){
     return Number.isFinite(service.bookedMs)&&!service.departed&&(service.source!=='TRUST'||Date.parse(service.trust?.expiresAt||'')>Date.now());
@@ -442,7 +443,7 @@ function render(){
         '<div><span class="status '+statusClass(s)+'">'+escapeHTML(s.status)+'</span></div>'+
         '<div class="platform '+(s.platform?'':'tbc')+'">'+escapeHTML(s.cancelled?'–':(s.platform||'TBC'))+(s.source==='TRUST'?'<small style="display:block;font-size:11px">'+(s.trust?.platformSource==='reported'?'Reported':'Booked')+'</small>':'')+'</div>'+
       '</div>'+
-      '<div class="stops"><span class="label">'+(s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
+      '<div class="stops"><span class="label">'+(s.callingPointsSource?'TRUST timetable · booked stops:':s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
       (stockNotes.length?'<div class="stock-notes">'+stockNotes.map(note=>'<span>'+escapeHTML(note)+'</span>').join('')+'</div>':'')+
       (procedure?'<div class="reason procedure-note"><strong>OPERATING PROCEDURE: </strong>'+escapeHTML(procedure.replace('Operating procedure: ',''))+'</div>':'')+
       (reason?'<div class="reason"><strong>'+(s.cancelled?'CANCELLATION: ':'DELAY: ')+'</strong>'+escapeHTML(reason)+'</div>':'')+

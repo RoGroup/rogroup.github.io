@@ -508,7 +508,18 @@
   }
 
   function parseCallingPoints(service) {
+    if (!hasDarwinCallingPoints(service) && trustCallingPointsFresh(service?.trustCallingPoints)) {
+      return parseCallingPointGroups({subsequentCallingPoints:[{callingPoint:service.trustCallingPoints.callingPoints}]}, 'subsequentCallingPoints').map(function(point,index){return Object.assign(point,{bookedOnly:true,scheduledAbsolute:service.trustCallingPoints.callingPoints[index].st});});
+    }
     return parseCallingPointGroups(service, 'subsequentCallingPoints');
+  }
+
+  function hasDarwinCallingPoints(service) {
+    return (service?.subsequentLocations || []).length > 0 || (service?.subsequentCallingPoints || []).some(function(group){return (group.callingPoint || []).length > 0;});
+  }
+
+  function trustCallingPointsFresh(route) {
+    return Boolean(route && Number.isFinite(Date.parse(route.expiresAt || '')) && Date.parse(route.expiresAt) > Date.now() && Array.isArray(route.callingPoints) && route.callingPoints.length);
   }
 
   function parsePreviousCallingPoints(service) {
@@ -1065,9 +1076,9 @@
         const actualDeparture = clockToIso(service.atd, generatedAt);
 
         function legacyPoint(point) {
-          const scheduled = clockToIso(point.scheduled, generatedAt);
+          const scheduled = clockToIso(point.bookedOnly ? point.scheduledAbsolute : point.scheduled, generatedAt);
           const expectedPoint =
-            expectedClockToIso(point.expected, point.scheduled, generatedAt) || scheduled;
+            point.bookedOnly ? null : expectedClockToIso(point.expected, point.scheduled, generatedAt) || scheduled;
 
           return {
             station: { name: point.rawName || point.name, crs: point.crs },
@@ -1128,6 +1139,8 @@
           platform_withheld: !text(service.platform),
           platform_hidden: service.platformIsHidden === true,
           calling_points: points,
+          calling_points_source: !hasDarwinCallingPoints(service) && trustCallingPointsFresh(service.trustCallingPoints) ? 'TRUST timetable' : 'Darwin',
+          trust_calling_points: service.trustCallingPoints || null,
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
@@ -1167,6 +1180,7 @@
   }
 
   global.MCVData = Object.freeze({
+    trustCallingPointsFresh: trustCallingPointsFresh,
     trustMovementText: trustMovementText,
     VERSION: VERSION,
     CONFIG: CONFIG,
