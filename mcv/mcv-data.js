@@ -216,6 +216,7 @@
     const code = text(crs).toUpperCase();
 
     const operationalLocations = {
+      ALERTNS: 'Allerton TMD',
       CHNL159: 'Chinley Signal Cy159',
       NWTNHDD: 'Newton Heath TMD',
       ARDWTMD: 'Ardwick TMD',
