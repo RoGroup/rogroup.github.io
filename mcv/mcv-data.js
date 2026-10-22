@@ -216,6 +216,8 @@
     const code = text(crs).toUpperCase();
 
     const operationalLocations = {
+      BREWTBS: 'Brewery Turnback',
+      SALFDAS: 'Oldfield Rd Turnback',
       ALERTNS: 'Allerton TMD',
       LNGSGHT: 'Longsight TMD',
       LNGSEMD: 'Longsight TMD',
