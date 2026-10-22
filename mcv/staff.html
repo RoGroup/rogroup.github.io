@@ -308,6 +308,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .removed-stops-chip{display:inline-block;margin-top:6px;padding:4px 7px;border:1px solid #c69219;border-radius:5px;background:#fff3cd;color:#684600;font-weight:800;font-size:11px;line-height:1.35}
 :root[data-theme="dark"] .removed-stops-chip{background:#45391b;color:#ffe091;border-color:#ad8937}
 .trts-direction-value{font-size:20px;font-weight:900;color:var(--ink);line-height:1.3}
+.trust-history-toggle{width:100%;min-height:44px;justify-content:space-between;text-align:left;white-space:normal;cursor:pointer}
+#trust-journey-report-body[hidden]{display:none}
 </style>
 
 
@@ -813,7 +815,7 @@ function setSignalControls(enabled){
   if(!enabled)centreSignalMap();
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
-  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set()};
+  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set()};
 const $ = id=>document.getElementById(id);
 const THEME_KEY='mcv-staff-theme';
 function applyTheme(theme){
@@ -1592,7 +1594,7 @@ function trustDuration(seconds){
   const value=Math.max(0,Math.round(seconds)),hours=Math.floor(value/3600),minutes=Math.floor(value%3600/60),rest=value%60;
   return [hours?hours+'h':'',minutes?minutes+'m':'',rest?rest+'s':''].filter(Boolean).join(' ')||'0s';
 }
-function renderTrustHistory(s){
+function renderTrustHistory(s,expanded=false){
   const history=s.trustHistory;
   if(!MCVData.trustHistoryFresh(history))return '';
   const labels={arrival:'Arrived',departure:'Departed',pass:'Passed',activation:'Activation reported',cancellation:'Cancellation reported',reinstatement:'Reinstatement reported','origin-change':'Change of origin reported','identity-change':'Change of identity reported','location-change':'Change of location reported'};
@@ -1602,13 +1604,14 @@ function renderTrustHistory(s){
   const last=history.lastReport;
   const latest=last?`${labels[last.kind]} ${place(last)} · ${stamp(last.at)} · ${relativeAge(Date.parse(last.at))} ago`:'';
   const events=history.events||[];
-  return `<section class="detail-group"><h3>TRUST journey reports</h3>
+  return `<section class="detail-group"><h3><button type="button" class="button trust-history-toggle" data-trust-history-toggle aria-expanded="${expanded}" aria-controls="trust-journey-report-body"><span>TRUST journey reports</span><span aria-hidden="true">${expanded?'Hide ▴':'Show ▾'}</span></button></h3>
+    <div id="trust-journey-report-body"${expanded?'':' hidden'}>
     <div class="reason blue"><strong>Last movement report</strong><br>${escapeHTML(latest||'No matched movement report captured yet.')}${last?`<br>${escapeHTML(delay(last))}${last.platform?' · Reported platform '+escapeHTML(last.platform):''}`:''}</div>
     <div class="keyvalues"><div><div class="kv-label">Completed dwell at Victoria</div><div class="kv-value">${history.dwellSeconds!=null?escapeHTML(trustDuration(history.dwellSeconds)):'Not available'}</div><div class="detail-small">${history.dwellSeconds!=null?'Calculated from matched TRUST arrival and departure reports.':'Both arrival and departure reports are needed.'}</div></div></div>
     ${history.reconciliationRequired?'<div class="reason">Some movement reports are withheld following a correction or route/identity change.</div>':''}
     <div class="detail-small">Captured reporting-point history; gaps are possible. Locations show where the train was reported at the stated time. Lifecycle times show when the message was received. All times Europe/London.</div>
     <ol class="stops">${events.map(event=>`<li><div class="stop-name">${escapeHTML(labels[event.kind]||event.kind)}${event.tiploc?' · '+escapeHTML(place(event)):''}</div><div class="stop-sub">${event.timeBasis==='received'?'Received ':'Reported '}${escapeHTML(stamp(event.at))}${event.delaySeconds!=null?' · '+escapeHTML(delay(event)):''}${event.platform?' · Reported platform '+escapeHTML(event.platform):''}</div></li>`).join('')}</ol>
-    </section>`;
+    </div></section>`;
 }
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
@@ -1718,7 +1721,7 @@ function renderDetails(){
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">Stopping pattern becomes available 1 hour prior to departure time</div>'))}
     </section>
 
-    ${renderTrustHistory(s)}
+    ${renderTrustHistory(s,state.trustHistoryOpen.has(s.key))}
     <section class="detail-group"><h3>Next movements on ${escapeHTML(s.platform?'Platform '+s.platform:'this platform')}</h3>
       ${s.platform?(platformMoves.length?`<div class="ops-next">${platformMoves.map(x=>`<div class="ops-move"><div class="move-time">${escapeHTML(x.booked)}</div><div class="move-code">${escapeHTML(x.headcode||'—')}</div><div class="move-dest">${escapeHTML(x.dest)}</div><div class="move-status">${escapeHTML(x.status)}</div></div>`).join('')}</div>`:'<div class="placeholder">No later movement on this exact platform is currently listed in the feed.</div>'):'<div class="placeholder">A platform allocation is needed before later movements can be compared.</div>'}
     </section>
@@ -1837,6 +1840,7 @@ function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)
 $('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-key]');if(!tr)return;state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails();if(window.matchMedia('(max-width:760px)').matches){$('service-details').closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'})}});
 $('platform-timeline').addEventListener('click',e=>{const block=e.target.closest('[data-service-key]');if(!block)return;state.selectedKey=block.dataset.serviceKey;state.callingPointView='after';renderTable();renderDetails();document.querySelector('.workspace')?.scrollIntoView({behavior:'smooth',block:'start'})});
 $('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails()});
+$('service-details').addEventListener('click',e=>{if(!e.target.closest('[data-trust-history-toggle]'))return;const key=state.selectedKey;if(state.trustHistoryOpen.has(key))state.trustHistoryOpen.delete(key);else state.trustHistoryOpen.add(key);renderDetails()});
 $('service-details').addEventListener('click',e=>{const btn=e.target.closest('[data-calling-view]');if(!btn)return;const next=btn.dataset.callingView==='before'?'before':'after';state.callingPointView=next;const s=visibleServices().find(x=>x.key===state.selectedKey);if(next==='before'&&s&&!s.previousStopsLoaded)loadPreviousStops(s);else renderDetails()});
 $('platforms').addEventListener('click',e=>{const card=e.target.closest('[data-platform]');if(!card)return;const num=card.dataset.platform;state.chosenPlatform=state.chosenPlatform===num?'all':num;$('platform-filter').value=state.chosenPlatform;renderPlatforms();renderTable()});
 $('platform-filter').addEventListener('change',e=>{state.chosenPlatform=e.target.value;renderPlatforms();renderTable()});
