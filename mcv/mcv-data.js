@@ -241,7 +241,7 @@
     return rawName || code;
   }
 
-  function displayDestinationName(name, crs, headcode, service) {
+  function displayDestinationName(name, crs, headcode, service, audience) {
     const base = displayStationName(name, crs);
     const code = text(crs).toUpperCase();
     const plain = text(base).replace(/\s+via\s+.*$/i, '').toUpperCase();
@@ -285,7 +285,14 @@
       if (wallgate) return 'Wigan Wallgate via Bolton';
       if (northWestern) return 'Wigan North Western via Bolton';
     }
-    if (/^2G[0-9]{2}$/.test(train) && northWestern) return 'Wigan North Western via Golborne';
+    if (/^2G[0-9]{2}$/.test(train) && northWestern) {
+      if (audience === 'public') {
+        const booked = rdmTime(source.std);
+        if (!/^\d{2}:\d{2}$/.test(booked)) return 'Wigan NW';
+        return booked >= '15:00' ? 'Wigan NW via Eccles' : 'Express to Wigan NW';
+      }
+      return 'Wigan North Western via Golborne';
+    }
     if (code === 'CLH' || plain === 'CLITHEROE') return 'Clitheroe via Bolton';
     return base;
   }
@@ -545,7 +552,7 @@
     const destinations = Array.isArray(raw.destination) ? raw.destination : [];
     const destinationNames = destinations
       .map(function (destination) {
-        return displayDestinationName(destination && destination.locationName, destination && destination.crs, raw.trainid, raw);
+        return displayDestinationName(destination && destination.locationName, destination && destination.crs, raw.trainid, raw, 'public');
       })
       .filter(Boolean);
 
@@ -596,7 +603,7 @@
       destinationCrs: destinationCrs,
       destinations: destinations.map(function (destinationEntry) {
         return {
-          name: displayDestinationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs, raw.trainid, raw),
+          name: displayDestinationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs, raw.trainid, raw, 'public'),
           crs: text(destinationEntry && destinationEntry.crs).toUpperCase(),
           via: text(destinationEntry && destinationEntry.via)
         };
@@ -1007,7 +1014,8 @@
     return ['', status.label || rawEtd || 'Status not supplied'];
   }
 
-  function toLegacyBoard(input) {
+  function toLegacyBoard(input, options) {
+    const audience = options && options.audience;
     const data = input && input.raw && Array.isArray(input.raw.trainServices)
       ? input.raw
       : input;
@@ -1079,10 +1087,10 @@
           status: statusPair[0],
           status_text: statusPair[1],
           destination: {
-            name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service),
+            name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service, audience),
             crs: text(destination.crs)
           },
-          destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service),
+          destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service, audience),
           destination_crs: text(destination.crs),
           origin: {
             name: text(origin.locationName || origin.name),

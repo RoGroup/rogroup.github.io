@@ -132,7 +132,7 @@ footer {flex:none;min-height:64px; display:flex;align-items:center;gap:20px; pad
 <footer><div class="footer-label" id="footer-label">SERVICE INFORMATION</div><div class="footer-text" id="footer-text">Please check the destination and listen for station announcements before boarding.</div></footer>
 </div>
 
-<script src="mcv-data.js?v=20261006-3"></script>
+<script src="mcv-data.js?v=20261022-public-wigan"></script>
 <script>
 'use strict';
 const PLATFORM_NUMBER = 1;
@@ -187,7 +187,7 @@ function isMatchingPlatform(platform) {
 function coachCount(raw) { return MCVData.coachCount(raw); }
 
 function parseServices(json) {
-  json = MCVData.toLegacyBoard(json);
+  json = MCVData.toLegacyBoard(json, {audience:'public'});
   if (!Array.isArray(json?.results)) throw new Error('Invalid departures response');
   return json.results.map(item => {
     const code = String(item.status || '').toLowerCase().trim();
@@ -362,7 +362,7 @@ async function refreshDepartures() {
   loadingDepartures = true;
   try {
     const board = await MCVData.fetchBoard({ allowStale: true });
-    const legacy = MCVData.toLegacyBoard(board.raw);
+    const legacy = MCVData.toLegacyBoard(board.raw, {audience:'public'});
     const newServices = parseServices(legacy);
     window.MCVPlatformAlerts?.observe(legacy.results);
     noticePlatformMoves(newServices);
