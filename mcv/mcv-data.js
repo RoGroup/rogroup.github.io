@@ -241,6 +241,22 @@
     return rawName || code;
   }
 
+  function destinationRoutePoints(source) {
+    // A supplied live pattern wins even if it is partial or its calls are
+    // cancelled. Booked calls may only fill a completely absent pattern.
+    let points;
+    if (hasDarwinCallingPoints(source)) {
+      const groups = Array.isArray(source.subsequentCallingPoints) ? source.subsequentCallingPoints : [];
+      points = Array.isArray(source.subsequentLocations) ? source.subsequentLocations :
+        groups.filter(function(group){return group && group.serviceChangeRequired !== true && group.assocIsCancelled !== true;})
+          .flatMap(function(group){return Array.isArray(group.callingPoint) ? group.callingPoint : [];});
+    } else if (!source.isCancelled && !source.filterLocationCancelled && !source.futureCancellation &&
+               !source.diversion && !source.affectedByDiversion && trustCallingPointsFresh(source.trustCallingPoints)) {
+      points = source.trustCallingPoints.callingPoints;
+    } else points = [];
+    return points.filter(function(point){return point && point.isCancelled !== true && point.isPass !== true && point.isOperational !== true;});
+  }
+
   function displayDestinationName(name, crs, headcode, service, audience) {
     const base = displayStationName(name, crs);
     const code = text(crs).toUpperCase();
@@ -250,10 +266,7 @@
     const tpe = text(source.operatorCode).toUpperCase() === 'TP' ||
       /^(tpe|transpennine express)$/i.test(text(source.operator));
     if (tpe) {
-      const groups = Array.isArray(source.subsequentCallingPoints) ? source.subsequentCallingPoints : [];
-      const points = Array.isArray(source.subsequentLocations) ? source.subsequentLocations :
-        groups.filter(function (group) { return group && group.serviceChangeRequired !== true && group.assocIsCancelled !== true; })
-          .flatMap(function (group) { return Array.isArray(group.callingPoint) ? group.callingPoint : []; });
+      const points = destinationRoutePoints(source);
       const routeCall = points.find(function (point) {
         if (!point || point.isCancelled === true || point.isPass === true || point.isOperational === true) return false;
         const pointCode = text(point.crs).toUpperCase(), pointName = text(point.locationName).toUpperCase();
@@ -268,22 +281,13 @@
     const northern = text(source.operatorCode).toUpperCase() === 'NT' ||
       /^(northern|northern rail|northern trains(?: limited)?)$/i.test(text(source.operator));
     if (northern && (code === 'LDS' || plain === 'LEEDS')) {
+      const active = destinationRoutePoints(source);
+      const viaBradford = active.some(function(point){return text(point.crs).toUpperCase() === 'BDI' || /^bradford interchange$/i.test(text(point.locationName));});
+      const viaBrighouse = active.some(function(point){return text(point.crs).toUpperCase() === 'BGH' || /^brighouse$/i.test(text(point.locationName));});
+      if (viaBradford) return 'Leeds via Bradford Int';
+      if (viaBrighouse) return 'Leeds via Brighouse';
+      // Preserve the established headcode label when no via point is supplied.
       if (/^1[EJ][0-9]{2}$/.test(train)) return 'Leeds via Bradford Int';
-      if (/^2I[0-9]{2}$/.test(train)) {
-        const groups = Array.isArray(source.subsequentCallingPoints) ? source.subsequentCallingPoints : [];
-        const points = Array.isArray(source.subsequentLocations) ? source.subsequentLocations :
-          groups.filter(function (group) { return group && group.serviceChangeRequired !== true && group.assocIsCancelled !== true; })
-            .flatMap(function (group) { return Array.isArray(group.callingPoint) ? group.callingPoint : []; });
-        const active = points.filter(function (point) {
-          return point && point.isCancelled !== true && point.isPass !== true && point.isOperational !== true;
-        });
-        const bradford = active.some(function (point) {
-          return text(point.crs).toUpperCase() === 'BDI' || /^bradford interchange$/i.test(text(point.locationName));
-        });
-        if (bradford) return 'Leeds via Bradford Int';
-        if (active.length) return 'Leeds via Brighouse';
-        // Wait for calling points before choosing the route for a 2I Leeds service.
-      }
     }
     if (code === 'BBN' || plain === 'BLACKBURN') {
       if (/^2B[0-9]{2}$/.test(train)) return 'Blackburn via Bolton';
