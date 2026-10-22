@@ -307,6 +307,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 :root[data-theme="dark"] .early-termination{color:#ffb4c5}
 .removed-stops-chip{display:inline-block;margin-top:6px;padding:4px 7px;border:1px solid #c69219;border-radius:5px;background:#fff3cd;color:#684600;font-weight:800;font-size:11px;line-height:1.35}
 :root[data-theme="dark"] .removed-stops-chip{background:#45391b;color:#ffe091;border-color:#ad8937}
+.trts-direction-value{font-size:20px;font-weight:900;color:var(--ink);line-height:1.3}
 </style>
 
 
@@ -1550,6 +1551,19 @@ function formationDiagram(s,view=state.viewMode){
 }
 
 function reasonFor(s){return s.cancelled||s.terminatesEarly?s.note||s.lateReason:s.delayed?s.lateReason:''}
+function trtsDirection(s){
+  if(s.terminatesEarly||serviceFlow(s).key==='terminate')return {label:'Not applicable',note:'Terminates at Manchester Victoria.'};
+  if(s.cancelled)return {label:'Not applicable',note:'Departure cancelled.'};
+  if(!serviceHasDeparture(s))return {label:'Not confirmed',note:'No departure supplied.'};
+  const point=(s.stops||[]).find(p=>!p.cancelled);
+  if(!point||point.affectedByDiversion)return {label:'Not confirmed',note:'Onward route not supplied clearly enough.'};
+  const west=new Set(['SFD','SLD','SALFORD CENTRAL','SALFORD CRESCENT','ECC','ECCLES','PAT','PATRICROFT','NLW','NEWTON-LE-WILLOWS','ERL','EARLESTOWN','BOL','BOLTON','SWINTON (MANCHESTER)','MOORSIDE','MSD','WALKDEN','WKD','ATHERTON','ATN','DGT','DEANSGATE','MCO','MANCHESTER OXFORD ROAD','SALFDAS','OLDFIELD RD TURNBACK','MNCRVRS','MANCHESTER VICTORIA WEST TURNBACK']);
+  const east=new Set(['MSO','MOSTON','MIH','MILLS HILL','CAS','CASTLETON','RCD','ROCHDALE','LTL','LITTLEBOROUGH','TOD','TODMORDEN','SMITHY BRIDGE','AHN','ASHTON-UNDER-LYNE','SYB','STALYBRIDGE','MSL','MOSSLEY (MANCHESTER)','GNF','GREENFIELD','HUD','HUDDERSFIELD','MILESPL','MILES PLATTING']);
+  const code=String(point.crs||'').trim().toUpperCase(),name=String(point.name||'').trim().toUpperCase();
+  const direction=west.has(code)||west.has(name)?'West':east.has(code)||east.has(name)?'East':'';
+  return direction?{label:direction,note:'Based on the onward calling point: '+point.name+'.'}:{label:'Not confirmed',note:'Direction cannot be established from the supplied onward route.'};
+}
+
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
@@ -1559,7 +1573,7 @@ function renderDetails(){
   const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before';
   const displayedStops=showBefore?beforeStops:s.stops;
   const detailsLoading=state.detailsBusy.has(detailCacheKey(s));
-  const flow=serviceFlow(s),movement=movementType(s);
+  const flow=serviceFlow(s),movement=movementType(s),trts=trtsDirection(s);
   const canShowPriorStops=flow.key!=='origin'&&(!s.previousStopsLoaded||beforeStops.length>0||detailsLoading||Boolean(s.previousStopsError));
   const platformMoves=nextPlatformMovements(s),countdown=countdownInfo(s),inward=inwardRisk(s),platformRisk=platformRiskFor(s),lastPlatformChange=latestPlatformChange(s),turnaround=turnaroundPair(s);
   const cat=categoryName(s.trainCategory),rttUrl=realTimeTrainsUrl(s);
@@ -1590,6 +1604,10 @@ function renderDetails(){
       <div class="place end"><small>Destination</small>${escapeHTML(s.dest)}</div>
     </div>
 
+    </section>
+    <section class="detail-group detail-trts"><h3>TRTS direction</h3>
+      <div class="trts-direction-value">${escapeHTML(trts.label)}</div>
+      <div class="detail-small">${escapeHTML(trts.note)}</div>
     </section>
     <section class="detail-group detail-timings"><h3>Timings at Manchester Victoria</h3><div class="ops-metrics">
       ${metric('Booked arrival',s.bookedArrival,s.bookedArrival!=='—'?'At Manchester Victoria':'Not supplied for this movement')}
