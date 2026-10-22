@@ -310,6 +310,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .trts-direction-value{font-size:20px;font-weight:900;color:var(--ink);line-height:1.3}
 .trust-history-toggle{width:100%;min-height:44px;justify-content:space-between;text-align:left;white-space:normal;cursor:pointer}
 #trust-journey-report-body[hidden]{display:none}
+.feed-diagnostics{margin:0 0 18px}.diagnostics-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}.diagnostics-heading h2{font-size:14px;margin:0}.diagnostics-body{padding:0 16px 16px}.diagnostics-body[hidden]{display:none}.diagnostics-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.diagnostics-table{width:100%;border-collapse:collapse;font-size:12px}.diagnostics-table th,.diagnostics-table td{padding:9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.diagnostics-table th{width:34%;color:var(--navy)}.diagnostics-table .diagnostics-group th{width:auto;color:var(--blue);padding-top:18px}.diagnostics-warning{border-left:3px solid var(--amber)}:root[data-theme="dark"] .diagnostics-table th{color:#f3f5ff}:root[data-theme="dark"] .diagnostics-table .diagnostics-group th{color:var(--blue)}
 </style>
 
 
@@ -696,6 +697,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </header>
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
+  <section class="panel feed-diagnostics" aria-label="Feed diagnostics">
+    <div class="diagnostics-heading"><h2>Feed diagnostics</h2><button type="button" id="diagnostics-toggle" class="button" aria-expanded="false" aria-controls="diagnostics-body">Show diagnostics ▾</button></div>
+    <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
+  </section>
   <section class="stats" aria-label="Station summary">
     <div class="stat"><div class="stat-title">Services in feed</div><div class="stat-value" id="stat-total">—</div><div class="stat-sub" id="stat-total-split">Awaiting data</div></div>
     <div class="stat alert"><div class="stat-title">Delayed</div><div class="stat-value" id="stat-delay">—</div><div class="stat-sub" id="stat-overdue">Awaiting data</div></div>
@@ -780,6 +785,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </main>
 
 <script src="mcv-data.js?v=20261022-trust-history"></script>
+<script src="mcv-diagnostics.js?v=20261022-1"></script>
 <script>
 'use strict';
 
@@ -815,7 +821,7 @@ function setSignalControls(enabled){
   if(!enabled)centreSignalMap();
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
-  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set()};
+  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set(),diagnosticsOpen:false,diagnosticsSnapshot:null,diagnosticsInspectedAt:0,diagnosticsAttemptAt:0,diagnosticsRenderedAt:0,diagnosticsBusy:false,diagnosticsError:false};
 const $ = id=>document.getElementById(id);
 const THEME_KEY='mcv-staff-theme';
 function applyTheme(theme){
@@ -1277,7 +1283,7 @@ function parseServices(json){
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
       get callingPointsSource(){return raw.calling_points_source==='TRUST timetable'&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?'TRUST timetable':''},
-      previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
+      callingPointsReturned:points.length,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
@@ -1614,6 +1620,7 @@ function renderTrustHistory(s,expanded=false){
     </div></section>`;
 }
 function renderDetails(){
+  renderFeedDiagnostics();
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
   $('details-feed-source').textContent=s.source==='TRUST'?'TRUST Feed':'Darwin Feed';
@@ -1809,6 +1816,33 @@ function renderNationalRailNotices(){
   $('national-notices-status').textContent=stale?'Manchester Victoria · last received notices · feed update overdue':'Manchester Victoria · Darwin Feed';
 }
 
+function renderFeedDiagnostics(){
+  if(!state.diagnosticsOpen)return;
+  state.diagnosticsRenderedAt=Date.now();
+  const service=visibleServices().find(s=>s.key===state.selectedKey);
+  const rows=MCVFeedDiagnostics.describe({meta:state.unitFeedMeta,receivedAt:state.lastGood,generatedAt:state.feedGeneratedAt?new Date(state.feedGeneratedAt).toISOString():null,boardError:Boolean(state.lastError),snapshot:state.diagnosticsSnapshot,inspectedAt:state.diagnosticsInspectedAt,snapshotBusy:state.diagnosticsBusy,snapshotError:state.diagnosticsError,service,allocationDescription:service?allocationAvailability(service):''});
+  let group='';
+  const content=rows.map(row=>{const heading=row.group!==group?`<tr class="diagnostics-group"><th colspan="2" scope="colgroup">${escapeHTML(row.group)}</th></tr>`:'';group=row.group;return heading+`<tr${row.warning?' class="diagnostics-warning"':''}><th scope="row">${escapeHTML(row.label)}</th><td>${escapeHTML(row.value)}</td></tr>`}).join('');
+  updateDisplayHTML($('diagnostics-content'),'<table class="diagnostics-table"><caption class="detail-small">Current board and latest inspected publisher snapshot</caption><tbody>'+content+'</tbody></table>');
+  $('diagnostics-refresh').disabled=state.diagnosticsBusy;
+}
+async function refreshFeedDiagnostics(force=false){
+  if(!state.diagnosticsOpen||state.diagnosticsBusy||(!force&&Date.now()-state.diagnosticsAttemptAt<60000))return;
+  state.diagnosticsAttemptAt=Date.now();state.diagnosticsBusy=true;renderFeedDiagnostics();
+  try{
+    const response=await MCVSite.fetch('https://mcv-rdm-proxy.railstaffhub.uk/units',{method:'GET',cache:'no-store',headers:{Accept:'application/json'}});
+    if(!response.ok)throw new Error('Snapshot unavailable');
+    const data=await response.json();
+    if(data?.version!==1||typeof data.available!=='boolean')throw new Error('Unexpected snapshot');
+    const trust=data.trust&&typeof data.trust==='object'?data.trust:{};
+    // Keep only diagnostic metadata, not allocation records or raw payloads.
+    state.diagnosticsSnapshot={updatedAt:data.updatedAt,readerRunning:data.readerRunning,available:data.available,allocationRecords:Array.isArray(data.services)?data.services.length:null,allocatedRecords:Array.isArray(data.services)?data.services.filter(row=>row.status==='allocated').length:null,trust:{available:trust.available,updatedAt:trust.updatedAt,feedAt:trust.feedAt,scheduleAt:trust.scheduleAt}};
+    state.diagnosticsInspectedAt=Date.now();state.diagnosticsError=false;
+  }catch{state.diagnosticsError=true}
+  finally{state.diagnosticsBusy=false;renderFeedDiagnostics()}
+}
+$('diagnostics-toggle').addEventListener('click',()=>{state.diagnosticsOpen=!state.diagnosticsOpen;$('diagnostics-body').hidden=!state.diagnosticsOpen;$('diagnostics-toggle').setAttribute('aria-expanded',String(state.diagnosticsOpen));$('diagnostics-toggle').textContent=state.diagnosticsOpen?'Hide diagnostics ▴':'Show diagnostics ▾';if(state.diagnosticsOpen){renderFeedDiagnostics();refreshFeedDiagnostics()}});
+$('diagnostics-refresh').addEventListener('click',()=>refreshFeedDiagnostics(true));
 function render(){renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
@@ -1829,7 +1863,7 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
   }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();renderNationalRailNotices();}
   finally{state.feedBusy=false;$('refresh').disabled=false}
 }
-function updateClock(){renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner()}
+function updateClock(){renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner();if(state.diagnosticsOpen){if(Date.now()-state.diagnosticsRenderedAt>=5000)renderFeedDiagnostics();refreshFeedDiagnostics()}}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
   const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)','Calling points source'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
