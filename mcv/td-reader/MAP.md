@@ -1,7 +1,7 @@
 # Victoria platform map preview
 
 `/mcv/map.html` is independent of the staff board and its Traksy iframe. The original
-six-lane schematic displays SMART arrival observations and a recent movement log,
+track schematic displays SMART arrival observations and a recent movement log,
 not exact train positions, occupied track, signals or points. Shared berth IDs go
 in a separate lane unless a complete observed step resolves the association.
 Headcodes open a local evidence dialog; the staff-board link opens the board, not
@@ -57,3 +57,16 @@ will explicitly show it is awaiting the publisher.
 Verification: `python -m unittest -v test_td_map.py test_td_reader.py` in this
 folder; `node mcv/unit-reader/test_td_worker.mjs` from the repository root.
 Pause with `systemctl disable --now mcv-td-map`; TD capture continues.
+
+## Station-layout redraw
+
+The 22 October 2026 user-supplied Traksy screenshot is used as a visual reference
+for geographic arrangement only. SVG paths are independently drawn; no Traksy
+assets, source code, signal colours or live data are copied. Salford Central is
+to the left, Victoria platforms 6 to 1 run top to bottom, and the turnback siding
+and Ordsall Chord are below. Piccadilly is a direction label beyond the chord,
+not a mapped second station. Approach tracks and junction geometry are schematic
+context and have no live state. Victoria associations continue to use the existing
+TD snapshot. Shared associations remain outside the track diagram. Mobile opens
+centred on Victoria; zoom operates on the minimum-width diagram as well as desktop.
+This redraw requires only Pages deployment; no Worker or server update.

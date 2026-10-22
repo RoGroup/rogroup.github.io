@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#262262"><title>Manchester Victoria | Live Map</title>
-<link rel="icon" href="/mcv/favicon.png"><link rel="stylesheet" href="map.css">
-<script src="map.js" defer></script>
+<link rel="icon" href="/mcv/favicon.png"><link rel="stylesheet" href="map.css?v=20261022-layout">
+<script src="map.js?v=20261022-layout" defer></script>
 </head>
 <body>
 <header><a href="index.html" class="brand">MCV <span>Rail Staff Hub</span></a><nav><a href="staff.html">Staff board</a><a href="https://traksy.uk/live/M+22+MNCRVIC" target="_blank" rel="noopener">Traksy ↗</a><button id="fullscreen">Full screen</button></nav></header>
 <main>
-<div class="title"><div><p class="eyebrow">Manchester Victoria</p><h1>Live platform map</h1></div><span class="badge">Preview</span></div>
+<div class="title"><div><p class="eyebrow">Manchester Victoria</p><h1>Live railway map</h1></div><span class="badge">Preview</span></div>
 <section class="health" aria-live="polite"><strong id="health">Connecting to TD…</strong><span id="freshness">Waiting for the first snapshot</span><button id="refresh">Refresh</button></section>
-<div class="toolbar"><span>Schematic · M3 train descriptions</span><div><button id="minus" aria-label="Zoom out">−</button><button id="fit">Fit</button><button id="plus" aria-label="Zoom in">+</button></div></div>
-<div id="viewport" tabindex="0" aria-label="Platform schematic. Scroll to pan; use zoom controls to enlarge."><div id="diagram" role="group" aria-label="Victoria platforms 1 to 6"></div></div>
+<div class="toolbar"><span>Victoria area · M3 train descriptions</span><div><button id="minus" aria-label="Zoom out">−</button><button id="fit">Fit</button><button id="plus" aria-label="Zoom in">+</button></div></div>
+<div id="viewport" tabindex="0" aria-label="Victoria area track schematic. Scroll to pan; use zoom controls to enlarge."><div id="diagram" role="group" aria-label="Victoria, Salford Central and Ordsall Chord schematic"></div></div>
+<div id="shared" class="shared-list" aria-label="Shared platform associations"></div>
 <p class="legend"><span class="key"></span> SMART arrival observation <span class="key uncertain"></span> Shared or unclassified berth · Select a headcode for details</p>
-<p class="note">Platform associations use SMART reporting steps. A description does not confirm track occupancy or that a train has stopped. Signal aspects and exact track connections are not shown.</p>
+<p class="note">Platform associations use SMART reporting steps. A description does not confirm track occupancy or that a train has stopped. Track arrangement is schematic; signal aspects and track occupancy are not shown.</p>
 <section class="activity"><h2>Recent movements</h2><p id="empty">No TD snapshot published yet.</p><div id="movements"></div></section>
-<details><summary>About this map</summary><p>This is an original schematic, not a scale signalling diagram. Arrival reporting offsets are retained as evidence, not used as countdowns. Shared berth associations remain explicit. Descriptions expire after ten minutes without an update, so an empty lane does not prove that a platform is clear.</p><p>Snapshots publish approximately every 65 seconds; distribution can add delay. Stale snapshots hide train descriptions. The existing Traksy map remains available above.</p><a href="https://vaildata.uk/bplan/tiploc?loc=MNCRVIC" target="_blank" rel="noopener">SMART reference via Vail Data</a></details>
+<details><summary>About this map</summary><p>This original schematic follows the station arrangement in the supplied reference: Salford Central to the left, Victoria platforms 6 to 1 from top to bottom, the turnback siding and Ordsall Chord below. It is not a scale or verified signalling diagram. Only Victoria platform associations are currently mapped; approach lines are context. Arrival reporting offsets are retained as evidence, not used as countdowns. Shared berth associations remain explicit. Descriptions expire after ten minutes without an update, so an empty lane does not prove that a platform is clear.</p><p>Snapshots publish approximately every 65 seconds; distribution can add delay. Stale snapshots hide train descriptions. The existing Traksy map remains available above.</p><a href="https://vaildata.uk/bplan/tiploc?loc=MNCRVIC" target="_blank" rel="noopener">SMART reference via Vail Data</a></details>
 </main>
 <dialog id="details"><button id="close">Close</button><h2 id="detailTitle"></h2><div id="detailBody"></div><p><a href="staff.html">Open staff board</a></p></dialog>
 </body></html>
