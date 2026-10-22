@@ -1271,6 +1271,7 @@ function parseServices(json){
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
       unitAllocation:raw.unit_allocation || null,
+      routeDiverted:Boolean(darwinServices[index]?.diversion),
       stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
@@ -1556,12 +1557,26 @@ function trtsDirection(s){
   if(s.cancelled)return {label:'Not applicable',note:'Departure cancelled.'};
   if(!serviceHasDeparture(s))return {label:'Not confirmed',note:'No departure supplied.'};
   const point=(s.stops||[]).find(p=>!p.cancelled);
-  if(!point||point.affectedByDiversion)return {label:'Not confirmed',note:'Onward route not supplied clearly enough.'};
-  const west=new Set(['SFD','SLD','SALFORD CENTRAL','SALFORD CRESCENT','ECC','ECCLES','PAT','PATRICROFT','NLW','NEWTON-LE-WILLOWS','ERL','EARLESTOWN','BOL','BOLTON','SWINTON (MANCHESTER)','MOORSIDE','MSD','WALKDEN','WKD','ATHERTON','ATN','DGT','DEANSGATE','MCO','MANCHESTER OXFORD ROAD','SALFDAS','OLDFIELD RD TURNBACK','MNCRVRS','MANCHESTER VICTORIA WEST TURNBACK']);
-  const east=new Set(['MSO','MOSTON','MIH','MILLS HILL','CAS','CASTLETON','RCD','ROCHDALE','LTL','LITTLEBOROUGH','TOD','TODMORDEN','SMITHY BRIDGE','AHN','ASHTON-UNDER-LYNE','SYB','STALYBRIDGE','MSL','MOSSLEY (MANCHESTER)','GNF','GREENFIELD','HUD','HUDDERSFIELD','MILESPL','MILES PLATTING']);
-  const code=String(point.crs||'').trim().toUpperCase(),name=String(point.name||'').trim().toUpperCase();
+  if(s.routeDiverted||(s.stops||[]).some(p=>!p.cancelled&&p.affectedByDiversion))return {label:'Not confirmed',note:'Onward route not supplied clearly enough.'};
+  const west=new Set(['SFD','SLD','SALFORD CENTRAL','SALFORD CRESCENT','ECC','ECCLES','PAT','PATRICROFT','NLW','NEWTON-LE-WILLOWS','ERL','EARLESTOWN','BON','BOLTON','SWINTON (MANCHESTER)','MOORSIDE','MSD','WALKDEN','WKD','ATHERTON','ATN','DGT','DEANSGATE','MCO','MANCHESTER OXFORD ROAD','SALFDAS','OLDFIELD RD TURNBACK','MNCRVRS','MANCHESTER VICTORIA WEST TURNBACK','SNN','SWINTON (MANCHESTER)','CLF','CLIFTON (MANCHESTER)']);
+  const east=new Set(['MSO','MOSTON','MIH','MILLS HILL','CAS','CASTLETON','RCD','ROCHDALE','LTL','LITTLEBOROUGH','TOD','TODMORDEN','SMITHY BRIDGE','AHN','ASHTON-UNDER-LYNE','SYB','STALYBRIDGE','MSL','MOSSLEY (MANCHESTER)','GNF','GREENFIELD','HUD','HUDDERSFIELD','MILESPL','MILES PLATTING','BGH','BRIGHOUSE','LDS','LEEDS','HBD','HEBDEN BRIDGE','HFX','HALIFAX','BDI','BRADFORD INTERCHANGE','LMR','LOW MOOR','NPD','NEW PUDSEY','BLE','BRAMLEY (WEST YORKSHIRE)','MYT','MYTHOLMROYD','SOW','SOWERBY BRIDGE']);
+  const code=String(point?.crs||'').trim().toUpperCase(),name=String(point?.name||'').trim().toUpperCase();
   const direction=west.has(code)||west.has(name)?'West':east.has(code)||east.has(name)?'East':'';
-  return direction?{label:direction,note:'Based on the onward calling point: '+point.name+'.'}:{label:'Not confirmed',note:'Direction cannot be established from the supplied onward route.'};
+  if(direction)return {label:direction,note:'Based on the onward calling point: '+point.name+'.'};
+  if(s.ecs){
+    const depot=String(s.destCrs||'').toUpperCase(),name=String(s.dest||'').toUpperCase();
+    if(west.has(depot)||west.has(name))return {label:'West',note:'Inferred from the turnback destination: '+s.dest+'.'};
+    if(depot==='NWTNHDD'||name==='NEWTON HEATH TMD')return {label:'East',note:'Inferred from the depot destination: '+s.dest+'.'};
+    return {label:'Not confirmed',note:'Depot route not supplied clearly enough.'};
+  }
+  // Passenger route inference is a fallback; the first recognised calling point takes priority.
+  const passengerWest=new Set([...west,'LIV','LIVERPOOL LIME STREET','HBL','HEADBOLT LANE','WGW','WIGAN WALLGATE','WGN','WIGAN NORTH WESTERN','BBN','BLACKBURN','CLH','CLITHEROE','PRE','PRESTON','CTR','CHESTER','SOP','SOUTHPORT','BLP','BLACKPOOL NORTH','MAN','MANCHESTER PICCADILLY','MIA','MANCHESTER AIRPORT']);
+  const passengerEast=new Set([...east,'YRK','YORK','SCA','SCARBOROUGH','RCC','REDCAR CENTRAL','MBR','MIDDLESBROUGH','HUL','HULL','NCL','NEWCASTLE','DAR','DARLINGTON','SLB','SALTBURN']);
+  const firstWest=point&&(passengerWest.has(code)||passengerWest.has(name));
+  const firstEast=point&&(passengerEast.has(code)||passengerEast.has(name));
+  const destCode=String(s.destCrs||'').toUpperCase(),destName=String(s.dest||'').toUpperCase();
+  const inferred=firstWest?'West':firstEast?'East':passengerWest.has(destCode)||passengerWest.has(destName)?'West':passengerEast.has(destCode)||passengerEast.has(destName)?'East':'';
+  return inferred?{label:inferred,note:'Inferred from the passenger route to '+(firstWest||firstEast?point.name:s.dest)+'; direction is not supplied directly by Darwin.'}:{label:'Not confirmed',note:'Direction cannot be established from the supplied onward route.'};
 }
 
 function renderDetails(){
