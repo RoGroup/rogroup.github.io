@@ -247,6 +247,24 @@
     const plain = text(base).replace(/\s+via\s+.*$/i, '').toUpperCase();
     const train = text(headcode).toUpperCase();
     const source = service || {};
+    const tpe = text(source.operatorCode).toUpperCase() === 'TP' ||
+      /^(tpe|transpennine express)$/i.test(text(source.operator));
+    if (tpe) {
+      const groups = Array.isArray(source.subsequentCallingPoints) ? source.subsequentCallingPoints : [];
+      const points = Array.isArray(source.subsequentLocations) ? source.subsequentLocations :
+        groups.filter(function (group) { return group && group.serviceChangeRequired !== true && group.assocIsCancelled !== true; })
+          .flatMap(function (group) { return Array.isArray(group.callingPoint) ? group.callingPoint : []; });
+      const routeCall = points.find(function (point) {
+        if (!point || point.isCancelled === true || point.isPass === true || point.isOperational === true) return false;
+        const pointCode = text(point.crs).toUpperCase(), pointName = text(point.locationName).toUpperCase();
+        if ((code && pointCode === code) || pointName === plain) return false;
+        return ['HUD', 'BGH'].includes(pointCode) || ['HUDDERSFIELD', 'BRIGHOUSE'].includes(pointName);
+      });
+      if (routeCall) {
+        const via = text(routeCall.crs).toUpperCase() === 'BGH' || /^brighouse$/i.test(text(routeCall.locationName)) ? 'Brighouse' : 'Huddersfield';
+        return base.replace(/\s+via\s+.*$/i, '') + ' via ' + via;
+      }
+    }
     const northern = text(source.operatorCode).toUpperCase() === 'NT' ||
       /^(northern|northern rail|northern trains(?: limited)?)$/i.test(text(source.operator));
     if (northern && (code === 'LDS' || plain === 'LEEDS')) {
