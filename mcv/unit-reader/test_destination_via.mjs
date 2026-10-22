@@ -33,5 +33,15 @@ const legacy=M.toLegacyBoard({generatedAt:new Date().toISOString(),trainServices
 assert.equal(legacy.destination.name,'Newcastle via Brighouse');
 assert.equal(legacy.destination_name,'Newcastle via Brighouse');
 assert.equal(legacy.calling_points_source,'Booked calling pattern');
-for(const name of ['staff.html','staff-platform.html'])assert.ok(readFileSync(new URL('../'+name,import.meta.url),'utf8').includes('mcv-data.js?v=20261022-booked-via'));
+for(const name of ['staff.html','staff-platform.html'])assert.ok(readFileSync(new URL('../'+name,import.meta.url),'utf8').includes('mcv-data.js?v=20261022-wigan-via'));
 console.log('Via labels: booked patterns, live precedence, partial/cancelled/expired routes, relevant waypoints and staff integration passed');
+
+// Wigan 2J workings carry an explicit Darwin destination via outside 2W rules.
+for(const [trainid,std] of [['2J63','2026-10-22T20:09:00'],['2J65','2026-10-22T21:09:00']]){
+  const s={operatorCode:'NT',trainid,std,destination:[{locationName:'Wigan North Western',crs:'WGN',via:'via Bolton'}]};
+  assert.equal(display(s,'Wigan North Western','WGN'),'Wigan North Western via Bolton');
+  assert.equal(display({...s,destination:[{locationName:'Wigan North Western',crs:'WGN',via:'Bolton'}]},'Wigan North Western','WGN'),'Wigan North Western via Bolton');
+  assert.equal(display({...s,destination:[],trustCallingPoints:route([point('BON','Bolton'),point('WGN','Wigan North Western')])},'Wigan North Western','WGN'),'Wigan North Western via Bolton');
+  assert.equal(display({...s,destination:[]},'Wigan North Western','WGN'),'Wigan North Western','A 2J headcode alone does not imply Bolton');
+}
+console.log('Wigan 20:09/21:09: Darwin via label and booked Bolton waypoint passed');

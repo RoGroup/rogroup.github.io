@@ -295,6 +295,19 @@
     }
     const wallgate = code === 'WGW' || plain === 'WIGAN WALLGATE' || plain === 'WIGAN';
     const northWestern = code === 'WGN' || plain === 'WIGAN NORTH WESTERN';
+    // Darwin supplies a destination-specific via label for workings outside
+    // the established headcode families (for example 2J63/2J65 to Wigan).
+    if (wallgate || northWestern) {
+      const destination = (Array.isArray(source.destination) ? source.destination : []).find(function(point){
+        return point && text(point.crs).toUpperCase() === code;
+      });
+      const via = text(destination && destination.via).replace(/^via\s+/i, '').trim();
+      if (via) return base.replace(/\s+via\s+.*$/i, '') + ' via ' + via;
+      const route = destinationRoutePoints(source);
+      if (route.some(function(point){return text(point.crs).toUpperCase() === 'BON' || text(point.tiploc).toUpperCase() === 'BOLTON';})) {
+        return (northWestern ? 'Wigan North Western' : 'Wigan Wallgate') + ' via Bolton';
+      }
+    }
     const headbolt = code === 'HBL' || plain === 'HEADBOLT LANE';
     const southport = code === 'SOP' || plain === 'SOUTHPORT';
     if (/^2I[0-9]{2}$/.test(train) && wallgate) return 'Wigan Wallgate via Atherton';
