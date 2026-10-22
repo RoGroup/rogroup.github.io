@@ -698,10 +698,6 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </header>
 <main class="container">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
-  <section class="panel feed-diagnostics" aria-label="Feed diagnostics">
-    <div class="diagnostics-heading"><h2>Feed diagnostics</h2><button type="button" id="diagnostics-toggle" class="button" aria-expanded="false" aria-controls="diagnostics-body">Show diagnostics ▾</button></div>
-    <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
-  </section>
   <section class="panel feed-diagnostics" aria-label="Recent service search">
     <div class="diagnostics-heading"><h2>Recent service search</h2><button type="button" id="recent-toggle" class="button" aria-expanded="false" aria-controls="recent-body">Show search ▾</button></div>
     <div id="recent-body" class="diagnostics-body" hidden>
@@ -789,6 +785,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       </iframe>
     </div>
     <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” to open the embed full-screen, then tap “Done” when finished.</div>
+  </section>
+
+  <section class="panel feed-diagnostics" aria-label="Feed diagnostics">
+    <div class="diagnostics-heading"><h2>Feed diagnostics</h2><button type="button" id="diagnostics-toggle" class="button" aria-expanded="false" aria-controls="diagnostics-body">Show diagnostics ▾</button></div>
+    <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
   </section>
 
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
