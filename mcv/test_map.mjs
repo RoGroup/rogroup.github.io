@@ -30,3 +30,18 @@ console.log('Map rendering: platform association, shared berth, evidence dialog,
 const positions=[6,5,4,3,2,1].map(p=>parseFloat(get('platform-'+p).style.top));
 assert.ok(positions.every((y,i)=>!i||y>positions[i-1]),'Platform 6 at top through to platform 1 at bottom');
 assert.ok(get('viewport').scrollLeft>0,'Mobile view starts centred on Victoria');
+
+context.chainRow={headcode:'2L66',berth:'0581',from:'0753',platforms:['3','5'],time:now,event:'description',offset:null};
+context.arrival={headcode:'2L66',berth:'0753',from:'0702',platforms:['5'],time:now-5,event:'arrival',offset:59};
+vm.runInContext("resolved=resolveAssociation(chainRow,[arrival])",context);
+assert.equal(context.resolved.platforms.join(','),'5','Retain platform 5 through 0753 to 0581');
+assert.equal(context.resolved.associationStep.to,'0753');
+vm.runInContext("resolved=resolveAssociation(chainRow,[{...arrival,berth:'9999'}])",context);
+assert.equal(context.resolved.platforms.length,2,'Unconnected berth must remain ambiguous');
+vm.runInContext("resolved=resolveAssociation(chainRow,[arrival,{...arrival,event:'departure',time:arrival.time+1}])",context);
+assert.equal(context.resolved.platforms.length,2,'Intervening departure blocks inheritance');
+vm.runInContext("resolved=resolveAssociation(chainRow,[{...arrival,time:chainRow.time-121}])",context);
+assert.equal(context.resolved.platforms.length,2,'Old arrival cannot assign a new shared berth');
+vm.runInContext("resolved=resolveAssociation(chainRow,[arrival,{...arrival,platforms:['3']}])",context);
+assert.equal(context.resolved.platforms.length,2,'Conflicting simultaneous evidence remains ambiguous');
+console.log('Connected shared-berth platform retention and ambiguity guards passed');

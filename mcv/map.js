@@ -9,9 +9,10 @@ function show(row){
   $('detailTitle').textContent=row.headcode;
   const body=$('detailBody');body.replaceChildren();
   for(const text of [`M3 berth step: ${row.from||'interposed'} → ${row.berth}`,`Platform association: ${row.platforms.join(' / ')}`,`Observed at ${clock(row.time)}`,row.event==='arrival'?'SMART arrival reporting step; arrival at the platform is not confirmed.':row.event==='departure'?'SMART departure reporting step.':'Train description observed; movement classification is unresolved.',row.offset==null?'Reporting offset: unresolved':`SMART reporting adjustment: ${row.offset>0?'+':''}${row.offset} seconds`])body.append(node('p',text));
+  if(row.associationStep)body.append(node('p',`Platform retained from the connected SMART arrival step ${row.associationStep.from} → ${row.associationStep.to} at ${clock(row.associationStep.time)}.`));
   $('details').showModal();
 }
-function button(row){const b=node('button',null,'train'+(row.platforms.length>1||row.event==='description'?' ambiguous':''));b.append(node('strong',row.headcode),node('small',row.event==='arrival'?'Arrival step':'Description observed'),node('small',`M3 ${row.berth} · ${clock(row.time)}`));b.onclick=()=>show(row);return b;}
+function button(row){const b=node('button',null,'train'+(row.platforms.length>1||row.event==='description'?' ambiguous':''));b.append(node('strong',row.headcode),node('small',row.event==='arrival'?'Arrival step':row.associationStep?'Platform retained':'Description observed'),node('small',`M3 ${row.berth} · ${clock(row.time)}`));b.onclick=()=>show(row);return b;}
 // Original geometry drawn from the supplied station-layout reference.
 // Track lines provide context only: no S-class occupancy, points or aspects.
 function centerVictoria(){const viewport=$('viewport');const width=$('diagram').getBoundingClientRect().width;viewport.scrollLeft=Math.max(0,width*862/1440-viewport.clientWidth/2);}
@@ -64,6 +65,19 @@ function buildDiagram(diagram){
  }
  requestAnimationFrame(centerVictoria);
 }
+// Retain only a connected arrival-to-next-berth chain, never headcode alone.
+function resolveAssociation(row,events){
+ if(row.platforms.length!==1 && row.event==='description' && row.from){
+  const prior=(events||[]).filter(e=>e.headcode===row.headcode && e.time<=row.time && row.time-e.time<=120).sort((a,b)=>b.time-a.time);
+  const latest=prior[0];
+  const tied=latest?prior.filter(e=>e.time===latest.time):[];
+  if(latest && tied.length===1 && latest.event==='arrival' && latest.berth===row.from &&
+     latest.platforms.length===1 && row.platforms.includes(latest.platforms[0])){
+   return {...row,platforms:latest.platforms,associationStep:{from:latest.from,to:latest.berth,time:latest.time}};
+  }
+ }
+ return row;
+}
 function render(){
  const now=Date.now()/1000,live=!failed&&fresh(snapshot,now);
  $('health').textContent=live?(snapshot.scanLimited?'TD received · replay window limited':'TD received'):failed?'TD connection unavailable':snapshot?.available?'TD snapshot stale':'Awaiting TD publisher';
@@ -71,7 +85,7 @@ function render(){
  $('freshness').textContent=snapshot?.feedAt?`Last M3 receipt ${clock(snapshot.feedAt)} · snapshot ${Math.max(0,Math.floor(now-snapshot.generatedAt))}s old`:'Deploy the TD Worker route and server publisher to connect this map.';
  const diagram=$('diagram');
  if(!diagram.children.length)buildDiagram(diagram);
- const rows=live?(snapshot.berths||[]).filter(r=>now-r.time<=600 && r.time<=now+30):[];
+ const rows=live?(snapshot.berths||[]).filter(r=>now-r.time<=600 && r.time<=now+30).map(r=>resolveAssociation(r,snapshot.events)):[];
  for(let p=1;p<=6;p++){
   const slot=$('platform-'+p);slot.replaceChildren();
   const matches=rows.filter(r=>r.platforms.length===1&&r.platforms[0]===String(p));
