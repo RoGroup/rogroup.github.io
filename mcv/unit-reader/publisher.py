@@ -171,6 +171,9 @@ def run_once(db, token):
     except Exception as error:
         print(f"Recent-service capture failed: {type(error).__name__}: {error}", flush=True)
     # Retain the earliest workings if their booked routes make a large upload.
+    # Explanations are optional and never displace movement evidence.
+    while len(json.dumps(payload).encode()) > 240000 and payload["timetable"].get("checks"):
+        payload["timetable"]["checks"].pop()
     # Keep identity + Victoria reports + recent evidence if histories are large.
     for history in payload["trust"].get("histories", []):
         if len(json.dumps(payload).encode()) <= 240000:

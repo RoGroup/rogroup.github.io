@@ -6,7 +6,8 @@
 <meta charset="utf-8">
 <script>
 if('scrollRestoration' in history)history.scrollRestoration='manual';
-window.addEventListener('pageshow',function(){
+window.addEventListener('pageshow',function(event){
+  if(event.persisted)return;
   if(!location.hash)requestAnimationFrame(function(){
     document.documentElement.style.scrollBehavior='auto';
     window.scrollTo(0,0);
@@ -313,6 +314,9 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .feed-diagnostics{margin:0 0 18px}.diagnostics-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}.diagnostics-heading h2{font-size:14px;margin:0}.diagnostics-body{padding:0 16px 16px}.diagnostics-body[hidden]{display:none}.diagnostics-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.diagnostics-table{width:100%;border-collapse:collapse;font-size:12px}.diagnostics-table th,.diagnostics-table td{padding:9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.diagnostics-table th{width:34%;color:var(--navy)}.diagnostics-table .diagnostics-group th{width:auto;color:var(--blue);padding-top:18px}.diagnostics-warning{border-left:3px solid var(--amber)}:root[data-theme="dark"] .diagnostics-table th{color:#f3f5ff}:root[data-theme="dark"] .diagnostics-table .diagnostics-group th{color:var(--blue)}
 #recent-more[hidden]{display:none}.recent-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}.recent-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}.recent-form input{padding:10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:var(--card,#fff);color:var(--ink);max-width:100%;min-height:42px}.recent-record{border-top:1px solid var(--line);padding:12px 0}.recent-record summary{cursor:pointer;line-height:1.7;overflow-wrap:anywhere}.recent-record-body{padding:10px}.recent-facts{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px;font-size:13px}.recent-facts dt{font-weight:700}.recent-facts dd{margin:0;overflow-wrap:anywhere}.recent-history{margin:14px 0}.recent-history li{padding:5px 0;font-size:13px}:root[data-theme="dark"] .recent-form input{background:#171d31;color:#f3f5ff}@media(max-width:600px){.recent-form label{width:100%}.recent-form input{width:100%}.recent-record-body{padding:8px 0}.recent-facts{grid-template-columns:1fr}.recent-facts dd{margin-bottom:7px}}
 .service-report-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.service-report-actions [data-report-fallback]{width:100%}.service-report-actions [hidden]{display:none}.service-report-text{display:block;width:100%;min-height:230px;margin-top:8px;padding:10px;box-sizing:border-box;background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:7px;font:12px/1.5 monospace}.unit-history-link{font-size:inherit;padding:4px 8px;white-space:normal;text-decoration:underline}.recent-facts .unit-history-link{min-height:36px}:root[data-theme="dark"] .service-report-text{background:#171d31;color:#f3f5ff}
+.staff-tools-panel{margin-top:18px}.staff-tools-controls{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:12px 0}.staff-tools-controls label{display:flex;flex-direction:column;gap:6px;flex:1 1 230px;font-size:13px;min-width:0}.staff-tools-controls select{padding:11px;border:1px solid var(--line);border-radius:7px;font:inherit;color:var(--ink);background:var(--card,#fff);width:100%;min-width:0}.comparison-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}.comparison-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:480px;font-size:12px}.comparison-table th,.comparison-table td{padding:10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}.comparison-table th:first-child{width:24%}.comparison-different td{background:#0698d611}.comparison-table thead{color:var(--navy)}:root[data-theme="dark"] .staff-tools-controls select{background:#171d31;color:#f3f5ff}:root[data-theme="dark"] .comparison-table thead{color:#fff}.details-content{overflow-anchor:none;overflow-wrap:anywhere}
+@media(max-width:1100px){.sidebar{display:flex;flex-direction:column}.sidebar>.panel{width:100%;box-sizing:border-box}}
+@media(max-width:760px),(hover:none) and (pointer:coarse){.workspace{grid-template-columns:minmax(0,1fr)}.sidebar{display:flex;flex-direction:column;min-width:0}.details-content{max-height:none!important;overflow:visible!important;overscroll-behavior:auto;touch-action:auto}.details-content .detail-context{position:static}#back-to-board{display:inline-flex}.details-content .button,.staff-tools-panel .button,.staff-tools-controls select{min-height:44px}.details-content .keyvalues{grid-template-columns:minmax(0,1fr)}.details-content .kv-value{overflow-wrap:anywhere}.details-content .ops-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.service-report-text{font-size:14px}.service-details-title{flex-wrap:wrap}.formation-diagram-scroll{max-width:100%;overflow-x:auto}.details-content,.staff-tools-panel{scroll-margin-top:12px}}
 </style>
 
 
@@ -758,9 +762,18 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · confirmed departures remain dimmed for 2 minutes · platform changes are highlighted for 60 seconds · formation is labelled live only when supplied.</div>
     </div>
     <div class="sidebar">
-      <div class="panel"><div class="panel-title"><h2>Service details</h2><span class="tag" id="details-feed-source">Darwin Feed</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
+      <div class="panel"><div class="panel-title service-details-title"><h2>Service details</h2><button type="button" class="button mobile-only" id="back-to-board">Back to board ↑</button><span class="tag" id="details-feed-source">Darwin Feed</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
       <div class="panel"><div class="panel-title"><h2>Recent feed changes</h2><span class="minor">This browser session only</span></div><ol class="events" id="events"><li><span class="event-time">SESSION START</span>Changes will appear here after the first successful refresh.</li></ol><div class="event-foot" id="event-feed-status">Live departure snapshots · changes observed in this browser session only</div></div>
     </div>
+  </section>
+
+  <section class="panel staff-tools-panel" aria-label="Service comparison">
+    <div class="diagnostics-heading"><h2>Service comparison</h2><button type="button" class="button" id="comparison-toggle" aria-expanded="false" aria-controls="comparison-body">Compare services ▾</button></div>
+    <div class="diagnostics-body" id="comparison-body" hidden><div class="staff-tools-controls"><label>First service<select id="compare-0"></select></label><label>Second service<select id="compare-1"></select></label><button type="button" class="button" id="compare-clear">Clear comparison</button></div><p class="detail-small" id="comparison-age"></p><div id="comparison-results"></div></div>
+  </section>
+  <section class="panel staff-tools-panel" aria-label="Handover summary">
+    <div class="diagnostics-heading"><h2>Handover summary</h2><button type="button" class="button" id="handover-toggle" aria-expanded="false" aria-controls="handover-body">Show handover ▾</button></div>
+    <div class="diagnostics-body" id="handover-body" hidden><p class="detail-small">Generate a snapshot of delays, cancellations, alterations, observed platform changes and missing data across the current board. Filters do not limit the summary.</p><div class="staff-tools-controls"><button type="button" class="button primary" id="handover-generate">Generate / refresh summary</button><button type="button" class="button" id="handover-copy" disabled>Copy summary</button></div><p class="detail-small" id="handover-status" role="status" aria-live="polite"></p><textarea class="service-report-text" id="handover-text" readonly aria-label="Handover summary for manual copying" placeholder="Generate a summary when you are ready to hand over."></textarea></div>
   </section>
 
   <section class="panel signal-panel" aria-label="Manchester Victoria signalling map">
@@ -796,10 +809,11 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-wigan-via"></script>
-<script src="mcv-diagnostics.js?v=20261022-booked-patterns"></script>
+<script src="mcv-data.js?v=20261022-staff-tools"></script>
+<script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
+<script src="mcv-staff-tools.js?v=20261022-1"></script>
 <script>
 'use strict';
 
@@ -1298,6 +1312,7 @@ function parseServices(json){
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       get stops(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
       get callingPointsSource(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?raw.calling_points_source:''},
+      bookedPatternStatus:raw.booked_pattern_status||null,get bookedPatternReason(){return MCVData.bookedPatternExplanation(this.bookedPatternStatus)},
       callingPointsReturned:points.length,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
@@ -1752,7 +1767,7 @@ function renderDetails(){
 
       </div>
       ${!showBefore&&s.callingPointsSource?'<div class="reason blue"><strong>Booked calling pattern</strong><br>Live calling points were not supplied by Darwin. These are scheduled stops; live changes and forecasts are not supplied.</div>':''}
-      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':'<div class="placeholder">No matched booked calling pattern is available. Darwin calling points may appear closer to departure.</div>'))}
+      ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':`<div class="placeholder">${escapeHTML(s.bookedPatternReason||'No matched booked calling pattern is available. Darwin calling points may appear closer to departure.')}</div>`))}
     </section>
 
     ${renderTrustHistory(s,state.trustHistoryOpen.has(s.key))}
@@ -1770,6 +1785,7 @@ function renderDetails(){
       ${extra('Arrival forecast type',s.arrivalType||'Not supplied')}
       ${extra('Departure forecast type',s.departureType||'Not supplied')}
     </div>
+    <button type="button" class="button" data-compare-service="${escapeHTML(s.key)}">Compare this service</button>
     ${MCVServiceReport.actionsHTML()}
     <div class="data-fresh"><strong>Data freshness:</strong> feed generated ${escapeHTML(state.feedGeneratedAt?fmt(state.feedGeneratedAt):'not supplied')} (${escapeHTML(ageText(state.feedGeneratedAt))}) · received by this page ${escapeHTML(state.lastGood?ukClock.format(state.lastGood):'—')} · auto-refresh every 20 seconds.</div></section>
 
@@ -1844,6 +1860,15 @@ function renderNationalRailNotices(){
   $('national-notices-status').textContent=stale?'Manchester Victoria · last received notices · feed update overdue':'Manchester Victoria · Darwin Feed';
 }
 
+function staffToolsInput(){
+  return {receivedAt:state.lastGood?new Date(state.lastGood).toISOString():'',generatedAt:state.feedGeneratedAt?new Date(state.feedGeneratedAt).toISOString():'',error:Boolean(state.lastError),meta:state.unitFeedMeta,
+    platformChanges:state.changes.filter(change=>change.type==='platform'),
+    services:state.services.map(s=>{
+      const callingCount=s.callingPointsReturned||0;
+      const callingDescription=callingCount?(s.callingPointsSource||s.source)+' · '+callingCount+' points':s.terminatesEarly?'Terminates early; onward pattern withheld':s.cancelled?'Cancelled; booked fallback withheld':s.futureCancellation||s.stopsRemoved||s.routeDiverted?'Live alteration flagged; booked pattern withheld':s.bookedPatternReason||'No matched pattern returned; upstream reason not supplied';
+      return {...serviceReportRecord(s),key:s.key,operator:s.operator,status:s.status,reason:reasonFor(s),departed:s.departed,delayed:s.delayed,terminatesEarly:s.terminatesEarly,stopsRemoved:s.stopsRemoved,futureCancellation:s.futureCancellation,routeDiverted:s.routeDiverted,callingCount,callingDescription,allocationDescription:allocationAvailability(s)};
+    })};
+}
 function renderFeedDiagnostics(){
   if(!state.diagnosticsOpen)return;
   state.diagnosticsRenderedAt=Date.now();
@@ -1871,7 +1896,7 @@ async function refreshFeedDiagnostics(force=false){
 }
 $('diagnostics-toggle').addEventListener('click',()=>{state.diagnosticsOpen=!state.diagnosticsOpen;$('diagnostics-body').hidden=!state.diagnosticsOpen;$('diagnostics-toggle').setAttribute('aria-expanded',String(state.diagnosticsOpen));$('diagnostics-toggle').textContent=state.diagnosticsOpen?'Hide diagnostics ▴':'Show diagnostics ▾';if(state.diagnosticsOpen){renderFeedDiagnostics();refreshFeedDiagnostics()}});
 $('diagnostics-refresh').addEventListener('click',()=>refreshFeedDiagnostics(true));
-function render(){renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
+function render(){MCVStaffTools.refresh();renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
     const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
@@ -1902,6 +1927,8 @@ function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)
 $('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-key]');if(!tr)return;state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails();if(window.matchMedia('(max-width:760px)').matches){$('service-details').closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'})}});
 $('platform-timeline').addEventListener('click',e=>{const block=e.target.closest('[data-service-key]');if(!block)return;state.selectedKey=block.dataset.serviceKey;state.callingPointView='after';renderTable();renderDetails();document.querySelector('.workspace')?.scrollIntoView({behavior:'smooth',block:'start'})});
 $('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails()});
+$('back-to-board').addEventListener('click',()=>{$('movement-panel-title').scrollIntoView({behavior:'smooth',block:'start'})});
+$('service-details').addEventListener('click',e=>{const button=e.target.closest('[data-compare-service]');if(button)MCVStaffTools.compareService(button.dataset.compareService)});
 $('service-details').addEventListener('click',e=>{const button=e.target.closest('[data-copy-service-report]');if(!button)return;const service=visibleServices().find(s=>s.key===state.selectedKey);if(service)MCVServiceReport.copyReport(serviceReportRecord(service),button.closest('.service-report-actions'))});
 $('service-details').addEventListener('click',e=>{if(!e.target.closest('[data-trust-history-toggle]'))return;const key=state.selectedKey;if(state.trustHistoryOpen.has(key))state.trustHistoryOpen.delete(key);else state.trustHistoryOpen.add(key);renderDetails()});
 $('service-details').addEventListener('click',e=>{const btn=e.target.closest('[data-calling-view]');if(!btn)return;const next=btn.dataset.callingView==='before'?'before':'after';state.callingPointView=next;const s=visibleServices().find(x=>x.key===state.selectedKey);if(next==='before'&&s&&!s.previousStopsLoaded)loadPreviousStops(s);else renderDetails()});
@@ -1974,12 +2001,13 @@ for(const eventName of ['change','click'])document.addEventListener(eventName,e=
   if(!e.target.closest('#platform-filter,#status-filter,#sort-mode,#overdue-first,#platforms,#movement-tabs,#service-type-filter,#service-details [data-calling-view]'))return;
   reflectPreferences();savePreferences();
 });
+MCVStaffTools.configure(staffToolsInput);
 readPreferences();reflectPreferences();
 applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
-setInterval(()=>{if(state.lastGood){renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails()}},15000);
+setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails()}},15000);
 </script>
 </body>
 </html>

@@ -67,6 +67,7 @@
         warning=true;
         calls=service.terminatesEarly?'Terminates early; an onward booked fallback is withheld':service.cancelled?'Service cancelled; booked fallback is withheld':service.futureCancellation||service.stopsRemoved||service.routeDiverted?'Live alteration/cancellation flagged; booked fallback is withheld':missing.length?'Required matching identifiers are missing':trustWarning&&meta.timetableAvailable!==true?'TRUST unavailable or stale; no matched booked fallback was returned':'No matched pattern returned; upstream reason not supplied';
       }
+      if(service.bookedPatternReason&&!service.stops?.length)calls=service.bookedPatternReason;
       add('Selected service','Calling points',calls,warning);
       const history=service.trustHistory;
       const historyFresh=Boolean(history&&age(history.expiresAt)!==null&&age(history.expiresAt)<0&&age(history.expiresAt)>=-360000);

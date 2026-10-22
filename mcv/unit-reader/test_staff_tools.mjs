@@ -1,0 +1,42 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+const context={Date,Intl};vm.createContext(context);
+for(const file of ['mcv-data.js','mcv-service-report.js','mcv-recent.js','mcv-staff-tools.js'])vm.runInContext(readFileSync(new URL('../'+file,import.meta.url),'utf8'),context);
+const now=Date.now(),iso=offset=>new Date(now+offset).toISOString();
+const base={key:'a',headcode:'2N01',uid:'P12345',date:'2026-10-22',source:'Darwin',origin:'Manchester Victoria',destination:'Chester',operator:'Northern',
+  sta:iso(-600000),std:iso(-300000),ata:iso(-540000),atd:'',eta:'',etd:iso(300000),lastSeen:iso(-1000),platform:'4',status:'Expected late',delayed:true,cancelled:false,departed:false,reason:'Signal failure',callingCount:0,callingDescription:'No schedule found',allocationDescription:'No current allocation snapshot'};
+const other={...base,key:'b',headcode:'2N02',uid:'P12346',platform:'5',delayed:false,cancelled:true,status:'Cancelled',reason:'Train fault',allocation:{status:'allocated',arrivalUnits:['150123'],departureUnits:['150456']}};
+let html=context.MCVStaffTools.comparisonHTML(base,other);
+assert.match(html,/150456/);assert.match(html,/Signal failure/);assert.match(html,/comparison-different/);assert.match(html,/Current board comparison/);
+assert.ok(!context.MCVStaffTools.comparisonHTML({...base,destination:'<script>bad</script>'},other).includes('<script>'));
+assert.match(context.MCVStaffTools.comparisonHTML(base,base),/two different/);
+assert.match(context.MCVStaffTools.comparisonHTML(base,null),/left the board/);
+const input={services:[base,other,{...base,key:'gone',headcode:'9Z99',departed:true}],receivedAt:iso(-1000),generatedAt:iso(-1000),meta:{unitAllocationsAvailable:false,trustAvailable:true,timetableAvailable:true},platformChanges:[{at:now-5000,message:'2N01 platform 3 → 4'}]};
+const text=context.MCVStaffTools.handoverReport(input,now);
+for(const value of ['Delays (1)','Cancellations (1)','No current allocated unit numbers (1)','2N01 platform 3 → 4','Signal failure','all board filters ignored','No schedule found'])assert.ok(text.includes(value),value);
+assert.ok(!text.includes('9Z99'));
+assert.match(context.MCVStaffTools.handoverReport({...input,receivedAt:iso(-100000)},now),/UPDATE OVERDUE/);
+assert.match(context.MCVStaffTools.handoverReport({...input,error:true},now),/UPDATE OVERDUE/);
+const status={reason:'booked-time-mismatch',expiresAt:iso(60000)};
+assert.match(context.MCVData.bookedPatternExplanation(status),/public or working timetable pair/);
+assert.equal(context.MCVData.bookedPatternExplanation({...status,expiresAt:iso(-1)}),'');
+assert.equal(context.MCVData.bookedPatternExplanation({...status,reason:'unknown'}),'');
+// UI does not obtain board data while closed. Comparison selection survives a
+// refresh but shows an explicit gap if a service leaves; it never reuses a row.
+const nodes=new Map();let scrolls=0,selected=false,reads=0;
+const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:['comparison-body','handover-body'].includes(id),value:'',innerHTML:'',textContent:'',handlers:{},addEventListener(type,fn){this.handlers[type]=fn},setAttribute(){},scrollIntoView(){scrolls++},focus(){},select(){selected=true}});return nodes.get(id)};
+context.document={getElementById:node};context.navigator={clipboard:{writeText:async()=>{throw Error('denied')}}};
+vm.runInContext(readFileSync(new URL('../mcv-staff-tools.js',import.meta.url),'utf8'),context);
+let current=input;context.MCVStaffTools.configure(()=>{reads++;return current});
+context.MCVStaffTools.refresh();assert.equal(reads,0);
+context.MCVStaffTools.compareService('a');context.MCVStaffTools.compareService('b');
+assert.match(node('comparison-results').innerHTML,/150456/);assert.equal(scrolls,2);
+context.MCVStaffTools.refresh();assert.equal(scrolls,2,'Refresh never scrolls the page');
+current={...input,services:[base]};context.MCVStaffTools.refresh();assert.match(node('compare-1').innerHTML,/no longer/);assert.match(node('comparison-results').innerHTML,/left the board/);
+node('handover-generate').handlers.click();assert.match(node('handover-text').value,/Signal failure/);const captured=node('handover-text').value;
+current={...input,services:[]};context.MCVStaffTools.refresh();assert.equal(node('handover-text').value,captured,'A generated summary remains stable until manually refreshed');
+await node('handover-copy').handlers.click();assert.ok(selected);assert.match(node('handover-status').textContent,/manually/);
+const staff=readFileSync(new URL('../staff.html',import.meta.url),'utf8');
+for(const value of ['MCVStaffTools.configure(staffToolsInput)','data-compare-service','id="back-to-board"','touch-action:auto','event.persisted','bookedPatternReason'])assert.ok(staff.includes(value),value);
+console.log('Staff tools: comparison, removed services, escaping, scoped handover/staleness, clipboard fallback, explicit generation and mobile hooks passed');

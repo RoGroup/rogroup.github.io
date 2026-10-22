@@ -398,7 +398,10 @@ def build_booked_patterns(folder, services, now=None):
         if not 0 <= now.timestamp() - stamp <= SCHEDULE_MAX_AGE:
             return {"version": 1, "available": False, "routes": []}
         identities = [(s.get("uid"), s.get("trainid"), s.get("sdd")) for s in services]
-        routes = []
+        routes, checks = [], []
+        def explain(service, reason):
+            if re.fullmatch(r"[A-Z]\d{5}", str(service.get("uid") or "")) and re.fullmatch(r"\d[A-Z]\d{2}", str(service.get("trainid") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d", str(service.get("sdd") or "")):
+                checks.append({**{key: str(service.get(key) or "") for key in ("uid", "trainid", "sdd", "sta", "std")}, "reason": reason})
         for service, identity in zip(services, identities):
             uid, headcode, date = identity
             if identities.count(identity) != 1 or not re.fullmatch(r"[A-Z]\d{5}", str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}", str(headcode or "")):
@@ -410,17 +413,21 @@ def build_booked_patterns(folder, services, now=None):
             try:
                 result = lookup(db, uid, date)
                 if result["status"] != "scheduled":
+                    explain(service, result["status"])
                     continue
                 schedule = result["schedule"]
                 if schedule["schedule_segment"].get("signalling_id") != headcode or schedule["schedule_segment"].get("CIF_train_category") == "EE":
+                    explain(service, "headcode-or-category")
                     continue
                 route = timed_route(schedule, date)
                 indices = [i for i, (stop, _) in enumerate(route) if stop["tiploc_code"] == "MNCRVIC"]
                 if len(indices) != 1:
+                    explain(service, "ambiguous-visit")
                     continue
                 index = indices[0]
                 times = route[index][1]
                 if not times.get("departure") or "pass" in times or not now-dt.timedelta(minutes=30) <= times["departure"].astimezone(UTC) <= now+dt.timedelta(hours=24):
+                    explain(service, "outside-window-or-no-departure")
                     continue
                 def matches(value, planned):
                     if not value or planned is None:
@@ -442,16 +449,20 @@ def build_booked_patterns(folder, services, now=None):
                     if all(matches(str(service.get(field) or ""), candidate.get(name))
                            for field, name in (("sta", "arrival"), ("std", "departure")) if service.get(field))), None)
                 if chosen is None or not service.get("std"):
+                    explain(service, "booked-time-mismatch")
                     continue
                 calls = booked_passenger_points(route[index+1:], db)
                 if 0 < len(calls) <= 100:
                     routes.append({"uid": uid, "trainid": headcode, "sdd": date,
                         "sta": chosen["arrival"].isoformat() if chosen.get("arrival") else None,
                         "std": chosen["departure"].isoformat(), "callingPoints": calls})
+                else:
+                    explain(service, "no-public-calls")
             except (ValueError, TypeError, KeyError):
+                explain(service, "invalid-timetable")
                 continue
         return {"version": 1, "available": True, "updatedAt": now.isoformat(),
-                "scheduleAt": dt.datetime.fromtimestamp(stamp, UTC).isoformat(), "routes": routes[:200]}
+                "scheduleAt": dt.datetime.fromtimestamp(stamp, UTC).isoformat(), "routes": routes[:200], "checks": checks[:200]}
 
 
 def public_booked_time(value, working):

@@ -378,3 +378,53 @@ public calls crossing midnight. A replay of 12 uncancelled missing-pattern
 examples from the uploaded 22 October timetable and the captured live board
 improved from one match to 12; the existing Worker accepted all 12. This is a
 local replay result, not confirmation of a server deployment.
+
+## Missing-pattern reasons, comparison and handover
+
+The daily timetable projector now includes bounded `checks` for unmatched
+UID/headcode/date/booked-time identities. Whitelisted reasons distinguish no
+schedule for the operating date, cancellation/overlay precedence, ambiguous
+variants/visits, unresolved holiday restrictions, headcode/category conflicts,
+booked-time mismatches, unusable public calls and invalid timetable data. The
+Worker validates these records, attaches only a unique exact-identity/time
+match as `bookedPatternStatus`, and adds a destination-mismatch reason when its
+final route check fails. Explanations expire with the timetable snapshot; old
+statuses are cleared before new board joins. Checks are optional and are trimmed
+before movement evidence if the upload reaches its existing size budget.
+Missing checks remain explicitly unspecified rather than being guessed.
+
+The staff page shows a supplied reason in the empty calling-pattern section and
+feed diagnostics. Existing cancellation/alteration flags still take precedence.
+These reasons apply to booked calling patterns; the feeds do not supply an exact
+reason for every absent unit allocation or missing historical report.
+
+`mcv-staff-tools.js` adds two collapsed panels beneath the detailed board:
+
+- Compare any two current board services, or use **Compare this service** in
+  Technical identifiers. Show timings, actual delays/dwell, units, platform,
+  status/reason and calling-pattern availability. Different values are
+  highlighted. A service leaving the current board is shown as unavailable;
+  comparison never silently reuses the other selected service or old data.
+- Generate a handover summary manually from the whole current board, ignoring
+  display filters and excluding confirmed departed/completed terminating
+  services. Include cancellations, delays, alterations, this browser's observed
+  platform changes, missing current units and missing onward patterns. Each
+  section is capped at 40 lines, with truncation stated. Stamp board generation,
+  reception and summary generation, and flag overdue/failed board updates.
+  The generated text stays fixed until regenerated. Copy locally through the
+  browser clipboard; if denied, select the textarea for manual copying. Nothing
+  is sent to another person or service.
+
+Mobile/touch details use a single full-width column and page scrolling, with
+larger controls, wrapping identifiers, scrollable horizontal diagrams/comparison
+and a Back to board button. Returning through the browser cache no longer forces
+the page to the top. Comparison refreshes do not scroll the page, and neither
+new tool polls any extra API endpoint or stores local favourites.
+
+Deploy the matching Worker for validated status joins and run the existing
+publisher installer for the projector/check records. Frontend comparison,
+handover and mobile layout deploy through Pages and work with the prior board
+schema. Older Worker/publisher combinations omit optional explanations safely.
+No new secrets, bindings, consumers or upload frequency are needed.
+
+Additional check: `node test_staff_tools.mjs`.

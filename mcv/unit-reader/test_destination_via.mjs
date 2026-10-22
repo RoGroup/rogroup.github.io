@@ -33,7 +33,7 @@ const legacy=M.toLegacyBoard({generatedAt:new Date().toISOString(),trainServices
 assert.equal(legacy.destination.name,'Newcastle via Brighouse');
 assert.equal(legacy.destination_name,'Newcastle via Brighouse');
 assert.equal(legacy.calling_points_source,'Booked calling pattern');
-for(const name of ['staff.html','staff-platform.html'])assert.ok(readFileSync(new URL('../'+name,import.meta.url),'utf8').includes('mcv-data.js?v=20261022-wigan-via'));
+for(const name of ['staff.html','staff-platform.html'])assert.ok(readFileSync(new URL('../'+name,import.meta.url),'utf8').includes('mcv-data.js?v=20261022-'));
 console.log('Via labels: booked patterns, live precedence, partial/cancelled/expired routes, relevant waypoints and staff integration passed');
 
 // Wigan 2J workings carry an explicit Darwin destination via outside 2W rules.

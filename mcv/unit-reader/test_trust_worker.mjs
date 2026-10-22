@@ -246,3 +246,16 @@ const expiredDaily=context.MCVData.toLegacyBoard({generatedAt:stamp,trainService
 assert.equal(expiredDaily.calling_points_source,'Darwin');
 assert.equal(expiredDaily.calling_points.length,0);
 console.log('Independent booked patterns: daily schedule freshness, exact identity, public stops, live replacement, alteration guards and UI expiry passed');
+
+const check={uid:missingPattern.uid,trainid:missingPattern.trainid,sdd:missingPattern.sdd,sta:missingPattern.sta||'',std:missingPattern.std||'',reason:'booked-time-mismatch'};
+const checked=worker.validateBookedPatterns({...timetable,routes:[],checks:[check]});
+const why={trainServices:[{...missingPattern}]};worker.mergeBookedPatterns(why,{timetable:checked});
+assert.equal(why.trainServices[0].bookedPatternStatus.reason,'booked-time-mismatch');
+const whyLegacy=context.MCVData.toLegacyBoard({generatedAt:stamp,trainServices:why.trainServices}).results[0];
+assert.equal(whyLegacy.booked_pattern_status.reason,'booked-time-mismatch');
+assert.match(context.MCVData.bookedPatternExplanation(whyLegacy.booked_pattern_status),/public or working/);
+assert.throws(()=>worker.validateBookedPatterns({...checked,checks:[{...check,reason:'raw-error-unsafe'}]}));
+const wrongCheck={trainServices:[{...missingPattern,std:'2026-10-22T04:49:00'}]};worker.mergeBookedPatterns(wrongCheck,{timetable:checked});
+assert.equal(wrongCheck.trainServices[0].bookedPatternStatus,undefined);
+worker.mergeTrustServices(why,{});assert.equal(why.trainServices[0].bookedPatternStatus,undefined,'Old explanations are cleared before fresh joins');
+console.log('Booked-pattern explanations: exact identity/time, reason validation, UI conversion and freshness clearing passed');

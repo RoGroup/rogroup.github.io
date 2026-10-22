@@ -535,6 +535,25 @@
     return (service?.subsequentLocations || []).length > 0 || (service?.subsequentCallingPoints || []).some(function(group){return (group.callingPoint || []).length > 0;});
   }
 
+  function bookedPatternExplanation(status) {
+    if (!status || !Number.isFinite(Date.parse(status.expiresAt)) || Date.parse(status.expiresAt) <= Date.now()) return '';
+    const reasons = {
+      'not-found':'No timetable schedule was found for this UID and operating date.',
+      cancelled:'The effective timetable variant is cancelled.',
+      ambiguous:'More than one effective timetable variant matches; the pattern is withheld.',
+      'holiday-rule-unresolved':'The timetable has a bank-holiday rule that has not been resolved.',
+      'does-not-visit-mcv':'The effective timetable variant does not call at Manchester Victoria.',
+      'headcode-or-category':'The timetable headcode or service category does not match this working.',
+      'ambiguous-visit':'The timetable has no unique stopping visit at Manchester Victoria.',
+      'outside-window-or-no-departure':'No suitable Victoria departure was found inside the fallback time window.',
+      'booked-time-mismatch':'Darwin booked times do not match either the public or working timetable pair.',
+      'no-public-calls':'No usable public onward calling pattern was found in the timetable.',
+      'invalid-timetable':'The timetable contains incomplete or ambiguous data; no pattern is inferred.',
+      'destination-mismatch':'The timetable destination differs from Darwin, or the destination is not unique.'
+    };
+    return reasons[status.reason] || '';
+  }
+
   function trustCallingPointsFresh(route) {
     return Boolean(route && Number.isFinite(Date.parse(route.expiresAt || '')) && Date.parse(route.expiresAt) > Date.now() && Array.isArray(route.callingPoints) && route.callingPoints.length);
   }
@@ -1158,6 +1177,7 @@
           calling_points: points,
           calling_points_source: !hasDarwinCallingPoints(service) && trustCallingPointsFresh(service.trustCallingPoints) ? (service.trustCallingPoints.source==='Booked calling pattern'?'Booked calling pattern':'TRUST timetable') : 'Darwin',
           trust_calling_points: service.trustCallingPoints || null,
+          booked_pattern_status: service.bookedPatternStatus || null,
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
@@ -1200,6 +1220,7 @@
   global.MCVData = Object.freeze({
     trustHistoryFresh: function(history){return Boolean(history && Number.isFinite(Date.parse(history.expiresAt || '')) && Date.parse(history.expiresAt)>Date.now());},
     trustCallingPointsFresh: trustCallingPointsFresh,
+    bookedPatternExplanation: bookedPatternExplanation,
     trustMovementText: trustMovementText,
     VERSION: VERSION,
     CONFIG: CONFIG,

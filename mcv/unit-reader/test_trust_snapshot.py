@@ -306,6 +306,14 @@ class BookedPatternTests(unittest.TestCase):
         self.assertEqual(self.build([self.service,self.service])['routes'],[])
         self.assertEqual(len(self.build([{**self.service,'sta':'2026-10-22T08:58:00Z','std':'2026-10-22T09:00:00Z'}])['routes']),1)
 
+    def test_missing_patterns_report_specific_causes(self):
+        result=self.build([{**self.service,'std':'2026-10-22T10:02:00'}])
+        self.assertEqual(result['checks'][0]['reason'],'booked-time-mismatch')
+        result=self.build([{**self.service,'uid':'P99999'}])
+        self.assertEqual(result['checks'][0]['reason'],'not-found')
+        self.save('C',False)
+        self.assertEqual(self.build()['checks'][0]['reason'],'cancelled')
+
     def test_public_and_working_pairs_match_without_time_tolerance(self):
         stop=self.schedule['schedule_segment']['schedule_location'][1]
         stop.update(arrival='0957H',public_arrival='0958',departure='1001',public_departure='1000')
