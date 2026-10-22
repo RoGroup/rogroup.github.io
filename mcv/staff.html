@@ -1563,6 +1563,10 @@ function trtsDirection(s){
   const code=String(point?.crs||'').trim().toUpperCase(),name=String(point?.name||'').trim().toUpperCase();
   const direction=west.has(code)||west.has(name)?'West':east.has(code)||east.has(name)?'East':'';
   if(direction)return {label:direction,note:'Based on the onward calling point: '+point.name+'.'};
+  const blackburn=String(s.destCrs||'').trim().toUpperCase()==='BBN'||String(s.dest||'').trim().toUpperCase()==='BLACKBURN';
+  if(!s.ecs&&blackburn&&/^2N9[0-9]$/i.test(String(s.headcode||'').trim())){
+    return {label:'East',note:'Blackburn via Todmorden · identified by the 2N9x headcode.'};
+  }
   if(s.ecs){
     const depot=String(s.destCrs||'').toUpperCase(),name=String(s.dest||'').toUpperCase();
     if(west.has(depot)||west.has(name))return {label:'West',note:'Inferred from the turnback destination: '+s.dest+'.'};
