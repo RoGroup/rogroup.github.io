@@ -241,6 +241,19 @@
     return rawName || code;
   }
 
+  function displayDestinationName(name, crs, headcode) {
+    const base = displayStationName(name, crs);
+    const code = text(crs).toUpperCase();
+    const plain = text(base).replace(/\s+via\s+.*$/i, '').toUpperCase();
+    const train = text(headcode).toUpperCase();
+    if (code === 'BBN' || plain === 'BLACKBURN') {
+      if (/^2B[0-9]{2}$/.test(train)) return 'Blackburn via Bolton';
+      if (/^2N9[0-9]$/.test(train)) return 'Blackburn via Todmorden';
+    }
+    if (code === 'CLH' || plain === 'CLITHEROE') return 'Clitheroe via Bolton';
+    return base;
+  }
+
   function coachCount(raw) {
     if (raw === null || raw === undefined || typeof raw === 'boolean' || raw === '') return null;
     const value = typeof raw === 'number' ? raw : Number(text(raw));
@@ -496,7 +509,7 @@
     const destinations = Array.isArray(raw.destination) ? raw.destination : [];
     const destinationNames = destinations
       .map(function (destination) {
-        return displayStationName(destination && destination.locationName, destination && destination.crs);
+        return displayDestinationName(destination && destination.locationName, destination && destination.crs, raw.trainid);
       })
       .filter(Boolean);
 
@@ -547,7 +560,7 @@
       destinationCrs: destinationCrs,
       destinations: destinations.map(function (destinationEntry) {
         return {
-          name: displayStationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs),
+          name: displayDestinationName(destinationEntry && destinationEntry.locationName, destinationEntry && destinationEntry.crs, raw.trainid),
           crs: text(destinationEntry && destinationEntry.crs).toUpperCase(),
           via: text(destinationEntry && destinationEntry.via)
         };
@@ -1030,10 +1043,10 @@
           status: statusPair[0],
           status_text: statusPair[1],
           destination: {
-            name: text(destination.locationName || destination.name || 'Unknown'),
+            name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid),
             crs: text(destination.crs)
           },
-          destination_name: text(destination.locationName || destination.name || 'Unknown'),
+          destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid),
           destination_crs: text(destination.crs),
           origin: {
             name: text(origin.locationName || origin.name),
@@ -1083,6 +1096,7 @@
     scheduledEpoch: scheduledEpoch,
     expectedMinutesLate: expectedMinutesLate,
     displayStationName: displayStationName,
+    displayDestinationName: displayDestinationName,
     coachCount: coachCount,
     isTransPennineExpress: isTransPennineExpress,
     frontCarriagesNotice: frontCarriagesNotice,
