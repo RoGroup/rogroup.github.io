@@ -302,7 +302,7 @@ body{user-select:none}
   </footer>
 </div>
 
-<script src="mcv-data.js?v=20261006-leeds-procedure"></script>
+<script src="mcv-data.js?v=20261022-trust-ecs"></script>
 <script>
 'use strict';
 
@@ -387,6 +387,7 @@ function parseServices(json){
       platform:String(raw.platform||'').trim().toUpperCase().replace(/^PLATFORM\s+/,''),
       coaches:coaches,
       unitAllocation:raw.unit_allocation||null,
+      source:raw.feed_source||'Darwin',trust:raw.trust_info||null,
       ecs:ecs,
       cancelled:cancelled,
       delayed:delayed,
@@ -397,12 +398,12 @@ function parseServices(json){
       stops:stopNames
     };
   }).filter(function(service){
-    return Number.isFinite(service.bookedMs)&&!service.departed;
+    return Number.isFinite(service.bookedMs)&&!service.departed&&(service.source!=='TRUST'||Date.parse(service.trust?.expiresAt||'')>Date.now());
   });
 }
 function selectMovements(){
   const now=Date.now();
-  return services.slice().sort(function(a,b){
+  return services.filter(s=>s.source!=='TRUST'||Date.parse(s.trust?.expiresAt||'')>now).sort(function(a,b){
     const ao=a.delayed&&a.bookedMs<now?1:0;
     const bo=b.delayed&&b.bookedMs<now?1:0;
     return bo-ao||a.bookedMs-b.bookedMs||a.key.localeCompare(b.key);
@@ -434,11 +435,11 @@ function render(){
         '<div><span class="headcode">'+escapeHTML(s.headcode||'—')+'</span></div>'+
         '<div class="move">'+
           '<div class="destination">'+(s.ecs?'<span class="ecs-tag">ECS</span>':'')+escapeHTML(s.destination)+'</div>'+
-          '<div class="operator">'+escapeHTML(detail)+'</div>'+
+          '<div class="operator">'+escapeHTML(detail+(s.source==='TRUST'?' · TRUST Feed':''))+'</div>'+
         '</div>'+
         '<div class="form">'+escapeHTML(formation)+(info.source?'<small>'+escapeHTML(info.source.toUpperCase())+'</small>':'')+'</div>'+
         '<div><span class="status '+statusClass(s)+'">'+escapeHTML(s.status)+'</span></div>'+
-        '<div class="platform '+(s.platform?'':'tbc')+'">'+escapeHTML(s.cancelled?'–':(s.platform||'TBC'))+'</div>'+
+        '<div class="platform '+(s.platform?'':'tbc')+'">'+escapeHTML(s.cancelled?'–':(s.platform||'TBC'))+(s.source==='TRUST'?'<small style="display:block;font-size:11px">'+(s.trust?.platformSource==='reported'?'Reported':'Booked')+'</small>':'')+'</div>'+
       '</div>'+
       '<div class="stops"><span class="label">'+(s.ecs?'Movement:':'Calling at:')+'</span><span class="copy">'+escapeHTML(stops)+'</span></div>'+
       (stockNotes.length?'<div class="stock-notes">'+stockNotes.map(note=>'<span>'+escapeHTML(note)+'</span>').join('')+'</div>':'')+
@@ -500,3 +501,4 @@ scrollTimer=setInterval(advanceBoard,7500);
 </script>
 </body>
 </html>
+

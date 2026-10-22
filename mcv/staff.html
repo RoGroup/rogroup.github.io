@@ -744,7 +744,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       <div class="board-note">Countdowns and platform-sequencing warnings are derived from the current feed · confirmed departures remain dimmed for 2 minutes · platform changes are highlighted for 60 seconds · formation is labelled live only when supplied.</div>
     </div>
     <div class="sidebar">
-      <div class="panel"><div class="panel-title"><h2>Service details</h2><span class="tag">LIVE FEED</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
+      <div class="panel"><div class="panel-title"><h2>Service details</h2><span class="tag" id="details-feed-source">Darwin Feed</span></div><div class="details-content" id="service-details"><div class="placeholder">Choose any departure to inspect its booked and estimated times, calling points, delay/cancellation information and any observed platform changes.</div></div></div>
       <div class="panel"><div class="panel-title"><h2>Recent feed changes</h2><span class="minor">This browser session only</span></div><ol class="events" id="events"><li><span class="event-time">SESSION START</span>Changes will appear here after the first successful refresh.</li></ol><div class="event-foot" id="event-feed-status">Live departure snapshots · changes observed in this browser session only</div></div>
     </div>
   </section>
@@ -777,7 +777,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-tpe-routes"></script>
+<script src="mcv-data.js?v=20261022-trust-ecs"></script>
 <script>
 'use strict';
 
@@ -1133,6 +1133,7 @@ function matchDetailedService(target,candidates){
   return matches.length===1?matches[0]:null;
 }
 async function loadPreviousStops(s){
+  if(s.source==='TRUST'){s.previousStopsLoaded=true;renderDetails();return}
   const cacheKey=detailCacheKey(s);
   if(state.detailsBusy.has(cacheKey))return;
   const targetMs=Number.isFinite(s.bookedArrivalMs)?s.bookedArrivalMs:s.bookedMs;
@@ -1270,7 +1271,7 @@ function parseServices(json){
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
-      unitAllocation:raw.unit_allocation || null,
+      unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       stops:onward,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
@@ -1280,6 +1281,7 @@ function parseServices(json){
       origin:station(raw.origin?.name||raw.origin_name||'',raw.origin?.crs||raw.origin_crs||''),originCrs:String(raw.origin?.crs||raw.origin_crs||'').trim().toUpperCase(),
       note:usableCancelReason};
     const cachedPrevious=state.previousStopsCache.get(detailCacheKey(service));
+    if(service.source==='TRUST')service.previousStopsLoaded=true;
     if(cachedPrevious){service.previousStops=cachedPrevious.stops;service.previousStopsLoaded=true;}
     service.firstClassNotice=service.ecs?null:MCVData.firstClassNotice({
       coaches:service.coaches,operator:service.operator,operatorCode:service.operatorCode,
@@ -1291,7 +1293,7 @@ function parseServices(json){
 function purgeRecentDeparted(){
   const now=Date.now();
   for(const [key,s] of state.recentDeparted){
-    if(!Number.isFinite(s.recentDepartedAt)||now-s.recentDepartedAt>RECENT_DEPARTED_MS)state.recentDeparted.delete(key);
+    if(!Number.isFinite(s.recentDepartedAt)||now-s.recentDepartedAt>RECENT_DEPARTED_MS||(s.source==='TRUST'&&Date.parse(s.trust?.expiresAt||'')<=now))state.recentDeparted.delete(key);
   }
 }
 function rememberRecentDepartures(next){
@@ -1323,7 +1325,7 @@ function retainPendingEarlyTerminations(next,previous){
 
 function visibleServices(){
   purgeRecentDeparted();
-  const live=state.services.filter(s=>s.terminatesEarly||!(s.departed&&serviceFlow(s).key!=='terminate'));
+  const live=state.services.filter(s=>(s.source!=='TRUST'||Date.parse(s.trust?.expiresAt||'')>Date.now())&&(s.terminatesEarly||!(s.departed&&serviceFlow(s).key!=='terminate')));
   const keys=new Set(live.map(s=>s.key));
   const recent=[...state.recentDeparted.values()].filter(s=>!keys.has(s.key));
   return live.concat(recent);
@@ -1494,7 +1496,7 @@ function renderTable(){
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus+(s.stopsRemoved?' · Stops removed':''))}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}${s.stopsRemoved?'<div class="removed-stops-chip">STOPS REMOVED</div>':''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}${s.terminatesEarly?'<div class="detail-small">Expected arrival</div>':''}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus+(s.stopsRemoved?' · Stops removed':''))}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}${s.stopsRemoved?'<div class="removed-stops-chip">STOPS REMOVED</div>':''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}${s.source==='TRUST'?'<span class="movement-chip">TRUST</span>':''}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${s.source==='TRUST'?'<div class="detail-small">'+(s.trust?.platformSource==='reported'?'Reported':'Booked')+'</div>':''}${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}${s.terminatesEarly?'<div class="detail-small">Expected arrival</div>':''}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span></td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
   updateDisplayHTML($('departures'),tableHTML,true);
   scrollArea.scrollTop=scrollTop;
@@ -1556,6 +1558,7 @@ function trtsDirection(s){
   if(s.terminatesEarly||serviceFlow(s).key==='terminate')return {label:'Not applicable',note:'Terminates at Manchester Victoria.'};
   if(s.cancelled)return {label:'Not applicable',note:'Departure cancelled.'};
   if(!serviceHasDeparture(s))return {label:'Not confirmed',note:'No departure supplied.'};
+  if(s.source==='TRUST')return s.trust?.departureDirection?{label:s.trust.departureDirection,note:'Based on the booked onward timetable route via '+s.trust.directionPoint+'.'}:{label:'Not confirmed',note:'The booked depot route does not establish an exit direction.'};
   const point=(s.stops||[]).find(p=>!p.cancelled);
   if(s.routeDiverted||(s.stops||[]).some(p=>!p.cancelled&&p.affectedByDiversion))return {label:'Not confirmed',note:'Onward route not supplied clearly enough.'};
   const west=new Set(['SFD','SLD','SALFORD CENTRAL','SALFORD CRESCENT','ECC','ECCLES','PAT','PATRICROFT','NLW','NEWTON-LE-WILLOWS','ERL','EARLESTOWN','BON','BOLTON','SWINTON (MANCHESTER)','MOORSIDE','MSD','WALKDEN','WKD','ATHERTON','ATN','DGT','DEANSGATE','MCO','MANCHESTER OXFORD ROAD','SALFDAS','OLDFIELD RD TURNBACK','MNCRVRS','MANCHESTER VICTORIA WEST TURNBACK','SNN','SWINTON (MANCHESTER)','CLF','CLIFTON (MANCHESTER)']);
@@ -1586,6 +1589,7 @@ function trtsDirection(s){
 function renderDetails(){
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
+  $('details-feed-source').textContent=s.source==='TRUST'?'TRUST Feed':'Darwin Feed';
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),procedure=MCVData.operatingProcedureNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
@@ -1612,13 +1616,14 @@ function renderDetails(){
       <div class="detail-context-title"><div class="detail-heading">${escapeHTML(movementPlace(s).label)}</div><span class="plat-pill${s.platform?'':' unknown'}" aria-label="Platform ${escapeHTML(s.platform||'to be confirmed')}">${escapeHTML(s.platform?'P'+s.platform:'TBC')}</span></div>
       <div class="detail-context-meta">${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}<span>${escapeHTML(s.operator)}${s.destCrs?' · '+escapeHTML(s.destCrs):''}</span></div>
     </div>
+    ${s.source==='TRUST'?'<div class="reason blue"><strong>TRUST Feed:</strong> Activated ECS working. Route and calling times are booked timetable data; no arrival or departure forecast is supplied. Platform '+(s.trust?.platformSource==='reported'?'reported by TRUST.':'is booked and may change.')+'</div>':''}
     ${rttUrl?`<div><a class="button rtt-button" href="${escapeHTML(rttUrl)}" target="_blank" rel="noopener noreferrer">Open in RealTimeTrains ↗</a></div>`:''}
     <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
     <section class="detail-group detail-route"><h3>Route</h3><div class="ops-route">
       <div class="place"><small>Origin</small>${escapeHTML(s.origin==='Unknown'?'Not supplied':s.origin)}</div>
       <div class="arrow">→</div>
-      <div class="place center"><small>Current location</small>Manchester Victoria</div>
+      <div class="place center"><small>${s.source==='TRUST'?'Board location':'Current location'}</small>Manchester Victoria</div>
       <div class="arrow">→</div>
       <div class="place end"><small>Destination</small>${escapeHTML(s.dest)}</div>
     </div>
@@ -1634,7 +1639,7 @@ function renderDetails(){
       ${metric('Booked dwell',dwell===null?'—':dwell+' min',dwell===null?'Not available':'Arrival → departure')}
       ${metric(arrivalSub,arrivalDisplay,'Live arrival information')}
       ${metric(departureSub,departureDisplay,diff!==null&&diff>0?'+'+diff+' min vs booked':'Live departure information')}
-      ${metric('Platform',platformState(s),s.platformHidden?'Platform supplied but hidden on public display':(s.platformWithheld&&!s.platform?'Allocation withheld / not supplied':'Live allocation'))}
+      ${metric('Platform',platformState(s),s.platformHidden?'Platform supplied but hidden on public display':(s.platformWithheld&&!s.platform?'Allocation withheld / not supplied':s.source==='TRUST'?(s.trust?.platformSource==='reported'?'TRUST reported platform':'Booked timetable platform'):'Live allocation'))}
     </div>
 
     </section>
@@ -1884,3 +1889,4 @@ setInterval(()=>{if(state.lastGood){renderStats();renderOperationalAlerts();rend
 </script>
 </body>
 </html>
+

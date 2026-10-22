@@ -999,6 +999,7 @@
   // Some established display renderers still consume the older Traini-shaped
   // model. Keeping the adapter here means RDM interpretation stays centralised.
   function clockToIso(clock, generatedAt) {
+    if (typeof clock === 'string' && /^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(clock) && Number.isFinite(Date.parse(clock))) return new Date(clock).toISOString();
     const normalisedClock = rdmTime(clock);
     if (normalisedClock === '--:--') return null;
     const ms = scheduledEpoch(normalisedClock, generatedAt);
@@ -1014,6 +1015,11 @@
   }
 
   function legacyStatus(service) {
+    if (service && service.mcvSource === 'TRUST') {
+      if (service.atd) return ['departed', 'Departed'];
+      if (service.ata) return ['reported', 'Arrived ' + rdmTime(service.ata)];
+      return ['reported', 'Activated · no forecast'];
+    }
     const status = statusForService(service || {});
     const rawEtd = text(service && service.etd);
     const etd = rdmTime(rawEtd);
@@ -1125,6 +1131,8 @@
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
+          feed_source: service.mcvSource === 'TRUST' ? 'TRUST' : 'Darwin',
+          trust_info: service.mcvSource === 'TRUST' ? service.trust || null : null,
           late_reason: reasonText(service.delayReason),
           cancel_reason: reasonText(service.cancelReason || (service.isCancelled ? service.delayReason : '')),
           not_for_display: text(service.serviceType || 'train').toLowerCase() !== 'train',
@@ -1202,3 +1210,4 @@
     fetchLegacyBoard: fetchLegacyBoard
   });
 })(typeof window !== 'undefined' ? window : globalThis);
+

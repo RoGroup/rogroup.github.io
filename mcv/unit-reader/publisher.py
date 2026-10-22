@@ -149,6 +149,16 @@ def run_once(db, token):
     entries = [resolve(db, service) for service in services] if running else []
     payload = {"version": 1, "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
                "readerRunning": running, "services": entries}
+    try:
+        from trust_snapshot import build_snapshot
+        payload["trust"] = build_snapshot(FOLDER)
+    except Exception as error:
+        # TRUST preparation must not stop Gemini allocation publication.
+        payload["trust"] = {"version": 1, "available": False, "services": []}
+        print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
+    # Retain the earliest workings if their booked routes make a large upload.
+    while len(json.dumps(payload).encode()) > 240000 and payload["trust"]["services"]:
+        payload["trust"]["services"].pop()
     request = urllib.request.Request(BASE + "/unit-ingest", data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + token}, method="POST")
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -156,6 +166,7 @@ def run_once(db, token):
             raise RuntimeError("Snapshot upload failed")
     matched = sum(entry["status"] == "allocated" for entry in entries)
     print(f"Published {len(entries)} services; {matched} have unit allocations; reader active={running}", flush=True)
+    print(f"TRUST snapshot: available={payload['trust']['available']}; {len(payload['trust']['services'])} ECS workings", flush=True)
 
 
 def main():
@@ -176,3 +187,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

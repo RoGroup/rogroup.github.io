@@ -129,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-reasons-v13',
+          '/__cache/mcv-staff-movements-trust-v14',
           origin,
           () => buildStaffMovements(env)
         );
@@ -453,7 +453,9 @@ async function buildStaffMovements(env) {
     detailedPassengerEnrichment:
       Boolean(detailed)
   };
-  await enrichUnits(staffBoard, env);
+  const snapshot = await readUnitSnapshot(env).catch(() => null);
+  mergeTrustServices(staffBoard, snapshot);
+  await enrichUnits(staffBoard, env, snapshot);
   return staffBoard;
 }
 async function buildStaffDetails(
@@ -488,7 +490,9 @@ async function buildStaffDetails(
     target:
       target.toISOString()
   };
-  await enrichUnits(board, env);
+  const snapshot = await readUnitSnapshot(env).catch(() => null);
+  mergeTrustServices(board, snapshot);
+  await enrichUnits(board, env, snapshot);
   return board;
 }
 async function fetchPublicDetailed(
@@ -1143,6 +1147,7 @@ async function ingestUnits(request, env, origin) {
         if (!Array.isArray(service[field]) || service[field].length > 20 || !service[field].every(unit => typeof unit === 'string' && /^\d{6}$/.test(unit))) throw new Error('Invalid units');
       }
     }
+    if (snapshot.trust != null) snapshot.trust = validateTrustSnapshot(snapshot.trust);
     snapshot.updatedAt = new Date().toISOString();
     await env.UNIT_ALLOCATIONS.put(UNIT_SNAPSHOT_KEY, JSON.stringify(snapshot), {expirationTtl:900});
     return jsonResponse({ok:true, services:snapshot.services.length},200,origin);
@@ -1158,9 +1163,9 @@ async function readUnitSnapshot(env) {
   const age = Date.now() - Date.parse(snapshot.updatedAt);
   return {...snapshot, available:snapshot.readerRunning === true && Number.isFinite(age) && age >= 0 && age <= UNIT_MAX_AGE_MS};
 }
-async function enrichUnits(board, env) {
+async function enrichUnits(board, env, suppliedSnapshot) {
   try {
-    const snapshot = await readUnitSnapshot(env);
+    const snapshot = suppliedSnapshot === undefined ? await readUnitSnapshot(env) : suppliedSnapshot;
     board._mcv = {...(board._mcv || {}), unitAllocationsAvailable:Boolean(snapshot?.available), unitReaderRunning:snapshot?.readerRunning ?? null, unitSnapshotAt:snapshot?.updatedAt || null};
     if (!snapshot?.available) return;
     const index = new Map(snapshot.services.map(service => [unitSignature(service), service]));
@@ -1180,4 +1185,74 @@ async function enrichUnits(board, env) {
     console.warn('Unit enrichment unavailable:', error);
     board._mcv = {...(board._mcv || {}), unitAllocationsAvailable:false};
   }
+}
+
+
+// TRUST-only ECS rows share the allocation snapshot upload and KV write.
+function validateTrustSnapshot(input) {
+  if (!input || input.version !== 1 || typeof input.available !== 'boolean' || !Array.isArray(input.services) || input.services.length > 100) throw new Error('Invalid TRUST snapshot');
+  if (!input.available) return {version:1, available:false, services:[]};
+  for (const field of ['updatedAt','feedAt','scheduleAt']) {
+    if (typeof input[field] !== 'string' || !Number.isFinite(Date.parse(input[field]))) throw new Error('Invalid TRUST timestamp');
+  }
+  const iso = value => value == null || (typeof value === 'string' && /^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value)));
+  function places(points, max) {
+    if (!Array.isArray(points) || points.length > max) throw new Error('Invalid TRUST places');
+    return points.map(point => {
+      for (const key of ['locationName','crs','tiploc']) {
+        if (typeof point[key] !== 'string' || point[key].length > 120) throw new Error('Invalid TRUST place');
+      }
+      if (point.st != null && !iso(point.st)) throw new Error('Invalid TRUST calling time');
+      return {locationName:point.locationName, crs:point.crs, tiploc:point.tiploc, ...(point.st ? {st:point.st} : {})};
+    });
+  }
+  const services = input.services.map(service => {
+    if (!service || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false || service.serviceType !== 'train' ||
+        !/^[A-Z]\d{5}$/.test(service.uid) || !/^[0-9][A-Z]\d{2}$/.test(service.trainid) ||
+        !/^\d{4}-\d\d-\d\d$/.test(service.sdd) || !/^trust:[\w:-]{1,80}$/.test(service.serviceID)) throw new Error('Invalid TRUST identity');
+    for (const field of ['sta','std','ata','atd']) if (!iso(service[field])) throw new Error('Invalid TRUST movement');
+    if (!(service.sta || service.std)) throw new Error('Missing TRUST booked movement');
+    if (!service.trust || !['reported','booked'].includes(service.trust.platformSource) ||
+        !['','East','West'].includes(service.trust.departureDirection) || !iso(service.trust.lastReportAt)) throw new Error('Invalid TRUST provenance');
+    for (const field of ['operator','operatorCode','platform']) if (typeof service[field] !== 'string' || service[field].length > 120) throw new Error('Invalid TRUST service label');
+    const clean = {mcvSource:'TRUST', category:'EE', isPassengerService:false, serviceType:'train'};
+    for (const field of ['serviceID','uid','trainid','sdd','sta','std','ata','atd','operator','operatorCode','platform']) clean[field] = service[field] ?? null;
+    clean.origin = places(service.origin, 1);
+    clean.destination = places(service.destination, 1);
+    for (const property of ['previousCallingPoints','subsequentCallingPoints']) {
+      if (!Array.isArray(service[property]) || service[property].length > 1) throw new Error('Invalid TRUST route');
+      clean[property] = service[property].map(group => ({callingPoint:places(group.callingPoint,100)}));
+    }
+    clean.trust = {platformSource:service.trust.platformSource, lastReportAt:service.trust.lastReportAt || null,
+      departureDirection:service.trust.departureDirection, directionPoint:String(service.trust.directionPoint || '').slice(0,20),
+      trainId:String(service.trust.trainId || '').slice(0,20)};
+    return clean;
+  });
+  return {version:1, available:true, services, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
+}
+function mergeTrustServices(board, snapshot) {
+  const trust = snapshot?.trust;
+  const now = Date.now();
+  const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
+  const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0};
+  if (!available) return;
+  const original = Array.isArray(board.trainServices) ? board.trainServices : [];
+  const output = [...original];
+  const seen = new Set();
+  const expiresAt = new Date(Math.min(Date.parse(trust.updatedAt)+360000, Date.parse(trust.feedAt)+300000, Date.parse(trust.scheduleAt)+36*3600000)).toISOString();
+  for (const service of trust.services || []) {
+    if (output.length >= 200 || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false) continue;
+    const key = service.uid+'|'+service.sdd;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Darwin wins. A same-headcode/date conflict is withheld even when the UID
+    // differs: it must be reconciled rather than added as a second train.
+    if (original.some(existing => (!existing.sdd || String(existing.sdd) === service.sdd) &&
+        (existing.uid === service.uid || existing.trainid === service.trainid))) continue;
+    output.push({...service, trust:{...service.trust, expiresAt}});
+    board._mcv.trustServicesAdded++;
+  }
+  board.trainServices = output;
+  board._mcv.servicesReturned = output.length;
 }
