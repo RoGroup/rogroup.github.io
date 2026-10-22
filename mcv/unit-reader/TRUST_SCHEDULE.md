@@ -354,3 +354,27 @@ Read `_mcv.timetableAvailable`, `_mcv.timetableCallingPatternsMatched`,
 `_mcv.timetableSnapshotAt` and `_mcv.timetableScheduleAt` on `/staff-departures`
 for the accepted board-level result. Allow the normal 120-second first publisher
 cycle and KV/cache propagation after deployment.
+
+### Public versus working Victoria times
+
+Darwin's booked Victoria arrival/departure can be the public times, which need
+not equal the working timetable clocks. For example, a public 17:59 arrival may
+have a working 17:58:30 arrival. The direct booked-pattern projector now tries
+the complete public pair and the complete working pair, comparing the same
+booked minutes as before. It never combines public arrival with working departure
+or expands to a nearest-time match. UID, headcode, operating date, unique visit,
+variant precedence and destination checks remain required.
+
+The chosen pair is published in the route's `sta`/`std`, so the existing Worker
+can repeat its exact comparison against Darwin. Onward passenger calls continue
+to use public times, without forecasts. Public clocks are dated against their
+working event across midnight, with the existing 30-minute public/working
+sanity bound; invalid, unset or ambiguous clocks remain unavailable.
+
+This correction needs the updated projector via the server installer, with no
+further Worker or front-end change. Regression checks cover distinct public and
+working pairs, rejection of mixed/nearby pairs, half-minute working clocks and
+public calls crossing midnight. A replay of 12 uncancelled missing-pattern
+examples from the uploaded 22 October timetable and the captured live board
+improved from one match to 12; the existing Worker accepted all 12. This is a
+local replay result, not confirmation of a server deployment.

@@ -433,17 +433,37 @@ def build_booked_patterns(folder, services, now=None):
                         if moment.utcoffset() != moment.replace(fold=1).utcoffset() or moment.astimezone(UTC).astimezone(LONDON).replace(tzinfo=None) != moment.replace(tzinfo=None):
                             return False
                     return int(moment.timestamp() // 60) == int(planned.timestamp() // 60)
-                if not all(matches(str(service.get(field) or ""), times.get(name)) for field, name in (("sta", "arrival"), ("std", "departure")) if service.get(field)) or not service.get("std"):
+                stop = route[index][0]
+                public_times = {name: public_booked_time(stop.get("public_"+name), times.get(name)) for name in ("arrival", "departure")}
+                # Darwin can supply public rather than working booked times.
+                # Require one consistent pair, never a widened time tolerance
+                # or an arrival from one basis and departure from the other.
+                chosen = next((candidate for candidate in (public_times, times)
+                    if all(matches(str(service.get(field) or ""), candidate.get(name))
+                           for field, name in (("sta", "arrival"), ("std", "departure")) if service.get(field))), None)
+                if chosen is None or not service.get("std"):
                     continue
                 calls = booked_passenger_points(route[index+1:], db)
                 if 0 < len(calls) <= 100:
                     routes.append({"uid": uid, "trainid": headcode, "sdd": date,
-                        "sta": times["arrival"].isoformat() if times.get("arrival") else None,
-                        "std": times["departure"].isoformat(), "callingPoints": calls})
+                        "sta": chosen["arrival"].isoformat() if chosen.get("arrival") else None,
+                        "std": chosen["departure"].isoformat(), "callingPoints": calls})
             except (ValueError, TypeError, KeyError):
                 continue
         return {"version": 1, "available": True, "updatedAt": now.isoformat(),
                 "scheduleAt": dt.datetime.fromtimestamp(stamp, UTC).isoformat(), "routes": routes[:200]}
+
+
+def public_booked_time(value, working):
+    if working is None or not isinstance(value, str) or value == "0000" or not re.fullmatch(r"(?:[01]\d|2[0-3])[0-5]\d", value):
+        return None
+    public = working.replace(hour=int(value[:2]), minute=int(value[2:]), second=0)
+    public = min((public+dt.timedelta(days=offset) for offset in (-1,0,1)), key=lambda candidate: abs((candidate-working).total_seconds()))
+    if abs((public-working).total_seconds()) > 1800 or public.utcoffset() != public.replace(fold=1).utcoffset() or public.utcoffset() != working.utcoffset():
+        return None
+    if public.astimezone(UTC).astimezone(LONDON).replace(tzinfo=None) != public.replace(tzinfo=None):
+        return None
+    return public
 
 
 def booked_passenger_points(parts, db):
@@ -456,9 +476,8 @@ def booked_passenger_points(parts, db):
         working = clocks.get("arrival") or clocks.get("departure")
         if not working or not re.fullmatch(r"[A-Z]{3}", crs or "") or crs.startswith("X") or value is None:
             continue
-        public = working.replace(hour=int(value[:2]), minute=int(value[2:]), second=0)
-        public = min((public+dt.timedelta(days=offset) for offset in (-1,0,1)), key=lambda candidate: abs((candidate-working).total_seconds()))
-        if abs((public-working).total_seconds()) <= 1800:
+        public = public_booked_time(value, working)
+        if public is not None:
             result.append({"tiploc": point["tiploc_code"], "crs": crs, "locationName": row[1] or point["tiploc_code"], "st": public.isoformat()})
     return result
 

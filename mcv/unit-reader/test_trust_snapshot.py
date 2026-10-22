@@ -306,6 +306,31 @@ class BookedPatternTests(unittest.TestCase):
         self.assertEqual(self.build([self.service,self.service])['routes'],[])
         self.assertEqual(len(self.build([{**self.service,'sta':'2026-10-22T08:58:00Z','std':'2026-10-22T09:00:00Z'}])['routes']),1)
 
+    def test_public_and_working_pairs_match_without_time_tolerance(self):
+        stop=self.schedule['schedule_segment']['schedule_location'][1]
+        stop.update(arrival='0957H',public_arrival='0958',departure='1001',public_departure='1000')
+        self.db.execute('DELETE FROM schedules');self.save()
+        public=self.build()['routes'][0]
+        self.assertEqual(public['sta'],'2026-10-22T09:58:00+01:00')
+        self.assertEqual(public['std'],'2026-10-22T10:00:00+01:00')
+        working=self.build([{**self.service,'sta':'2026-10-22T09:57:00','std':'2026-10-22T10:01:00'}])['routes'][0]
+        self.assertEqual(working['sta'],'2026-10-22T09:57:30+01:00')
+        self.assertEqual(working['std'],'2026-10-22T10:01:00+01:00')
+        for change in ({'sta':'2026-10-22T09:59:00'},{'std':'2026-10-22T10:02:00'},
+                       {'sta':'2026-10-22T09:57:00'},{'std':'2026-10-22T10:01:00'}):
+            self.assertEqual(self.build([{**self.service,**change}])['routes'],[],str(change))
+        # A public departure just before midnight retains its operating date,
+        # even when its working departure is just after midnight.
+        stop.update(arrival='2358H',public_arrival='2359',departure='0001',public_departure='2359')
+        stops=self.schedule['schedule_segment']['schedule_location']
+        stops[0]['departure']='2300';stops[2]['pass']='0015';stops[3].update(arrival='0030',departure='0031')
+        stops[4].update(arrival='0130',public_arrival='0130')
+        self.db.execute('DELETE FROM schedules');self.save()
+        service={**self.service,'sta':'2026-10-22T23:59:00','std':'2026-10-22T23:59:00'}
+        pattern=self.build([service],now=NOW+dt.timedelta(hours=8))['routes'][0]
+        self.assertEqual(pattern['std'],'2026-10-22T23:59:00+01:00')
+        self.assertEqual(pattern['callingPoints'][-1]['st'],'2026-10-23T01:30:00+01:00')
+
     def test_stale_timetable_cancelled_overlay_and_ambiguous_schedules(self):
         self.assertFalse(self.build(now=NOW+dt.timedelta(hours=37))['available'])
         for stp,payload,holiday in [('C',False,''),('O',False,''),('P',True,''),('O',True,'X')]:
