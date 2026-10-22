@@ -250,6 +250,21 @@
       if (/^2B[0-9]{2}$/.test(train)) return 'Blackburn via Bolton';
       if (/^2N9[0-9]$/.test(train)) return 'Blackburn via Todmorden';
     }
+    const wallgate = code === 'WGW' || plain === 'WIGAN WALLGATE' || plain === 'WIGAN';
+    const northWestern = code === 'WGN' || plain === 'WIGAN NORTH WESTERN';
+    const headbolt = code === 'HBL' || plain === 'HEADBOLT LANE';
+    const southport = code === 'SOP' || plain === 'SOUTHPORT';
+    if (/^2I[0-9]{2}$/.test(train) && wallgate) return 'Wigan Wallgate via Atherton';
+    if (/^2K[0-9]{2}$/.test(train)) {
+      if (headbolt) return 'Headbolt Lane via Atherton';
+      if (wallgate) return 'Wigan Wallgate via Atherton';
+    }
+    if (/^2W[0-9]{2}$/.test(train)) {
+      if (southport) return 'Southport via Bolton';
+      if (wallgate) return 'Wigan Wallgate via Bolton';
+      if (northWestern) return 'Wigan North Western via Bolton';
+    }
+    if (/^2G[0-9]{2}$/.test(train) && northWestern) return 'Wigan North Western via Golborne';
     if (code === 'CLH' || plain === 'CLITHEROE') return 'Clitheroe via Bolton';
     return base;
   }
