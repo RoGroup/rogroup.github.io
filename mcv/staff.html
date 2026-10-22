@@ -312,6 +312,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 #trust-journey-report-body[hidden]{display:none}
 .feed-diagnostics{margin:0 0 18px}.diagnostics-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px}.diagnostics-heading h2{font-size:14px;margin:0}.diagnostics-body{padding:0 16px 16px}.diagnostics-body[hidden]{display:none}.diagnostics-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.diagnostics-table{width:100%;border-collapse:collapse;font-size:12px}.diagnostics-table th,.diagnostics-table td{padding:9px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.diagnostics-table th{width:34%;color:var(--navy)}.diagnostics-table .diagnostics-group th{width:auto;color:var(--blue);padding-top:18px}.diagnostics-warning{border-left:3px solid var(--amber)}:root[data-theme="dark"] .diagnostics-table th{color:#f3f5ff}:root[data-theme="dark"] .diagnostics-table .diagnostics-group th{color:var(--blue)}
 #recent-more[hidden]{display:none}.recent-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:14px}.recent-form label{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700}.recent-form input{padding:10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:var(--card,#fff);color:var(--ink);max-width:100%;min-height:42px}.recent-record{border-top:1px solid var(--line);padding:12px 0}.recent-record summary{cursor:pointer;line-height:1.7;overflow-wrap:anywhere}.recent-record-body{padding:10px}.recent-facts{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:8px;font-size:13px}.recent-facts dt{font-weight:700}.recent-facts dd{margin:0;overflow-wrap:anywhere}.recent-history{margin:14px 0}.recent-history li{padding:5px 0;font-size:13px}:root[data-theme="dark"] .recent-form input{background:#171d31;color:#f3f5ff}@media(max-width:600px){.recent-form label{width:100%}.recent-form input{width:100%}.recent-record-body{padding:8px 0}.recent-facts{grid-template-columns:1fr}.recent-facts dd{margin-bottom:7px}}
+.service-report-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0}.service-report-actions [data-report-fallback]{width:100%}.service-report-actions [hidden]{display:none}.service-report-text{display:block;width:100%;min-height:230px;margin-top:8px;padding:10px;box-sizing:border-box;background:var(--card,#fff);color:var(--ink);border:1px solid var(--line);border-radius:7px;font:12px/1.5 monospace}.unit-history-link{font-size:inherit;padding:4px 8px;white-space:normal;text-decoration:underline}.recent-facts .unit-history-link{min-height:36px}:root[data-theme="dark"] .service-report-text{background:#171d31;color:#f3f5ff}
 </style>
 
 
@@ -797,7 +798,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 
 <script src="mcv-data.js?v=20261022-trust-history"></script>
 <script src="mcv-diagnostics.js?v=20261022-1"></script>
-<script src="mcv-recent.js?v=20261022-1"></script>
+<script src="mcv-service-report.js?v=20261022-1"></script>
+<script src="mcv-recent.js?v=20261022-2"></script>
 <script>
 'use strict';
 
@@ -1291,6 +1293,7 @@ function parseServices(json){
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
+      reportTimes:Object.fromEntries(['sta','std','ata','atd','eta','etd'].map(field=>[field,String(darwinServices[index]?.[field]||'')])),
       unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,trustHistory:raw.trust_history||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       get stops(){return raw.calling_points_source==='TRUST timetable'&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
@@ -1631,6 +1634,17 @@ function renderTrustHistory(s,expanded=false){
     <ol class="stops">${events.map(event=>`<li><div class="stop-name">${escapeHTML(labels[event.kind]||event.kind)}${event.tiploc?' · '+escapeHTML(place(event)):''}</div><div class="stop-sub">${event.timeBasis==='received'?'Received ':'Reported '}${escapeHTML(stamp(event.at))}${event.delaySeconds!=null?' · '+escapeHTML(delay(event)):''}${event.platform?' · Reported platform '+escapeHTML(event.platform):''}</div></li>`).join('')}</ol>
     </div></section>`;
 }
+function serviceReportRecord(s){
+  const allocation=allocationFresh(s)?s.unitAllocation:null;
+  const history=MCVData.trustHistoryFresh(s.trustHistory)?s.trustHistory:null;
+  return {...s.reportTimes,headcode:s.headcode,uid:s.uid,date:s.serviceDate,source:s.source,
+    origin:s.origin,destination:s.dest,platform:s.platform,cancelled:s.cancelled,live:true,lastSeen:state.lastGood?new Date(state.lastGood).toISOString():'',
+    allocation:allocation?{status:allocation.status,capturedAt:allocation.syncedAt,arrivalUnits:allocatedUnits(s,'arrivals'),departureUnits:allocatedUnits(s,'departures')}:null,
+    history:history?{events:history.events,reconciliationRequired:history.reconciliationRequired,capturedAt:state.unitFeedMeta?.trustSnapshotAt||''}:null};
+}
+function unitHistoryLinks(s,view){
+  return allocatedUnits(s,view).map(unit=>MCVServiceReport.unitButtons([unit])+(unitClass(s,unit,view)?' · '+escapeHTML(unitClass(s,unit,view)):'')).join(' + ')||'Not supplied';
+}
 function renderDetails(){
   renderFeedDiagnostics();
   const s=visibleServices().find(x=>x.key===state.selectedKey);
@@ -1664,6 +1678,7 @@ function renderDetails(){
     </div>
     ${s.source==='TRUST'?'<div class="reason blue"><strong>TRUST Feed:</strong> Activated ECS working. Route and calling times are booked timetable data; no arrival or departure forecast is supplied. Platform '+(s.trust?.platformSource==='reported'?'reported by TRUST.':'is booked and may change.')+'</div>':''}
     ${s.source!=='TRUST'&&MCVData.trustMovementText(s.trustMovement)?`<div class="reason blue"><strong>${escapeHTML(MCVData.trustMovementText(s.trustMovement))}</strong><br>Recorded movement report. The platform shown here belongs to that report; the current allocation is shown separately above.</div>`:''}
+    ${MCVServiceReport.actionsHTML()}
     ${rttUrl?`<div><a class="button rtt-button" href="${escapeHTML(rttUrl)}" target="_blank" rel="noopener noreferrer">Open in RealTimeTrains ↗</a></div>`:''}
     <div class="ops-badges">${typeBadge}${charterBadge}${categoryBadge}${statusBadge}<span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span>${overdue(s)?'<span class="status-pill delay">PAST BOOKED TIME</span>':''}</div>
 
@@ -1690,6 +1705,7 @@ function renderDetails(){
     </div>
 
     </section>
+    ${MCVServiceReport.summaryHTML(serviceReportRecord(s))}
     <div class="ops-alerts">
       ${s.terminatesEarly?`<div class="ops-alert danger"><strong>TERMINATES EARLY AT VICTORIA</strong><br>Onward journey cancelled. This train still arrives at Victoria; passengers must leave the train here.</div>`:''}
       ${reason?`<div class="ops-alert ${s.cancelled?'danger':'warn'}"><strong>${s.cancelled||s.terminatesEarly?'Cancellation reason':'Delay reason'}:</strong> ${escapeHTML(reason)}</div>`:((s.delayed||s.cancelled)?'<div class="ops-alert warn"><strong>Disruption:</strong> No cause supplied by the current feed.</div>':'')}
@@ -1705,9 +1721,9 @@ function renderDetails(){
     </div>
     ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">Possible turnaround pairing · inferred</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">Matched from the same exact platform, timing, operator and formation where available. This is not a confirmed stock diagram.</div></div>`:''}
 
-    <section class="detail-group detail-stock"><h3>Stock &amp; formation</h3>${formationDiagram(s)}<div class="keyvalues">
-      ${serviceHasArrival(s)?extra('Allocated arrival units',unitsWithClasses(s,'arrivals')||'Not supplied'):''}
-      ${serviceHasDeparture(s)?extra('Allocated departure units',unitsWithClasses(s,'departures')||'Not supplied'):''}
+    <section class="detail-group detail-stock"><h3>Stock &amp; formation</h3><p class="detail-small">Select an allocated unit number to search its captured workings from the last 48 hours. This shows observed allocations, not a confirmed stock diagram.</p>${formationDiagram(s)}<div class="keyvalues">
+      ${serviceHasArrival(s)?`<div><div class="kv-label">Allocated arrival units</div><div class="kv-value">${unitHistoryLinks(s,'arrivals')}</div></div>`:''}
+      ${serviceHasDeparture(s)?`<div><div class="kv-label">Allocated departure units</div><div class="kv-value">${unitHistoryLinks(s,'departures')}</div></div>`:''}
       ${allocationFresh(s)&&s.unitAllocation?.messageTime?extra('Allocation updated (London)',s.unitAllocation.messageTime.replace('T',' ')):''}
       ${extra('Allocation status',allocationAvailability(s))}
       ${extra('Unit order',reportedUnitOrder(s)?'Front → rear in direction of travel · Gemini reported':'Allocation order · front/rear not supplied')}
@@ -1886,6 +1902,7 @@ function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)
 $('departures').addEventListener('click',e=>{const tr=e.target.closest('tr[data-key]');if(!tr)return;state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails();if(window.matchMedia('(max-width:760px)').matches){$('service-details').closest('.panel')?.scrollIntoView({behavior:'smooth',block:'start'})}});
 $('platform-timeline').addEventListener('click',e=>{const block=e.target.closest('[data-service-key]');if(!block)return;state.selectedKey=block.dataset.serviceKey;state.callingPointView='after';renderTable();renderDetails();document.querySelector('.workspace')?.scrollIntoView({behavior:'smooth',block:'start'})});
 $('departures').addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const tr=e.target.closest('tr[data-key]');if(!tr)return;e.preventDefault();state.selectedKey=tr.dataset.key;state.callingPointView='after';renderTable();renderDetails()});
+$('service-details').addEventListener('click',e=>{const button=e.target.closest('[data-copy-service-report]');if(!button)return;const service=visibleServices().find(s=>s.key===state.selectedKey);if(service)MCVServiceReport.copyReport(serviceReportRecord(service),button.closest('.service-report-actions'))});
 $('service-details').addEventListener('click',e=>{if(!e.target.closest('[data-trust-history-toggle]'))return;const key=state.selectedKey;if(state.trustHistoryOpen.has(key))state.trustHistoryOpen.delete(key);else state.trustHistoryOpen.add(key);renderDetails()});
 $('service-details').addEventListener('click',e=>{const btn=e.target.closest('[data-calling-view]');if(!btn)return;const next=btn.dataset.callingView==='before'?'before':'after';state.callingPointView=next;const s=visibleServices().find(x=>x.key===state.selectedKey);if(next==='before'&&s&&!s.previousStopsLoaded)loadPreviousStops(s);else renderDetails()});
 $('platforms').addEventListener('click',e=>{const card=e.target.closest('[data-platform]');if(!card)return;const num=card.dataset.platform;state.chosenPlatform=state.chosenPlatform===num?'all':num;$('platform-filter').value=state.chosenPlatform;renderPlatforms();renderTable()});
@@ -1966,5 +1983,3 @@ setInterval(()=>{if(state.lastGood){renderStats();renderOperationalAlerts();rend
 </script>
 </body>
 </html>
-
-

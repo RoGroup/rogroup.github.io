@@ -38,11 +38,14 @@ saved=null;assert.equal((await (await fetch('/recent-services?q=2N01')).json()).
 // The collapsed panel never fetches on load/open. Search and pagination are explicit.
 const nodes=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{hidden:false,value:'',textContent:'',innerHTML:'',listeners:{},addEventListener(type,fn){this.listeners[type]=fn},getAttribute(){return this.expanded||'false'},setAttribute(k,v){this.expanded=v},focus(){},insertAdjacentHTML(pos,content){this.innerHTML+=content}});return nodes.get(id)};
 let requests=0,failed=false;
-const context={Date,Intl,URLSearchParams,document:{getElementById:node},MCVSite:{fetch:async()=>{requests++;if(failed)throw Error();return {ok:true,json:async()=>({...archive,available:true,total:1,nextOffset:null})}}}};
-vm.createContext(context);vm.runInContext(readFileSync(new URL('../mcv-recent.js',import.meta.url),'utf8'),context);
+const documentListeners={};
+const context={Date,Intl,URLSearchParams,document:{getElementById:node,addEventListener:(type,fn)=>documentListeners[type]=fn},MCVSite:{fetch:async()=>{requests++;if(failed)throw Error();return {ok:true,json:async()=>({...archive,available:true,total:1,nextOffset:null})}}}};
+vm.createContext(context);vm.runInContext(readFileSync(new URL('../mcv-service-report.js',import.meta.url),'utf8'),context);vm.runInContext(readFileSync(new URL('../mcv-recent.js',import.meta.url),'utf8'),context);
 assert.equal(requests,0);node('recent-toggle').listeners.click();assert.equal(requests,0);
 const html=context.MCVRecent.recordHTML({...service,origin:'<script>alert(1)</script>'});assert.ok(!html.includes('<script>'));assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes(' open'));
 node('recent-query').value='2N01';node('recent-form').listeners.submit({preventDefault(){}});
 await new Promise(resolve=>setTimeout(resolve,0));assert.equal(requests,1);assert.match(node('recent-results').innerHTML,/150456/);assert.match(node('recent-status').textContent,/Capture started/);
+node('recent-date').value='2026-10-21';documentListeners.click({target:{closest:()=>({dataset:{unitHistory:'150456'}})}});
+await new Promise(resolve=>setTimeout(resolve,0));assert.equal(node('recent-query').value,'150456');assert.equal(node('recent-date').value,'');assert.equal(requests,2);
 failed=true;node('recent-form').listeners.submit({preventDefault(){}});await new Promise(resolve=>setTimeout(resolve,0));assert.match(node('recent-status').textContent,/unavailable/);assert.equal(node('recent-submit').disabled,false);
 console.log('Recent archive: validation, authentication, retention, identity/date/unit search, pagination, historical reports and UI checks passed');
