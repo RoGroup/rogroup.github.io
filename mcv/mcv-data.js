@@ -217,6 +217,8 @@
 
     const operationalLocations = {
       ALERTNS: 'Allerton TMD',
+      EDGHDHS: 'Edge Hill TMD',
+      XEG: 'Edge Hill TMD',
       CHNL159: 'Chinley Signal Cy159',
       NWTNHDD: 'Newton Heath TMD',
       ARDWTMD: 'Ardwick TMD',
