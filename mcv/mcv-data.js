@@ -1131,6 +1131,7 @@
           previous_calling_points: previousPoints,
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
+          trust_movement: service.trustMovement || null,
           feed_source: service.mcvSource === 'TRUST' ? 'TRUST' : 'Darwin',
           trust_info: service.mcvSource === 'TRUST' ? service.trust || null : null,
           late_reason: reasonText(service.delayReason),
@@ -1156,7 +1157,17 @@
     return Object.assign({}, board, { legacy: toLegacyBoard(board.raw) });
   }
 
+  function trustMovementText(report) {
+    if (!report || Date.parse(report.expiresAt || '') <= Date.now() || !Number.isFinite(Date.parse(report.expiresAt || ''))) return '';
+    const parts = [];
+    if (report.ata) parts.push('arrived ' + rdmTime(report.ata));
+    if (report.atd) parts.push('departed ' + rdmTime(report.atd));
+    if (!parts.length) return '';
+    return 'TRUST at Victoria: ' + parts.join(' · ') + (report.reportedPlatform ? ' · reported P' + report.reportedPlatform : '');
+  }
+
   global.MCVData = Object.freeze({
+    trustMovementText: trustMovementText,
     VERSION: VERSION,
     CONFIG: CONFIG,
 
@@ -1210,4 +1221,5 @@
     fetchLegacyBoard: fetchLegacyBoard
   });
 })(typeof window !== 'undefined' ? window : globalThis);
+
 

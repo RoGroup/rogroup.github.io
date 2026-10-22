@@ -129,7 +129,7 @@ export default {
         return await cachedJson(
           request,
           ctx,
-          '/__cache/mcv-staff-movements-trust-v14',
+          '/__cache/mcv-staff-movements-trust-v15',
           origin,
           () => buildStaffMovements(env)
         );
@@ -1228,19 +1228,57 @@ function validateTrustSnapshot(input) {
       trainId:String(service.trust.trainId || '').slice(0,20)};
     return clean;
   });
-  return {version:1, available:true, services, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
+  const movements = input.movements ?? [];
+  if (!Array.isArray(movements) || movements.length > 200) throw new Error('Invalid TRUST movements');
+  const cleanMovements = movements.map(row => {
+    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+        !/^\d{4}-\d\d-\d\d$/.test(row.sdd)) throw new Error('Invalid TRUST movement identity');
+    for (const field of ['sta','std','ata','atd','lastReportAt']) if (!iso(row[field])) throw new Error('Invalid TRUST report time');
+    if (!(row.sta || row.std) || !(row.ata || row.atd) || !row.lastReportAt ||
+        (row.ata && !row.sta) || (row.atd && !row.std) ||
+        (row.ata && row.atd && Date.parse(row.ata) > Date.parse(row.atd)) ||
+        Math.max(Date.parse(row.ata) || 0, Date.parse(row.atd) || 0) !== Date.parse(row.lastReportAt) ||
+        Date.parse(row.lastReportAt) > Date.now()+90000) throw new Error('Inconsistent TRUST report');
+    if (typeof row.reportedPlatform !== 'string' || !/^(?:[1-6](?:[AB])?)?$/.test(row.reportedPlatform)) throw new Error('Invalid TRUST reported platform');
+    return Object.fromEntries(['uid','trainid','sdd','sta','std','ata','atd','lastReportAt','reportedPlatform'].map(key=>[key,row[key] ?? null]));
+  });
+  return {version:1, available:true, services, movements:cleanMovements, updatedAt:input.updatedAt, feedAt:input.feedAt, scheduleAt:input.scheduleAt};
 }
 function mergeTrustServices(board, snapshot) {
   const trust = snapshot?.trust;
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
-  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0};
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0};
+  for (const service of board.trainServices || []) delete service.trustMovement;
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
   const output = [...original];
   const seen = new Set();
   const expiresAt = new Date(Math.min(Date.parse(trust.updatedAt)+360000, Date.parse(trust.feedAt)+300000, Date.parse(trust.scheduleAt)+36*3600000)).toISOString();
+  // Supplement Darwin with separately labelled reports. Never replace its
+  // forecast, cancellation, actual timings or current platform allocation.
+  const identity = row => [row.uid,row.trainid,row.sdd].join('|');
+  const reports = new Map();
+  for (const row of trust.movements || []) {
+    const key = identity(row);
+    reports.set(key, reports.has(key) ? null : row);
+  }
+  const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+  const sameBookedMinute = (darwin, planned) => {
+    if (!darwin || !planned) return false;
+    if (/^\d\d:\d\d(?::\d\d)?$/.test(String(darwin))) return String(darwin).slice(0,5) === clock.format(new Date(planned));
+    const a = Date.parse(darwin), b = Date.parse(planned);
+    return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
+  };
+  for (const service of original) {
+    const row = reports.get(identity(service));
+    if (!row || service.mcvSource === 'TRUST' || original.filter(item=>identity(item)===identity(service)).length !== 1) continue;
+    const fields = ['sta','std'].filter(field=>service[field]);
+    if (!fields.length || !fields.every(field=>sameBookedMinute(service[field],row[field]))) continue;
+    service.trustMovement = {...row, source:'TRUST', location:'Manchester Victoria', expiresAt};
+    board._mcv.trustMovementsMatched++;
+  }
   for (const service of trust.services || []) {
     if (output.length >= 200 || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false) continue;
     const key = service.uid+'|'+service.sdd;
@@ -1256,3 +1294,4 @@ function mergeTrustServices(board, snapshot) {
   board.trainServices = output;
   board._mcv.servicesReturned = output.length;
 }
+

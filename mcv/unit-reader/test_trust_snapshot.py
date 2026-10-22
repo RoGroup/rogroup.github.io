@@ -58,6 +58,18 @@ class ProjectionTests(unittest.TestCase):
             self.assertIsNone(row["ata"])
             self.assertEqual(row["trust"]["platformSource"], "booked")
 
+    def test_passenger_reports_share_matching_and_lifecycle_guards(self):
+        passenger = json.loads(json.dumps(SCHEDULE))
+        passenger["schedule_segment"]["CIF_train_category"] = "OO"
+        self.assertIsNone(self.project([("0003", ARRIVAL)], schedule=passenger))
+        row = project_train(passenger, ACTIVATION, [("0003", ARRIVAL)], self.db, NOW, ecs_only=False)
+        self.assertEqual(row["ata"], "2026-10-22T04:35:00+01:00")
+        self.assertEqual(row["category"], "OO")
+        for kind in ("0002", "0006", "0007", "0008"):
+            self.assertIsNone(project_train(passenger, ACTIVATION, [("0003", ARRIVAL), (kind, {})], self.db, NOW, ecs_only=False))
+        mismatch = {**ARRIVAL, "event_type": "DEPARTURE"}
+        self.assertIsNone(self.project([("0003", mismatch)])["atd"])
+
     def test_departed_rows_expire_and_lifecycle_changes_are_withheld(self):
         departure = {**ARRIVAL, "event_type": "DEPARTURE", "planned_event_type": "DEPARTURE",
                      "planned_timestamp": "1792644480000", "actual_timestamp": "1792644480000"}
@@ -126,6 +138,15 @@ class ProjectionTests(unittest.TestCase):
         self.assertTrue(result["available"])
         self.assertEqual(len(result["services"]), 1)
         self.assertEqual(result["services"][0]["ata"], "2026-10-22T04:35:00+01:00")
+        self.assertEqual(result["movements"][0]["reportedPlatform"], "4")
+        passenger = json.loads(json.dumps(SCHEDULE))
+        passenger["schedule_segment"]["CIF_train_category"] = "OO"
+        with sqlite3.connect(self.folder / "schedules.sqlite3") as target:
+            target.execute("UPDATE schedules SET payload_zlib=?", (zlib.compress(json.dumps(passenger).encode()),))
+        with patch("trust_snapshot.time.time", return_value=NOW.timestamp()):
+            result = build_snapshot(self.folder, NOW)
+        self.assertEqual(result["services"], [], "Passenger reports must not create standalone TRUST trains")
+        self.assertEqual(result["movements"][0]["ata"], "2026-10-22T04:35:00+01:00")
         result = build_snapshot(self.folder, NOW + dt.timedelta(minutes=4))
         self.assertFalse(result["available"])
         self.assertEqual(result["services"], [])
@@ -133,3 +154,4 @@ class ProjectionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

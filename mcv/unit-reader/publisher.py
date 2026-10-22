@@ -159,6 +159,8 @@ def run_once(db, token):
     # Retain the earliest workings if their booked routes make a large upload.
     while len(json.dumps(payload).encode()) > 240000 and payload["trust"]["services"]:
         payload["trust"]["services"].pop()
+    while len(json.dumps(payload).encode()) > 240000 and payload["trust"].get("movements"):
+        payload["trust"]["movements"].pop()
     request = urllib.request.Request(BASE + "/unit-ingest", data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json", "Authorization": "Bearer " + token}, method="POST")
     with urllib.request.urlopen(request, timeout=30) as response:
@@ -167,6 +169,7 @@ def run_once(db, token):
     matched = sum(entry["status"] == "allocated" for entry in entries)
     print(f"Published {len(entries)} services; {matched} have unit allocations; reader active={running}", flush=True)
     print(f"TRUST snapshot: available={payload['trust']['available']}; {len(payload['trust']['services'])} ECS workings", flush=True)
+    print(f"TRUST Victoria movement reports: {len(payload['trust'].get('movements', []))}", flush=True)
 
 
 def main():
@@ -187,4 +190,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

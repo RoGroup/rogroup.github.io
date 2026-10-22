@@ -100,6 +100,36 @@ so restarts can retry safely. Index events expire after 48 hours. If the raw
 archive is replaced and its row IDs reset, the projector fails closed; stop
 the publisher and rebuild its disposable projection index before restarting.
 
+## Victoria movement reports on Darwin services
+
+The same snapshot now includes a separate `movements` array for stopping
+services with a validated arrival or departure report at MCV, including
+passenger services. It uses the existing activation, timetable, lifecycle and
+clock checks. It does not add standalone passenger rows or another consumer.
+
+The Worker attaches `trustMovement` only when UID, headcode, origin operating
+date and all supplied MCV booked minutes agree with exactly one Darwin row.
+Duplicate report identities or duplicate Darwin identities are withheld.
+These are WTT reports; services whose public booked times differ may remain
+unmatched. Existing projection windows still apply, including five-minute
+retention after a reported departure or terminating arrival.
+
+The staff board, operational details and staff platform display label the
+supplement separately as `TRUST at Victoria`, showing arrival/departure and
+the platform supplied by the report. Darwin's status, forecasts, actuals,
+cancellation flags and current platform are preserved. Reports disappear when
+the shared snapshot/feed freshness deadline expires, even during fetch errors.
+This reports a recorded event, not continuous platform occupancy.
+
+For activation, install this commit's publisher using the installer above and
+deploy the same commit's `worker.mjs` in the existing Worker. The installer
+previews both ECS rows and the movement report array. No new secrets, bindings
+or database rebuilds are needed. Old publishers omit the optional array; old
+Workers ignore it, so components can be updated independently. Confirm
+`TRUST Victoria movement reports: N` in the publisher log and
+`_mcv.trustMovementsMatched` on `/staff-departures`. A zero count is valid if
+no recent reports satisfy the match checks.
+
 ## Checks
 
 ```bash
@@ -111,3 +141,4 @@ Checks cover real 3D32 BST timing, winter/midnight clocks, transition ambiguity,
 wrong/future/off-route reports, lifecycle suppression and reinstatement,
 departure expiry, incremental replay, stale input, Worker input sanitisation,
 Darwin deduplication, public isolation and shared-adapter dates/statuses.
+

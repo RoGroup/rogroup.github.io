@@ -302,7 +302,7 @@ body{user-select:none}
   </footer>
 </div>
 
-<script src="mcv-data.js?v=20261022-trust-ecs"></script>
+<script src="mcv-data.js?v=20261022-trust-reports"></script>
 <script>
 'use strict';
 
@@ -387,7 +387,7 @@ function parseServices(json){
       platform:String(raw.platform||'').trim().toUpperCase().replace(/^PLATFORM\s+/,''),
       coaches:coaches,
       unitAllocation:raw.unit_allocation||null,
-      source:raw.feed_source||'Darwin',trust:raw.trust_info||null,
+      source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,
       ecs:ecs,
       cancelled:cancelled,
       delayed:delayed,
@@ -436,6 +436,7 @@ function render(){
         '<div class="move">'+
           '<div class="destination">'+(s.ecs?'<span class="ecs-tag">ECS</span>':'')+escapeHTML(s.destination)+'</div>'+
           '<div class="operator">'+escapeHTML(detail+(s.source==='TRUST'?' · TRUST Feed':''))+'</div>'+
+          (s.source!=='TRUST'&&MCVData.trustMovementText(s.trustMovement)?'<div class="operator">'+escapeHTML(MCVData.trustMovementText(s.trustMovement))+'</div>':'')+
         '</div>'+
         '<div class="form">'+escapeHTML(formation)+(info.source?'<small>'+escapeHTML(info.source.toUpperCase())+'</small>':'')+'</div>'+
         '<div><span class="status '+statusClass(s)+'">'+escapeHTML(s.status)+'</span></div>'+
@@ -501,4 +502,5 @@ scrollTimer=setInterval(advanceBoard,7500);
 </script>
 </body>
 </html>
+
 

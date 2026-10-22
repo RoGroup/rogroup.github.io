@@ -129,9 +129,9 @@ def reported_time(body, scheduled, now):
         return None
 
 
-def project_train(schedule, activation, events, db, now):
+def project_train(schedule, activation, events, db, now, ecs_only=True):
     segment = schedule["schedule_segment"]
-    if segment.get("CIF_train_category") != "EE":
+    if ecs_only and segment.get("CIF_train_category") != "EE":
         return None
     headcode, uid = segment.get("signalling_id", ""), schedule["CIF_train_uid"]
     train_id, date = activation["train_id"], activation["tp_origin_timestamp"]
@@ -174,7 +174,7 @@ def project_train(schedule, activation, events, db, now):
             return None
         if event == "ARRIVAL" and field == "arrival":
             arrival = actual
-        elif event == "DEPARTURE":
+        elif event == "DEPARTURE" and field == "departure":
             departure = actual
         else:
             continue
@@ -183,6 +183,8 @@ def project_train(schedule, activation, events, db, now):
             last_report = actual
             if re.fullmatch(r"[1-6](?:[AB])?", platform):
                 reported_platform = platform
+    if arrival and departure and arrival > departure:
+        return None
     booked = times.get("departure") or times["arrival"]
     if departure and (now - departure).total_seconds() > 300:
         return None
@@ -217,7 +219,7 @@ def project_train(schedule, activation, events, db, now):
     return {
         "serviceID": f"trust:{date}:{train_id}", "uid": uid, "trainid": headcode, "sdd": date,
         "operatorCode": operator, "operator": operators.get(operator, operator or "Operator not supplied"),
-        "category": "EE", "serviceType": "train", "isPassengerService": False,
+        "category": segment.get("CIF_train_category"), "serviceType": "train", "isPassengerService": segment.get("CIF_train_category") != "EE",
         "origin": [place(route[0][0])], "destination": [place(route[-1][0])],
         "sta": times["arrival"].isoformat() if times.get("arrival") else None,
         "std": times["departure"].isoformat() if times.get("departure") else None,
@@ -252,6 +254,7 @@ def build_snapshot(folder, now=None):
             for train, kind, body in cache.execute("SELECT train_id, kind, body FROM events ORDER BY queue_time, received_at, batch_row, ordinal"):
                 by_train.setdefault(train, []).append((kind, json.loads(body)))
             output = []
+            movements = []
             counts = {"matchedEcs": 0, "withheld": 0}
             for events in by_train.values():
                 activations = [body for kind, body in events if kind == "0001"]
@@ -266,18 +269,22 @@ def build_snapshot(folder, now=None):
                     result = lookup(schedules, activation.get("train_uid"), activation.get("tp_origin_timestamp"))
                     if result["status"] != "scheduled":
                         continue
-                    service = project_train(result["schedule"], activation, events, schedules, now)
+                    service = project_train(result["schedule"], activation, events, schedules, now, ecs_only=False)
                 except (ValueError, TypeError, KeyError):
                     counts["withheld"] += 1
                     continue
-                if service:
+                if service and service["category"] == "EE":
                     output.append(service)
+                if service and (service["ata"] or service["atd"]):
+                    movements.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std", "ata", "atd")}
+                    | {"reportedPlatform": service["platform"] if service["trust"]["platformSource"] == "reported" else "",
+                       "lastReportAt": service["trust"]["lastReportAt"]})
             output.sort(key=lambda row: row.get("std") or row["sta"])
             counts["matchedEcs"] = len(output)
             return {"version": 1, "available": True, "updatedAt": now.isoformat(),
                     "feedAt": dt.datetime.fromtimestamp(latest[0], UTC).isoformat(),
                     "scheduleAt": dt.datetime.fromtimestamp(schedule_stamp, UTC).isoformat(),
-                    "services": output[:100], "diagnostics": counts}
+                    "services": output[:100], "movements": movements[:200], "diagnostics": counts}
 
 
 if __name__ == "__main__":
@@ -286,3 +293,4 @@ if __name__ == "__main__":
     parser.add_argument("--folder", type=Path, default=Path(__file__).resolve().parent)
     args = parser.parse_args()
     print(json.dumps(build_snapshot(args.folder), indent=2))
+
