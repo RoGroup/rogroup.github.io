@@ -288,8 +288,8 @@
     if (/^2G[0-9]{2}$/.test(train) && northWestern) {
       if (audience === 'public') {
         const booked = rdmTime(source.std);
-        if (!/^\d{2}:\d{2}$/.test(booked)) return 'Wigan NW';
-        return booked >= '15:00' ? 'Wigan NW via Eccles' : 'Express to Wigan NW';
+        if (!/^\d{2}:\d{2}$/.test(booked)) return 'Wigan North Western';
+        return booked >= '15:00' ? 'Wigan North Western via Eccles' : 'Express to Wigan North Western';
       }
       return 'Wigan North Western via Golborne';
     }
