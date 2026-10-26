@@ -892,12 +892,25 @@ function centreSignalMap(){
   });
 }
 
+let signalMapHome=null;
 function setSignalControls(enabled){
   const wrap=document.querySelector('.signal-frame-wrap');
   const frame=document.querySelector('.signal-frame');
   const button=$('signal-controls');
   if(!wrap||!frame||!button)return;
+  // The board is hidden on other tabs. Mount the full-screen map outside it.
+  if(enabled&&!signalMapHome){
+    signalMapHome={parent:wrap.parentNode,next:wrap.nextSibling};
+    if(document.body.moveBefore)document.body.moveBefore(wrap,null);
+    else document.body.appendChild(wrap);
+  }
   wrap.classList.toggle('controls-enabled',enabled);
+  if(!enabled&&signalMapHome){
+    const home=signalMapHome;signalMapHome=null;
+    const next=home.next?.parentNode===home.parent?home.next:null;
+    if(home.parent.moveBefore)home.parent.moveBefore(wrap,next);
+    else home.parent.insertBefore(wrap,next);
+  }
   frame.setAttribute('scrolling',enabled?'yes':'no');
   frame.style.touchAction=enabled?'auto':'pan-x';
   wrap.style.touchAction=enabled?'auto':'pan-x';
