@@ -14,7 +14,7 @@ function health(meta,generatedAt,boardError,now=Date.now()){
 }
 const unitKey=values=>Array.isArray(values)&&values.length&&values.every(x=>/^\d{6}$/.test(x))?[...new Set(values)].sort().join('|'):'';
 function turnaroundLinks(services,now=Date.now()){
-  const active=services.filter(s=>!s.cancelled&&!s.futureCancellation&&!s.routeDiverted&&!s.recentlyDeparted);
+  const active=services.filter(s=>!s.cancelled&&!s.cancelledAtVictoria&&!s.routeDiverted&&!s.recentlyDeparted);
   const candidates=[];
   for(const a of active){
     if(!Number.isFinite(a.bookedArrivalMs)||Number.isFinite(a.bookedMs))continue;
@@ -27,14 +27,14 @@ function turnaroundLinks(services,now=Date.now()){
       if(!sameSchedule&&!(au&&au===bu))continue;
       // Conflicting supplied stock defeats the inferred association.
       if(au&&bu&&au!==bu)continue;
-      candidates.push({arrival:a,departure:b,minutes:Math.round(gap/minute),basis:sameSchedule?'Same schedule':'Matching Gemini units · inferred',units:au&&au===bu?au.split('|'):[]});
+      candidates.push({arrival:a,departure:b,minutes:Math.round(gap/minute),basis:sameSchedule?'Same schedule':'Matching Gemini units · inferred',units:au&&au===bu?au.split('|'):[],warning:a.futureCancellation||b.futureCancellation?'Later-location cancellation flagged; check the onward calling pattern.':''});
     }
   }
   return candidates.filter(pair=>candidates.filter(p=>p.arrival.key===pair.arrival.key).length===1&&candidates.filter(p=>p.departure.key===pair.departure.key).length===1);
 }
 function possibleTurnarounds(services,established=[],now=Date.now()){
   const linked=new Set(established.filter(pair=>!String(pair.basis||'').includes('West Turnback')).flatMap(pair=>[pair.arrival.key,pair.departure.key]));
-  const active=services.filter(s=>!s.cancelled&&!s.futureCancellation&&!s.routeDiverted&&!s.recentlyDeparted);
+  const active=services.filter(s=>!s.cancelled&&!s.cancelledAtVictoria&&!s.futureCancellation&&!s.routeDiverted&&!s.recentlyDeparted);
   const candidates=[];
   for(const a of active){
     if(!Number.isFinite(a.bookedArrivalMs)||Number.isFinite(a.bookedMs)||!a.platform||!a.operatorCode)continue;
@@ -52,13 +52,13 @@ function possibleTurnarounds(services,established=[],now=Date.now()){
 function turnbackLinks(services){
   const pairs=[];
   for(const a of services){
-    if(!a.ecs||a.cancelled||a.futureCancellation||a.routeDiverted||!Number.isFinite(a.bookedMs)||Number.isFinite(a.bookedArrivalMs))continue;
+    if(!a.ecs||a.cancelled||a.cancelledAtVictoria||a.futureCancellation||a.routeDiverted||!Number.isFinite(a.bookedMs)||Number.isFinite(a.bookedArrivalMs))continue;
     const calls=a.operationalRoute?.callingPoints||[];
     if(!calls.some(p=>p.tiploc==='MNCRVRS'))continue;
     const returns=calls.filter(p=>p.tiploc==='MNCRVIC');
     if(returns.length!==1)continue;
     const time=Date.parse(returns[0].st);
-    const matches=services.filter(b=>b.key!==a.key&&!b.cancelled&&!b.futureCancellation&&!b.routeDiverted&&b.uid===a.uid&&b.serviceDate===a.serviceDate&&Number.isFinite(b.bookedArrivalMs)&&!Number.isFinite(b.bookedMs)&&Math.floor(b.bookedArrivalMs/minute)===Math.floor(time/minute));
+    const matches=services.filter(b=>b.key!==a.key&&!b.cancelled&&!b.cancelledAtVictoria&&!b.futureCancellation&&!b.routeDiverted&&b.uid===a.uid&&b.serviceDate===a.serviceDate&&Number.isFinite(b.bookedArrivalMs)&&!Number.isFinite(b.bookedMs)&&Math.floor(b.bookedArrivalMs/minute)===Math.floor(time/minute));
     if(matches.length===1)pairs.push({departure:a,arrival:matches[0],basis:'Same schedule · West Turnback return'});
   }
   return pairs.filter(pair=>pairs.filter(p=>p.departure.key===pair.departure.key).length===1&&pairs.filter(p=>p.arrival.key===pair.arrival.key).length===1);

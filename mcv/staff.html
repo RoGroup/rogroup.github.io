@@ -818,7 +818,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </main>
 
 <script src="mcv-data.js?v=20261026-turnback-visits"></script>
-<script src="mcv-operations.js?v=20261026-3"></script>
+<script src="mcv-operations.js?v=20261026-4"></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
@@ -1068,7 +1068,7 @@ function turnaroundPair(s){
   const isArrival=pair.arrival.key===s.key,other=isArrival?pair.departure:pair.arrival;
   const turnback=pair.basis.includes('West Turnback');
   const label=turnback?(isArrival?'Outbound visit: ':'Return visit: '):(isArrival?'Onward: ':'Inward: ');
-  return {service:other,label:label+(other.headcode||other.uid)+' · '+(isArrival?other.booked:other.bookedArrival),basis:pair.basis};
+  return {service:other,label:label+(other.headcode||other.uid)+' · '+(isArrival?other.booked:other.bookedArrival),basis:pair.basis,warning:pair.warning||''};
 }
 function platformSortValue(p){
   const raw=String(p||'').toUpperCase().trim(),m=raw.match(/^(\d+)([AB])?$/);
@@ -1306,6 +1306,7 @@ function parseServices(json){
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
       reportTimes:Object.fromEntries(['sta','std','ata','atd','eta','etd'].map(field=>[field,String(darwinServices[index]?.[field]||'')])),
+      cancelledAtVictoria:darwinServices[index]?.filterLocationCancelled===true,
       unitAllocation:raw.unit_allocation || null,source:raw.feed_source||'Darwin',trust:raw.trust_info||null,trustMovement:raw.trust_movement||null,trustHistory:raw.trust_history||null,
       routeDiverted:Boolean(darwinServices[index]?.diversion),
       get stops(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
@@ -1735,7 +1736,7 @@ function renderDetails(){
       ${procedure?`<div class="ops-alert warn"><strong>Operating procedure:</strong> ${escapeHTML(procedure.replace('Operating procedure: ',''))}</div>`:''}
       ${notice&&!s.cancelled?`<div class="ops-alert"><strong>Local carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}
     </div>
-    ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">${escapeHTML(turnaround.basis)}</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">${operationLinkButton(turnaround.service)} · ${escapeHTML(turnaround.basis)}. Stock continuity is not confirmed.</div></div>`:''}
+    ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">${escapeHTML(turnaround.basis)}</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">${operationLinkButton(turnaround.service)} · ${escapeHTML(turnaround.basis)}. Stock continuity is not confirmed.</div>${turnaround.warning?`<div class="ops-warning">${escapeHTML(turnaround.warning)}</div>`:''}</div>`:''}
 
     <section class="detail-group detail-stock"><h3>Stock &amp; formation</h3><p class="detail-small">Select an allocated unit number to search its captured workings from the last 48 hours. This shows observed allocations, not a confirmed stock diagram.</p>${formationDiagram(s)}<div class="keyvalues">
       ${serviceHasArrival(s)?`<div><div class="kv-label">Allocated arrival units</div><div class="kv-value">${unitHistoryLinks(s,'arrivals')}</div></div>`:''}
@@ -1919,7 +1920,7 @@ function renderOperations(){
   const labels={new:'New captured schedule',amended:'Amended schedule',cancelled:'Cancelled schedule variant',withdrawn:'Withdrawn VSTP variant','removed-from-victoria':'Removed from Victoria',captured:'Captured schedule'};
   updateDisplayHTML($('vstp-changes'),!available?'<p class="detail-small">No current VSTP summary supplied. The updated Worker and server publisher are required.</p>':(!live?'<p class="ops-warning">VSTP capture is stale or blocked. Changes below are the last captured state.</p>':'')+(changes.length?changes.map(row=>`<article class="ops-row"><strong>${escapeHTML(row.headcode||row.uid)} · ${escapeHTML(labels[row.status]||row.status)}</strong><div>${escapeHTML(row.uid)} · ${escapeHTML(row.operatingDates.join(', '))} · change ${escapeHTML(time(row.at))}</div><div>${escapeHTML(station(row.origin,row.origin))} → ${escapeHTML(station(row.destination,row.destination))}</div><div>Victoria: ${escapeHTML(visits(row.victoria))}</div>${row.comparison?`<div class="detail-small">Compared with ${escapeHTML(row.comparison)}: ${escapeHTML(visits(row.previousVictoria))}${row.routeChanged?' · Route changed':''}</div>`:''}</article>`).join(''):'<p class="detail-small">No matching captured changes for today or tomorrow. This does not confirm there are no short-notice alterations.</p>'));
   const links=operationLinks();$('turnaround-count').textContent='('+links.length+')';
-  updateDisplayHTML($('turnaround-links'),!operationsBoardCurrent()?'<p class="detail-small">Waiting for a current board before matching services.</p>':links.length?links.map(pair=>`<div class="ops-row"><strong>${escapeHTML(pair.basis)}</strong><div>${pair.basis.includes('West Turnback')?operationLinkButton(pair.departure)+' → West Turnback → '+operationLinkButton(pair.arrival):operationLinkButton(pair.arrival)+' → '+operationLinkButton(pair.departure)}</div><div class="detail-small">${pair.units?.length?'Units '+escapeHTML(pair.units.join(' + '))+' · ':''}${pair.minutes!=null?pair.minutes+'m between booked visits · ':''}Stock continuity is not confirmed.</div></div>`).join(''):'<p class="detail-small">No unique unit, schedule or possible platform pairing in the current board window.</p>');
+  updateDisplayHTML($('turnaround-links'),!operationsBoardCurrent()?'<p class="detail-small">Waiting for a current board before matching services.</p>':links.length?links.map(pair=>`<div class="ops-row"><strong>${escapeHTML(pair.basis)}</strong><div>${pair.basis.includes('West Turnback')?operationLinkButton(pair.departure)+' → West Turnback → '+operationLinkButton(pair.arrival):operationLinkButton(pair.arrival)+' → '+operationLinkButton(pair.departure)}</div><div class="detail-small">${pair.units?.length?'Units '+escapeHTML(pair.units.join(' + '))+' · ':''}${pair.minutes!=null?pair.minutes+'m between booked visits · ':''}Stock continuity is not confirmed.</div>${pair.warning?`<div class="ops-warning">${escapeHTML(pair.warning)}</div>`:''}</div>`).join(''):'<p class="detail-small">No unique unit, schedule or possible platform pairing in the current board window.</p>');
 }
 $('vstp-search').addEventListener('input',renderOperations);$('vstp-filter').addEventListener('change',renderOperations);
 document.addEventListener('click',event=>{

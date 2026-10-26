@@ -64,3 +64,16 @@ assert.equal(ops.possibleTurnarounds([possibleArrival,{...possibleDeparture,oper
 assert.equal(ops.possibleTurnarounds([{...possibleArrival,arrivalUnits:['150123']},{...possibleDeparture,departureUnits:['150124']}],[],now).length,0);
 assert.equal(ops.possibleTurnarounds([possibleArrival,possibleDeparture],[{arrival:possibleArrival,departure:possibleDeparture}],now).length,0);
 console.log('Possible pairing fallback: absent units, ambiguity, platform/operator conflicts and stronger-link precedence passed');
+
+const leedsArrival={...a,key:'1J21',headcode:'1J21',arrivalUnits:['195013'],platform:'1'};
+const leedsDeparture={...b,key:'1J22',headcode:'1J22',departureUnits:['195013'],platform:'1',futureCancellation:true};
+const flagged=ops.turnaroundLinks([leedsArrival,leedsDeparture],now);
+assert.equal(flagged.length,1,'An onward cancelled call does not cancel the Victoria stock link');
+assert.match(flagged[0].warning,/Later-location cancellation/);
+assert.equal(ops.turnaroundLinks([leedsArrival,{...leedsDeparture,cancelled:true}],now).length,0);
+assert.equal(ops.turnaroundLinks([leedsArrival,{...leedsDeparture,cancelledAtVictoria:true}],now).length,0);
+assert.equal(ops.turnaroundLinks([{...leedsArrival,cancelledAtVictoria:true},leedsDeparture],now).length,0);
+assert.equal(ops.turnaroundLinks([leedsArrival,{...leedsDeparture,departureUnits:['195014']}],now).length,0);
+context.state.lastError='';context.state.services=[leedsArrival,leedsDeparture];context.renderOperations();
+assert.match(element('turnaround-links').innerHTML,/1J21/);assert.match(element('turnaround-links').innerHTML,/1J22/);assert.match(element('turnaround-links').innerHTML,/Later-location cancellation/);
+console.log('1J21/1J22: onward cancellation retains unit link and warning; Victoria cancellations still withheld');
