@@ -227,6 +227,7 @@
       EDGHDHS: 'Edge Hill TMD',
       XEG: 'Edge Hill TMD',
       CHNL159: 'Chinley Signal Cy159',
+      CRNFSTM: 'Carnforth Steamtown',
       NWTNHDD: 'Newton Heath TMD',
       ARDWTMD: 'Ardwick TMD',
       MNCRVRS: 'Manchester Victoria West Turnback'
@@ -763,6 +764,18 @@
     };
   }
 
+  function isPassengerWorking(service) {
+    if (!service) return false;
+    const category=text(service.category).toUpperCase();
+    const headcode=text(service.trainid || service.trainId || service.headcode).toUpperCase();
+    const kind=text(service.serviceType || 'train').toLowerCase();
+    // Charter feeds can use isPassengerService=false for an unadvertised train.
+    // Keep explicit empty-stock/freight evidence, including charter positioning.
+    if (category==='EE' || /^5[A-Z]\d{2}$/.test(headcode) || NON_PASSENGER_CLASSES.has(kind)) return false;
+    if (service.isCharter===true && /^[12][A-Z]\d{2}$/.test(headcode) && ['OO','XX'].includes(category)) return true;
+    return service.isPassengerService !== false;
+  }
+
   function isPassengerService(service) {
     if (!service) return false;
     if (service.notForDisplay) return false;
@@ -1207,7 +1220,7 @@
           service_class: text(service.serviceType || 'train').toLowerCase(),
           train_category: text(service.category),
           activities: Array.isArray(service.activities) ? service.activities.join(' ') : text(service.activities),
-          is_passenger_service: service.isPassengerService !== false,
+          is_passenger_service: isPassengerWorking(service),
           is_charter: service.isCharter === true,
           is_reverse_formation: service.isReverseFormation === true,
           is_operational_call: service.isOperationalCall === true,
@@ -1273,6 +1286,7 @@
     parseService: parseService,
     parseBoard: parseBoard,
     isPassengerService: isPassengerService,
+    isPassengerWorking: isPassengerWorking,
     isOverdueDelayed: isOverdueDelayed,
     selectDepartures: selectDepartures,
     chooseNextService: chooseNextService,

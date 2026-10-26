@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const context={Date,Intl,console,setTimeout,clearTimeout,setInterval,clearInterval};vm.createContext(context);
+vm.runInContext(fs.readFileSync(new URL('../mcv-data.js',import.meta.url),'utf8'),context);
+const data=context.MCVData;
+const charter={serviceID:'charter',uid:'C12345',trainid:'1Z31',sdd:'2026-10-26',sta:'2026-10-26T20:36:00',isPassengerService:false,isCharter:true,category:'OO',origin:[{locationName:'Ravenglass for Eskdale',crs:'RAV'}],destination:[{locationName:'Manchester Victoria',crs:'MCV'}]};
+const stock={...charter,serviceID:'ecs',trainid:'5Z32',sta:null,std:'2026-10-26T21:00:00',origin:charter.destination,destination:[{locationName:'CRNFSTM',crs:'',tiploc:'CRNFSTM'}]};
+const rows=data.toLegacyBoard({generatedAt:'2026-10-26T17:00:00Z',trainServices:[charter,stock]},{audience:'staff'}).results;
+assert.equal(rows[0].is_passenger_service,true,'OO class-1 charter is a passenger working despite the unadvertised flag');
+assert.equal(rows[0].is_charter,true);
+assert.equal(rows[1].is_passenger_service,false,'Class-5 charter positioning remains ECS even when category is OO');
+assert.equal(rows[1].destination_name,'Carnforth Steamtown');
+for(const extra of [{category:'EE'},{trainid:'5Z31'},{serviceType:'empty stock'},{serviceType:'freight'},{isCharter:false},{category:'ZZ'}])assert.equal(data.isPassengerWorking({...charter,...extra}),false);
+assert.equal(data.isPassengerWorking({...charter,trainid:'2Z31',category:'XX'}),true);
+assert.equal(data.isPassengerWorking({trainid:'2N01',category:'OO',isPassengerService:true}),true);
+assert.equal(data.displayStationName('CRNFSTM',''),'Carnforth Steamtown');
+console.log('Charter classification: 1Z31 passenger, 5Z32 ECS, explicit non-passenger guards and Carnforth Steamtown passed');

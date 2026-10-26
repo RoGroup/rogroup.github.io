@@ -841,7 +841,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261026-turnback-visits"></script>
+<script src="mcv-data.js?v=20261026-charter-classification"></script>
 <script src="mcv-operations.js?v=20261026-4"></script>
 <script src="mcv-events.js?v=20261026-1" defer></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
@@ -1224,7 +1224,7 @@ async function loadPreviousStops(s){
 }
 
 function onwardStopsRemoved(raw){
-  if(!raw||raw.isCancelled===true||raw.isPassengerService===false)return false;
+  if(!raw||raw.isCancelled===true||!MCVData.isPassengerWorking(raw))return false;
   if(raw.futureCancellation===true)return true;
   const groups=Array.isArray(raw.subsequentCallingPoints)?raw.subsequentCallingPoints:[];
   const points=Array.isArray(raw.subsequentLocations)?raw.subsequentLocations:groups.flatMap(group=>Array.isArray(group.callingPoint)?group.callingPoint:[]);
@@ -1232,7 +1232,7 @@ function onwardStopsRemoved(raw){
 }
 
 function earlyTerminationAtVictoria(raw){
-  if(!raw||raw.isPassengerService===false||raw.atd||!raw.sta)return false;
+  if(!raw||!MCVData.isPassengerWorking(raw)||raw.atd||!raw.sta)return false;
   const arrives=Boolean(raw.ata)||(!raw.isCancelled&&Boolean(raw.eta));
   if(!arrives)return false;
   const groups=raw.subsequentCallingPoints;
