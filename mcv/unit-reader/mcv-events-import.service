@@ -1,0 +1,10 @@
+[Unit]
+Description=MCV delivered events snapshot importer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/mcv-unit-reader
+ExecStart=/opt/mcv-unit-reader/.venv/bin/python -u /opt/mcv-unit-reader/events_import.py
+UMask=0077

@@ -15,7 +15,7 @@ window.addEventListener('pageshow',function(event){
   });
 });
 </script>
-<script src="mcv-site.js?v=20261022-trust-health"></script>
+<script src="mcv-site.js?v=20261026-events"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#262262">
@@ -693,6 +693,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </style>
 <link rel="stylesheet" href="mcv-site.css?v=20261006-2">
 <link rel="stylesheet" href="mcv-operations.css?v=20261026-2">
+<link rel="stylesheet" href="mcv-events.css?v=20261026-1">
 </head>
 <body>
 <header class="top">
@@ -703,6 +704,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <div class="top-right"><button type="button" id="install-app" class="button" hidden>Install app</button><button type="button" id="theme-toggle" class="button theme-toggle" aria-pressed="false" title="Switch to dark mode">Dark mode</button><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
 </header>
 <main class="container">
+<div id="staff-board-view">
   <section class="feedbar" aria-live="polite"><span id="feed-dot" class="dot"></span><strong id="feed-status">Connecting to departures feed…</strong><span class="note" id="feed-detail">No live data received yet</span><div class="push"><button type="button" id="refresh" class="button primary">↻ Refresh now</button></div></section>
   <section class="panel feed-diagnostics" aria-label="Recent service search">
     <div class="diagnostics-heading"><h2>Recent service search</h2><button type="button" id="recent-toggle" class="button" aria-expanded="false" aria-controls="recent-body">Show search ▾</button></div>
@@ -814,11 +816,32 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
   </section>
 
+</div>
+<section id="events-view" hidden aria-labelledby="events-heading">
+  <section class="panel events-toolbar">
+    <div class="events-heading"><div><h2 id="events-heading">Manchester events</h2><p>Upcoming performances and venue information for station planning.</p></div><span class="events-sample">Sample dataset</span><button id="events-refresh" type="button" class="button">Refresh events</button></div>
+    <div class="events-ranges" aria-label="Event date ranges"><button type="button" class="button" data-events-range="today">Today</button><button type="button" class="button" data-events-range="tomorrow">Tomorrow</button><button type="button" class="button" data-events-range="week">Next 7 days</button><button type="button" class="button" data-events-range="future">All future dates</button></div>
+    <div class="events-filters">
+      <label class="events-search">Search events or venues<input id="events-search" type="search" maxlength="100" placeholder="Event, venue or performer"></label>
+      <label>From<input id="events-from" type="date"></label><label>To<input id="events-to" type="date"></label>
+      <label>Category<select id="events-category"><option value="">All categories</option></select></label>
+      <label>Venue<select id="events-venue"><option value="">All venues</option></select></label>
+      <label>Listed capacity<select id="events-capacity"><option value="0">Any capacity</option><option value="1000">1,000+</option><option value="5000">5,000+</option><option value="10000">10,000+</option></select></label>
+      <label>Sort by<select id="events-sort"><option value="date">Start date and time</option><option value="capacity">Largest listed capacity</option></select></label>
+      <label class="events-checkbox"><input id="events-victoria" type="checkbox">Victoria is the nearest listed station</label>
+    </div>
+    <p id="events-status" class="events-status" role="status" aria-live="polite">Open the Events tab to load the latest delivered file.</p>
+    <div class="events-summary"><span id="events-result-count">— performances</span><span id="events-venue-count">— venues</span><span id="events-finish-count">— estimated finishes</span></div>
+  </section>
+  <div id="events-list" class="events-list"></div><button type="button" class="button events-load-more" id="events-more" hidden>Show more</button>
+  <p class="events-source-note">Source: Data Thistle via Rail Data Marketplace · Manchester sample. Listed capacity is not attendance or a passenger forecast. Finish times are estimates calculated only where a performance duration is supplied. All times Europe/London. Coverage is not exhaustive; listings may change.</p>
+</section>
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
 <script src="mcv-data.js?v=20261026-turnback-visits"></script>
 <script src="mcv-operations.js?v=20261026-4"></script>
+<script src="mcv-events.js?v=20261026-1" defer></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>

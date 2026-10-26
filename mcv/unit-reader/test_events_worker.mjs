@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+const source=fs.readFileSync(new URL('./worker.mjs',import.meta.url),'utf8');
+const worker=await import('data:text/javascript;base64,'+Buffer.from(source+'\nexport {validateEvents,ingestEvents,readEvents};').toString('base64'));
+const receivedAt=new Date().toISOString();
+const event={id:'2',name:'Concert <img onerror=bad()>',category:'Music',description:'Description <script>bad()</script>',tags:['Rock'],website:'https://example.org',status:'live'};
+const place={id:'1',name:'Arena',address:'Station Approach',town:'Manchester',postcode:'M3',website:'',nearestStation:'MCV',capacity:21000};
+const perf={eventId:'2',placeId:'1',start:'2026-10-26T19:00:00+00:00',end:'2026-10-26T21:00:00+00:00',timeUnknown:'',capacity:15000,capacitySource:'Performance calculation',cancelled:false,soldOut:false,bookingUrl:'https://example.org/tickets'};
+const data={version:1,source:'Data Thistle sample',receivedAt,events:[event],places:[place],performances:[perf]};
+assert.equal(worker.validateEvents(data).performances.length,1);
+for(const invalid of [{...data,performances:[{...perf,eventId:'999'}]},{...data,performances:[perf,perf]},{...data,events:[{...event,website:'javascript:alert(1)'}]},{...data,performances:[{...perf,end:'2026-10-26T18:00:00Z'}]},{...data,performances:[{...perf,start:'2026-10-26',end:null,timeUnknown:''}]}])assert.throws(()=>worker.validateEvents(invalid));
+const ctx={Date,Intl,URL,console};vm.createContext(ctx);const uiSource=fs.readFileSync(new URL('../mcv-events.js',import.meta.url),'utf8');vm.runInContext(uiSource,ctx);const ui=ctx.MCVEvents;
+const rows=ui.rowsFrom(data);assert.equal(rows.length,1);assert.equal(ui.filterRows(rows,{from:'2026-10-26',to:'2026-10-26',victoriaOnly:true}).length,1);assert.equal(ui.filterRows(rows,{category:'Sport'}).length,0);assert.equal(ui.filterRows(rows,{query:'arena'}).length,1);assert.equal(ui.filterRows(rows,{capacity:20000}).length,0);
+assert.doesNotMatch(ui.card(rows[0]),/<img|<script>/);assert.match(ui.card(rows[0]),/&lt;img/);
+assert.equal(ui.day('2027-07-26T23:30:00Z'),'2027-07-27','London date, not UTC date');assert.equal(ui.addDays('2026-10-31',1),'2026-11-01');
+const unknown=ui.rowsFrom({...data,performances:[{...perf,start:'2026-10-27',end:null,timeUnknown:'Times tbc'}]})[0];assert.equal(ui.timing(unknown).start,'Times tbc');assert.doesNotMatch(ui.card(unknown),/00:00/);
+const overnight=ui.rowsFrom({...data,performances:[{...perf,start:'2026-10-26T23:00:00Z',end:'2026-10-27T02:00:00Z'}]})[0];assert.equal(ui.filterRows([overnight],{from:'2026-10-27',to:'2026-10-27'}).length,1);assert.match(ui.timing(overnight).finish,/27 Oct/);
+assert.equal(ui.timing({...rows[0],end:null}).finish,'Finish not supplied');assert.equal(ui.timing({...rows[0],cancelled:true}).state,'Cancelled performance');
+const token='a'.repeat(40);let stored=null,writes=0;const env={UNIT_INGEST_KEY:token,UNIT_ALLOCATIONS:{put:async(key,value,options)=>{assert.equal(key,'mcv-staff-events-v1');assert.equal(options.expirationTtl,604800);stored=JSON.parse(value);writes++;},get:async()=>stored}};
+let response=await worker.ingestEvents(new Request('https://example.org/events-ingest',{method:'POST',body:JSON.stringify(data)}),env,'');assert.equal(response.status,401);assert.equal(writes,0);
+response=await worker.ingestEvents(new Request('https://example.org/events-ingest',{method:'POST',headers:{Authorization:'Bearer '+token},body:JSON.stringify(data)}),env,'');assert.equal(response.status,200);assert.equal(writes,1);
+response=await worker.readEvents(env,'');assert.equal((await response.json()).available,true);
+stored.receivedAt='2020-01-01T00:00:00Z';assert.equal((await (await worker.readEvents(env,'')).json()).stale,true);
+assert.equal((await (await worker.readEvents({},'')).json()).available,false);
+// Actual navigation/setup logic: same-page switching preserves the staff board.
+const nodes=new Map(),listeners=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',hidden:false,disabled:false,innerHTML:'',textContent:'',checked:false,classList:{toggle(){}},addEventListener(type,fn){listeners.set(id+':'+type,fn);}});return nodes.get(id);};
+const nav=[{href:'staff.html'},{href:'staff.html#events'}].map(row=>({...row,attrs:{},getAttribute(){return this.href;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}}));
+const calls=[];const browser={Date,Intl,URL,console,location:{hash:''},document:{readyState:'complete',hidden:false,getElementById:node,querySelectorAll:selector=>selector==='.mcv-site-nav a'?nav:[]},addEventListener:(type,fn)=>listeners.set(type,fn),setInterval:()=>0,scrollTo(){},MCVSite:{fetch:async()=>{calls.push('events');return {ok:true,json:async()=>({...data,available:true})};}}};browser.window=browser;vm.createContext(browser);vm.runInContext(uiSource,browser);
+assert.equal(node('staff-board-view').hidden,false);assert.equal(node('events-view').hidden,true);assert.equal(calls.length,0,'Do not fetch events until the tab opens');
+browser.location.hash='#events';listeners.get('hashchange')({type:'hashchange'});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(node('staff-board-view').hidden,true);assert.equal(node('events-view').hidden,false);assert.equal(nav[1].attrs['aria-current'],'page');assert.equal(calls.length,1);
+browser.location.hash='';listeners.get('hashchange')({type:'hashchange'});assert.equal(node('staff-board-view').hidden,false);assert.equal(nav[0].attrs['aria-current'],'page');
+console.log('Events: schema/auth/storage, London dates, overnight/TBC times, safe rendering, filters and same-page navigation passed');
+
+let ready;browser.document.readyState='interactive';browser.document.addEventListener=(type,fn)=>{if(type==='DOMContentLoaded')ready=fn;};
+vm.runInContext(uiSource,browser);assert.equal(typeof ready,'function','Wait for shared navigation to initialize on DOMContentLoaded');
+console.log('Deferred script waits for shared navigation before selecting the Events tab');

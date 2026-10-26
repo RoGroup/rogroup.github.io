@@ -106,6 +106,7 @@ export default {
     if (url.pathname === '/unit-ingest') {
       return ingestUnits(request, env, origin);
     }
+    if (url.pathname === '/events-ingest') return ingestEvents(request, env, origin);
     if (url.pathname === '/td-ingest') return ingestTD(request, env, origin);
     if (url.pathname === '/recent-ingest') return ingestRecent(request, env, origin);
     if (request.method === 'OPTIONS') {
@@ -118,6 +119,7 @@ export default {
       return jsonResponse({ error: 'Method not allowed' }, 405, origin);
     }
     try {
+      if (url.pathname === '/events') return await readEvents(env, origin);
       if (url.pathname === '/td-map') return readTD(env, origin);
       if (url.pathname === '/recent-services') return await searchRecent(url, env, origin);
       if (url.pathname === '/departures') {
@@ -1569,4 +1571,60 @@ async function readTD(env,origin) {
   const data=env.UNIT_ALLOCATIONS ? await env.UNIT_ALLOCATIONS.get(TD_KEY,{type:'json',cacheTtl:60}) : null;
   if(!data)return jsonResponse({version:1,available:false,berths:[],events:[]},200,origin);
   return jsonResponse({...data,available:true,stale:Date.now()/1000-data.feedAt>180 || Date.now()/1000-data.generatedAt>180},200,origin);
+}
+
+// Event files are independent of allocation snapshots and their write cadence.
+const EVENTS_KEY='mcv-staff-events-v1';
+const EVENTS_MAX_BYTES=4*1024*1024;
+function validateEvents(input){
+  if(!input||input.version!==1||!Array.isArray(input.events)||input.events.length>10000||!Array.isArray(input.places)||input.places.length>2000||!Array.isArray(input.performances)||input.performances.length>20000)throw Error('Invalid events snapshot');
+  const text=(value,max)=>{if(typeof value!=='string'||value.length>max)throw Error('Invalid events text');return value;};
+  const id=value=>{if(typeof value!=='string'||!/^\d{1,15}$/.test(value))throw Error('Invalid events ID');return value;};
+  const time=value=>{if(typeof value!=='string'||!/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(value)||!Number.isFinite(Date.parse(value)))throw Error('Invalid events time');return value;};
+  const url=value=>{text(value,3000);if(value){const parsed=new URL(value);if(!['https:','http:'].includes(parsed.protocol)||parsed.username||parsed.password)throw Error('Invalid event link');}return value;};
+  const capacity=value=>{if(value!=null&&(!Number.isFinite(value)||value<=0||value>10000000))throw Error('Invalid events capacity');return value??null;};
+  const receivedAt=time(input.receivedAt);if(Date.parse(receivedAt)>Date.now()+300000)throw Error('Future events file time');
+  const events=input.events.map(row=>{
+    if(!Array.isArray(row.tags)||row.tags.length>30)throw Error('Invalid events tags');
+    return {id:id(row.id),name:text(row.name,250),category:text(row.category,80),description:text(row.description,4000),tags:row.tags.map(tag=>text(tag,80)),website:url(row.website),status:text(row.status,30)};
+  });
+  const places=input.places.map(row=>{
+    if(row.nearestStation&&!/^[A-Z]{3}$/.test(row.nearestStation))throw Error('Invalid nearest station');
+    return {id:id(row.id),name:text(row.name,180),address:text(row.address,250),town:text(row.town,100),postcode:text(row.postcode,20),website:url(row.website),nearestStation:text(row.nearestStation,3),capacity:capacity(row.capacity)};
+  });
+  const eventIds=new Set(events.map(row=>row.id)),placeIds=new Set(places.map(row=>row.id));
+  if(eventIds.size!==events.length||placeIds.size!==places.length)throw Error('Duplicate events/places');
+  const seen=new Set();
+  const performances=input.performances.map(row=>{
+    const eventId=id(row.eventId),placeId=id(row.placeId);
+    if(!eventIds.has(eventId)||!placeIds.has(placeId))throw Error('Unknown performance reference');
+    const start=/^\d{4}-\d\d-\d\d$/.test(row.start)?row.start:time(row.start);
+    if(start.length===10&&!/^\d{4}-\d\d-\d\d$/.test(start))throw Error('Invalid event date');
+    if(!Number.isFinite(Date.parse(start))||(start.length===10&&new Date(start).toISOString().slice(0,10)!==start))throw Error('Invalid calendar date');
+    const unknown=text(row.timeUnknown,80),end=row.end==null?null:time(row.end);
+    if(start.length===10&&!unknown)throw Error('Unknown event time needs a label');
+    if(end&&(unknown||Date.parse(end)<=Date.parse(start)||Date.parse(end)-Date.parse(start)>7*86400000))throw Error('Invalid estimated finish');
+    if(typeof row.cancelled!=='boolean'||typeof row.soldOut!=='boolean')throw Error('Invalid event flags');
+    const key=[eventId,placeId,start].join('|');if(seen.has(key))throw Error('Duplicate performance');seen.add(key);
+    return {eventId,placeId,start,end,timeUnknown:unknown,capacity:capacity(row.capacity),capacitySource:text(row.capacitySource,40),cancelled:row.cancelled,soldOut:row.soldOut,bookingUrl:url(row.bookingUrl)};
+  });
+  return {version:1,source:text(input.source,100),receivedAt,events,places,performances};
+}
+async function ingestEvents(request,env,origin){
+  if(request.method!=='POST')return jsonResponse({error:'Method not allowed'},405,origin);
+  if(!env.UNIT_ALLOCATIONS||!env.UNIT_INGEST_KEY)return jsonResponse({error:'Event storage unavailable'},503,origin);
+  const token=(request.headers.get('Authorization')||'').replace(/^Bearer /,'');
+  if(!token||!await secureTokenEqual(token,env.UNIT_INGEST_KEY))return jsonResponse({error:'Unauthorized'},401,origin);
+  try{
+    if(Number(request.headers.get('Content-Length'))>EVENTS_MAX_BYTES)return jsonResponse({error:'Events file too large'},413,origin);
+    const body=await request.text();if(new TextEncoder().encode(body).length>EVENTS_MAX_BYTES)return jsonResponse({error:'Events file too large'},413,origin);
+    const data=validateEvents(JSON.parse(body));data.publishedAt=new Date().toISOString();
+    await env.UNIT_ALLOCATIONS.put(EVENTS_KEY,JSON.stringify(data),{expirationTtl:7*86400});
+    return jsonResponse({ok:true,events:data.events.length,performances:data.performances.length},200,origin);
+  }catch(error){console.error('Events ingestion failed:',error);return jsonResponse({error:'Invalid events snapshot'},400,origin);}
+}
+async function readEvents(env,origin){
+  const data=env.UNIT_ALLOCATIONS?await env.UNIT_ALLOCATIONS.get(EVENTS_KEY,{type:'json',cacheTtl:60}):null;
+  if(!data)return jsonResponse({version:1,available:false,performances:[],events:[],places:[]},200,origin);
+  return jsonResponse({...data,available:true,stale:Date.now()-Date.parse(data.receivedAt)>48*3600000},200,origin);
 }

@@ -138,6 +138,9 @@
       for(const [href,label] of [['index.html','Home'],['staff.html','Staff display']]){
         const a=document.createElement('a');a.href=href;a.textContent=label;if(page===href)a.setAttribute('aria-current','page');nav.append(a);
       }
+      if(page==='staff.html'){
+        const events=document.createElement('a');events.href='staff.html#events';events.textContent='Events';nav.append(events);
+      }
       const header=document.querySelector('header,.top');
       if(header)header.insertAdjacentElement('afterend',nav);else document.body.prepend(nav);
     }
@@ -155,4 +158,5 @@
   global.MCVSite={release:RELEASE,fetch:request,reportBoard,reportFallback,healthSnapshot};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })(window);
+
 

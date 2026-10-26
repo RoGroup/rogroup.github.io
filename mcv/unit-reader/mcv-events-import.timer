@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for a new delivered Manchester events file
+
+[Timer]
+OnActiveSec=2min
+OnUnitActiveSec=30min
+AccuracySec=15s
+Unit=mcv-events-import.service
+
+[Install]
+WantedBy=timers.target
