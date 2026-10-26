@@ -135,7 +135,7 @@
     else {release.classList.add('mcv-release-corner');document.body.append(release);}
     if(!unattended&&page!=='index.html'){
       const nav=document.createElement('nav');nav.className='mcv-site-nav';nav.setAttribute('aria-label','Site navigation');
-      for(const [href,label] of [['index.html','Home'],['staff.html','Staff display']]){
+      for(const [href,label] of [['staff.html','Staff display']]){
         const a=document.createElement('a');a.href=href;a.textContent=label;if(page===href)a.setAttribute('aria-current','page');nav.append(a);
       }
       if(page==='staff.html'){
@@ -158,5 +158,6 @@
   global.MCVSite={release:RELEASE,fetch:request,reportBoard,reportFallback,healthSnapshot};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',setup,{once:true});else setup();
 })(window);
+
 
 

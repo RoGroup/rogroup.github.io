@@ -15,7 +15,7 @@ window.addEventListener('pageshow',function(event){
   });
 });
 </script>
-<script src="mcv-site.js?v=20261026-events"></script>
+<script src="mcv-site.js?v=20261026-navigation"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#262262">
@@ -302,8 +302,6 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .facility-key svg{width:14px;height:14px}
 #install-app[hidden]{display:none}
 @media(display-mode:standalone){#install-app{display:none}}
-.mcv-site-nav .traksy-launch{display:inline-flex;align-items:center;justify-content:center;min-height:44px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card);color:var(--navy);font:inherit;font-weight:800;cursor:pointer}
-:root[data-theme="dark"] .mcv-site-nav .traksy-launch{color:var(--ink)}
 .early-termination{margin-top:6px;color:var(--red);font-weight:800;font-size:12px;line-height:1.4}
 :root[data-theme="dark"] .early-termination{color:#ffb4c5}
 .removed-stops-chip{display:inline-block;margin-top:6px;padding:4px 7px;border:1px solid #c69219;border-radius:5px;background:#fff3cd;color:#684600;font-weight:800;font-size:11px;line-height:1.35}
@@ -691,7 +689,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .theme-toggle{font-size:9px;padding:6px 8px}
 }
 </style>
-<link rel="stylesheet" href="mcv-site.css?v=20261006-2">
+<link rel="stylesheet" href="mcv-site.css?v=20261026-navigation">
 <link rel="stylesheet" href="mcv-operations.css?v=20261026-2">
 <link rel="stylesheet" href="mcv-events.css?v=20261026-1">
 </head>
@@ -2005,7 +2003,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const nav=document.querySelector('.mcv-site-nav');
   if(!nav)return;
   const launch=document.createElement('button');
-  launch.type='button';launch.className='traksy-launch';launch.textContent='Full-screen Traksy';
+  launch.type='button';launch.className='traksy-launch';launch.textContent='Traksy';
   launch.setAttribute('aria-controls','signal-controls-exit');
   launch.addEventListener('click',()=>{
     traksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
