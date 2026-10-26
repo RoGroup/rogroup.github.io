@@ -742,19 +742,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       <button type="button" class="platform-card" data-platform="6"><div class="platform-top"><span class="platform-no">Platform 6</span><span class="platform-meta">—</span></div><div class="platform-dest">Waiting…</div><div class="platform-caption">No live data yet</div></button>
     </div>
   </section>
-  <section class="panel occupancy-panel" aria-label="Platform occupancy and activity timeline">
-    <div class="panel-title">
-      <div>
-        <h2>Platform occupancy / activity timeline</h2>
-        <span class="minor">Live and booked Manchester Victoria movements · 90-minute planning window</span>
-      </div>
-      <span class="mini-label">15 MIN AGO → +75 MIN</span>
-    </div>
-    <div class="timeline-scroll">
-      <div class="platform-timeline" id="platform-timeline"><div class="timeline-empty">Waiting for live platform activity…</div></div>
-    </div>
-    <div class="timeline-note">Blocks visualise station activity around the live/booked times supplied by the feed. Through services use arrival-to-departure where available; originating/terminating services use a short planning window because exact platform occupation is not supplied.</div>
-  </section>
+
 
   <section class="workspace" aria-label="Detailed operations">
     <div class="panel">
@@ -802,6 +790,20 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
       </iframe>
     </div>
     <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” to open the embed full-screen, then tap “Done” when finished.</div>
+  </section>
+
+  <section class="panel occupancy-panel" aria-label="Platform occupancy and activity timeline">
+    <div class="panel-title">
+      <div>
+        <h2>Platform occupancy / activity timeline</h2>
+        <span class="minor">Live and booked Manchester Victoria movements · 90-minute planning window</span>
+      </div>
+      <span class="mini-label">15 MIN AGO → +75 MIN</span>
+    </div>
+    <div class="timeline-scroll">
+      <div class="platform-timeline" id="platform-timeline"><div class="timeline-empty">Waiting for live platform activity…</div></div>
+    </div>
+    <div class="timeline-note">Blocks visualise station activity around the live/booked times supplied by the feed. Through services use arrival-to-departure where available; originating/terminating services use a short planning window because exact platform occupation is not supplied.</div>
   </section>
 
   <details class="panel ops-panel" id="feed-health-panel"><summary>Feed health</summary><p class="detail-small">Latest successful feed times. A current publisher snapshot does not confirm that every service has data.</p><div class="ops-grid" id="feed-health"></div></details>
