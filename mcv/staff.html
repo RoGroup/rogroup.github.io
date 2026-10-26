@@ -692,6 +692,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 }
 </style>
 <link rel="stylesheet" href="mcv-site.css?v=20261006-2">
+<link rel="stylesheet" href="mcv-operations.css?v=20261026-1">
 </head>
 <body>
 <header class="top">
@@ -801,6 +802,13 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     <div class="signal-foot">Interactive Traksy live map centred on Manchester Victoria. If Traksy shows a consent prompt or overlay, use “Enable Traksy controls” to open the embed full-screen, then tap “Done” when finished.</div>
   </section>
 
+  <details class="panel ops-panel" id="feed-health-panel"><summary>Feed health</summary><p class="detail-small">Latest successful feed times. A current publisher snapshot does not confirm that every service has data.</p><div class="ops-grid" id="feed-health"></div></details>
+  <details class="panel ops-panel" id="vstp-panel"><summary>VSTP changes <span id="vstp-count"></span></summary>
+    <p class="detail-small">Up to 30 latest captured schedule variants changed within 48 hours, with origin operating dates today or tomorrow. This is a schedule-change summary, not a live departure or cancellation instruction. Withdrawal removes a VSTP variant; it does not necessarily cancel the train. Victoria times are booked working times.</p>
+    <div class="ops-filter"><label>Headcode or UID <input id="vstp-search" type="search" maxlength="40" placeholder="e.g. 5P31"></label><label>Change <select id="vstp-filter"><option value="">All changes</option><option value="new">New</option><option value="amended">Amended</option><option value="cancelled">Cancelled variant</option><option value="withdrawn">Withdrawn variant</option><option value="removed-from-victoria">Removed from Victoria</option><option value="captured">Captured</option></select></label></div><div id="vstp-changes"></div>
+  </details>
+  <details class="panel ops-panel" id="turnaround-panel"><summary>Turnaround links <span id="turnaround-count"></span></summary><p class="detail-small">Unique matches within two hours using the same scheduled service or the complete supplied Gemini unit set. Unit matches are inferred, not confirmed stock diagrams. Ambiguous matches are withheld. Only services in the current board window can be linked.</p><div id="turnaround-links"></div></details>
+
   <section class="panel feed-diagnostics" aria-label="Feed diagnostics">
     <div class="diagnostics-heading"><h2>Feed diagnostics</h2><button type="button" id="diagnostics-toggle" class="button" aria-expanded="false" aria-controls="diagnostics-body">Show diagnostics ▾</button></div>
     <div id="diagnostics-body" class="diagnostics-body" hidden><div class="diagnostics-actions"><button type="button" id="diagnostics-refresh" class="button">Refresh diagnostics</button><span class="detail-small">Snapshots checked once a minute while open. All times Europe/London.</span></div><div id="diagnostics-content"></div></div>
@@ -810,6 +818,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 </main>
 
 <script src="mcv-data.js?v=20261026-turnback-visits"></script>
+<script src="mcv-operations.js?v=20261026-1"></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
@@ -1053,34 +1062,13 @@ function chronologicalServices(view=state.viewMode){
   });
 }
 function turnaroundPair(s){
-  if(!s.platform)return null;
-  const flow=serviceFlow(s).key;
-  const all=state.services.filter(x=>x.key!==s.key&&x.platform&&sameExactPlatform(x.platform,s.platform)&&!x.cancelled);
-  if(flow==='terminate'&&Number.isFinite(s.bookedArrivalMs)){
-    const candidates=all.filter(x=>serviceFlow(x).key==='origin'&&Number.isFinite(x.bookedMs)&&x.bookedMs>=s.bookedArrivalMs&&x.bookedMs-s.bookedArrivalMs<=90*60000)
-      .sort((a,b)=>{
-        const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
-        const sc=displayCarriages(s,'arrivals'),ac=displayCarriages(a,'departures'),bc=displayCarriages(b,'departures');
-        const af=(ac&&sc&&ac===sc)?0:1,bf=(bc&&sc&&bc===sc)?0:1;
-        return ao-bo||af-bf||a.bookedMs-b.bookedMs;
-      });
-    if(!candidates.length)return null;
-    const x=candidates[0],mins=Math.round((x.bookedMs-s.bookedArrivalMs)/60000);
-    return {service:x,minutes:mins,label:`Possible onward working: ${x.headcode||x.dest} to ${x.dest} · dep ${x.booked} · ${mins}m after booked arrival`};
-  }
-  if(flow==='origin'&&Number.isFinite(s.bookedMs)){
-    const candidates=all.filter(x=>serviceFlow(x).key==='terminate'&&Number.isFinite(x.bookedArrivalMs)&&x.bookedArrivalMs<=s.bookedMs&&s.bookedMs-x.bookedArrivalMs<=90*60000)
-      .sort((a,b)=>{
-        const ao=(a.operatorCode&&s.operatorCode&&a.operatorCode===s.operatorCode)?0:1,bo=(b.operatorCode&&s.operatorCode&&b.operatorCode===s.operatorCode)?0:1;
-        const sc=displayCarriages(s,'departures'),ac=displayCarriages(a,'arrivals'),bc=displayCarriages(b,'arrivals');
-        const af=(ac&&sc&&ac===sc)?0:1,bf=(bc&&sc&&bc===sc)?0:1;
-        return ao-bo||af-bf||b.bookedArrivalMs-a.bookedArrivalMs;
-      });
-    if(!candidates.length)return null;
-    const x=candidates[0],mins=Math.round((s.bookedMs-x.bookedArrivalMs)/60000);
-    return {service:x,minutes:mins,label:`Possible inward working: ${x.headcode||x.origin} from ${x.origin} · arr ${x.bookedArrival} · ${mins}m before booked departure`};
-  }
-  return null;
+  const links=operationLinks();
+  const pair=links.find(p=>p.arrival.key===s.key||p.departure.key===s.key);
+  if(!pair)return null;
+  const isArrival=pair.arrival.key===s.key,other=isArrival?pair.departure:pair.arrival;
+  const turnback=pair.basis.includes('West Turnback');
+  const label=turnback?(isArrival?'Outbound visit: ':'Return visit: '):(isArrival?'Onward: ':'Inward: ');
+  return {service:other,label:label+(other.headcode||other.uid)+' · '+(isArrival?other.booked:other.bookedArrival),basis:pair.basis};
 }
 function platformSortValue(p){
   const raw=String(p||'').toUpperCase().trim(),m=raw.match(/^(\d+)([AB])?$/);
@@ -1550,7 +1538,7 @@ function renderTable(){
     const formationHtml=carriageCount?`<span class="formation-chip">${escapeHTML(formation)}</span><div class="formation-note"><span class="formation-source">${allocationCarriages(s)?'GEMINI FEED':'DARWIN FEED'}</span>${s.reverseFormation?' · REVERSE':''}</div>`:'<span class="detail-small">Carriage count not supplied</span>';
     const flowChip=s.ecs?`<span class="movement-chip ${flow.key}">${escapeHTML(flow.label)}</span>`:'';
     const placeTitle=state.viewMode==='all'?`${place.prefix} ${place.label}`:place.label;
-    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus+(s.stopsRemoved?' · Stops removed':''))}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}${s.stopsRemoved?'<div class="removed-stops-chip">STOPS REMOVED</div>':''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}${s.source==='TRUST'?'<span class="movement-chip">TRUST</span>':''}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${s.source==='TRUST'?'<div class="detail-small">'+(s.trust?.platformSource==='reported'?'Reported':'Booked')+'</div>':''}${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}${s.terminatesEarly?'<div class="detail-small">Expected arrival</div>':''}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span>${s.source!=='TRUST'&&MCVData.trustMovementText(s.trustMovement)?`<div class="detail-small">${escapeHTML(MCVData.trustMovementText(s.trustMovement))}</div>`:''}</td></tr>`;
+    return `<tr class="service-row${cls}${isOverdue?' is-overdue':''}${platformChangeFresh?' platform-changed':''}${s.recentlyDeparted?' recently-departed':''}" tabindex="0" data-key="${escapeHTML(s.key)}" aria-label="${escapeHTML(scheduled+' '+placeTitle+' '+displayStatus+(s.stopsRemoved?' · Stops removed':''))}"><td class="time-big tabnum service-booked">${escapeHTML(scheduled)}<div><span class="countdown-chip ${countdown.className}">${escapeHTML(countdown.text)}</span></div>${isOverdue&&!s.recentlyDeparted?'<div class="detail-small late-min">OVERDUE</div>':''}</td><td class="service-destination"><div class="dest">${escapeHTML(placeTitle)}</div>${s.terminatesEarly?`<div class="early-termination">${escapeHTML(earlyTerminationNotice(s))}</div>`:''}${s.stopsRemoved?'<div class="removed-stops-chip">STOPS REMOVED</div>':''}<div class="detail-small"><span class="movement-chip ${movement.key}">${escapeHTML(movement.label)}</span>${flowChip}${s.headcode?`<span class="headcode-chip">${escapeHTML(s.headcode)}</span>`:''}${escapeHTML(s.operator)}${s.source==='TRUST'?'<span class="movement-chip">TRUST</span>':''}</div></td><td class="formation-cell service-formation">${formationHtml}${unitHtml}${shortFormationHtml(s)}${MCVData.operatingProcedureNotice(s)?`<div class="formation-warning">${escapeHTML(MCVData.operatingProcedureNotice(s))}</div>`:''}${inferredTpeFormation(s)?`<div class="formation-transition">${escapeHTML(inferredTpeFormation(s))} · inferred</div>`:''}${formationDifference(s)?`<div class="formation-warning">${escapeHTML(formationDifference(s))}</div>`:''}${formationChange(s)?`<div class="formation-transition">${escapeHTML(formationChange(s))}</div>`:''}${firstClassPosition(s)?`<div class="formation-note">${escapeHTML(firstClassPosition(s))}</div>`:(s.firstClassNotice?`<div class="formation-note">1st: ${escapeHTML(s.firstClassNotice.replace('FIRST CLASS: ',''))}</div>`:'')}</td><td class="service-platform"><span class="plat-pill${s.platform?'':' unknown'}">${escapeHTML(s.platform||'TBC')}</span>${s.source==='TRUST'?'<div class="detail-small">'+(s.trust?.platformSource==='reported'?'Reported':'Booked')+'</div>':''}${platformChangeFresh?`<span class="platform-change-chip">CHANGED ${escapeHTML(platformChange.from)}→${escapeHTML(platformChange.to)}</span>`:''}${risk&&!s.recentlyDeparted?`<div class="conflict-chip ${risk.level==='danger'?'danger':''}">SEQUENCE RISK</div>`:''}</td><td class="tabnum service-expected">${escapeHTML(expected)}${delta}${s.terminatesEarly?'<div class="detail-small">Expected arrival</div>':''}</td><td class="service-status"><span class="status-pill ${statusCls}">${escapeHTML(displayStatus)}</span>${s.source!=='TRUST'&&MCVData.trustMovementText(s.trustMovement)?`<div class="detail-small">${escapeHTML(MCVData.trustMovementText(s.trustMovement))}</div>`:''}</td></tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">No matching services in this movement view.</td></tr>';
   updateDisplayHTML($('departures'),tableHTML,true);
   scrollArea.scrollTop=scrollTop;
@@ -1747,7 +1735,7 @@ function renderDetails(){
       ${procedure?`<div class="ops-alert warn"><strong>Operating procedure:</strong> ${escapeHTML(procedure.replace('Operating procedure: ',''))}</div>`:''}
       ${notice&&!s.cancelled?`<div class="ops-alert"><strong>Local carriage notice:</strong> ${escapeHTML(notice)}</div>`:''}
     </div>
-    ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">Possible turnaround pairing · inferred</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">Matched from the same exact platform, timing, operator and formation where available. This is not a confirmed stock diagram.</div></div>`:''}
+    ${turnaround?`<div class="turnaround-card"><div class="turnaround-title">${escapeHTML(turnaround.basis)}</div><div class="turnaround-main">${escapeHTML(turnaround.label)}</div><div class="turnaround-sub">${operationLinkButton(turnaround.service)} · ${escapeHTML(turnaround.basis)}. Stock continuity is not confirmed.</div></div>`:''}
 
     <section class="detail-group detail-stock"><h3>Stock &amp; formation</h3><p class="detail-small">Select an allocated unit number to search its captured workings from the last 48 hours. This shows observed allocations, not a confirmed stock diagram.</p>${formationDiagram(s)}<div class="keyvalues">
       ${serviceHasArrival(s)?`<div><div class="kv-label">Allocated arrival units</div><div class="kv-value">${unitHistoryLinks(s,'arrivals')}</div></div>`:''}
@@ -1764,7 +1752,7 @@ function renderDetails(){
       ${inferredTpeFormation(s)?extra('Expected stock',inferredTpeFormation(s)+' · inferred from TPE carriage count'):''}
       ${firstClassPosition(s)?extra('First Class',firstClassPosition(s)):(s.firstClassNotice?extra('First Class',s.firstClassNotice.replace('FIRST CLASS: ','')):'')}
       ${extra('Formation orientation',s.reverseFormation?'Reverse formation reported':'No reverse-formation flag')}
-    </div></section>
+    </div>${formationReferenceForm(s)}</section>
     <section class="detail-group"><h3>Service information</h3><div class="keyvalues">
       ${extra('Operator',s.operator+(s.operatorCode?' · '+s.operatorCode:''))}
       ${extra('Headcode',s.headcode||'Not supplied')}
@@ -1821,6 +1809,7 @@ function renderOperationalAlerts(){
     if(s.terminatesEarly)alerts.unshift({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: ${earlyTerminationNotice(s)}`});
     if(s.cancelled)alerts.push({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: cancelled`});
     else if(overdue(s))alerts.push({level:'warn',text:`${s.headcode||s.dest}: delayed past booked departure`});
+    const short=shortFormationWarning(s);if(short)alerts.push({level:'warn',text:(s.headcode||s.dest)+': '+short});
     if(s.reverseFormation)alerts.push({level:'warn',text:`${s.headcode||s.dest}: reverse formation reported`});
     if(s.futureCancellation&&!s.terminatesEarly)alerts.push({level:'danger',text:`${s.headcode||s.dest}: future cancellation flagged`});
     if(s.futureDelay)alerts.push({level:'warn',text:`${s.headcode||s.dest}: future delay flagged`});
@@ -1910,7 +1899,70 @@ async function refreshFeedDiagnostics(force=false){
 }
 $('diagnostics-toggle').addEventListener('click',()=>{state.diagnosticsOpen=!state.diagnosticsOpen;$('diagnostics-body').hidden=!state.diagnosticsOpen;$('diagnostics-toggle').setAttribute('aria-expanded',String(state.diagnosticsOpen));$('diagnostics-toggle').textContent=state.diagnosticsOpen?'Hide diagnostics ▴':'Show diagnostics ▾';if(state.diagnosticsOpen){renderFeedDiagnostics();refreshFeedDiagnostics()}});
 $('diagnostics-refresh').addEventListener('click',()=>refreshFeedDiagnostics(true));
-function render(){MCVStaffTools.refresh();renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
+const FORMATION_REFERENCE_KEY='mcv-booked-formation-v1';
+let formationReferences={};
+try{const saved=JSON.parse(localStorage.getItem(FORMATION_REFERENCE_KEY)||'{}');if(saved&&typeof saved==='object'&&!Array.isArray(saved))formationReferences=saved;}catch{}
+function operationsBoardCurrent(){return !state.lastError&&state.lastGood>0&&Date.now()-state.lastGood<=90000&&state.feedGeneratedAt>0&&Date.now()-state.feedGeneratedAt<=120000}
+function operationServices(){return state.services.map(s=>({...s,arrivalUnits:allocatedUnits(s,'arrivals'),departureUnits:allocatedUnits(s,'departures'),operationalRoute:s.bookedOperationalRoute}));}
+function operationLinks(){if(!operationsBoardCurrent())return [];const services=operationServices();return [...MCVOperations.turnaroundLinks(services),...MCVOperations.turnbackLinks(services)];}
+function operationLinkButton(s){return `<button type="button" class="button" data-operation-service="${escapeHTML(s.key)}">${escapeHTML(s.headcode||s.uid||'Service')} · ${escapeHTML(s.booked!=='—'?s.booked:s.bookedArrival)}</button>`;}
+function shortFormationView(s){return state.viewMode==='arrivals'||!serviceHasDeparture(s)?'arrivals':'departures';}
+function formationReference(s){return formationReferences[MCVOperations.baselineKey(s,shortFormationView(s))];}
+function shortFormationWarning(s){
+  if(!operationsBoardCurrent())return '';
+  const view=shortFormationView(s),actual=allocationCarriages(s,view)||s.coaches;
+  const warning=MCVOperations.shortFormation(s,formationReference(s),actual);
+  return warning?`SHORT FORMATION · ${warning.actual} supplied / ${warning.booked} booked (staff-entered reference)`:'';
+}
+function shortFormationHtml(s){const warning=shortFormationWarning(s);return warning?`<span class="short-formation">${escapeHTML(warning)}</span>`:'';}
+function formationReferenceForm(s){
+  if(s.ecs)return '';
+  const reference=formationReference(s),valid=reference&&Number.isInteger(reference.count)&&reference.count>=1&&reference.count<=30&&MCVOperations.fresh(reference.at,48*3600000,Date.now());
+  return `<form class="formation-reference" data-formation-reference="${escapeHTML(s.key)}"><label>Booked ${shortFormationView(s)==='arrivals'?'arrival':'departure'} carriage count <input name="bookedCount" type="number" min="1" max="30" step="1" required value="${valid?escapeHTML(String(reference.count)):''}"></label><button type="submit" class="button">Save booked count</button><button type="button" class="button" data-clear-formation="${escapeHTML(s.key)}">Clear reference</button><p class="detail-small">Staff-entered reference for this visit and direction, saved on this device for 48 hours. The feeds do not supply a verified booked count. Darwin/Gemini differences alone do not trigger a short-formation warning.</p>${shortFormationHtml(s)}<p class="detail-small" id="formation-reference-status" role="status"></p></form>`;
+}
+function persistFormationReferences(){
+  formationReferences=Object.fromEntries(Object.entries(formationReferences).filter(([,value])=>value&&MCVOperations.fresh(value.at,48*3600000,Date.now())).slice(-300));
+  try{localStorage.setItem(FORMATION_REFERENCE_KEY,JSON.stringify(formationReferences));return true;}catch{return false;}
+}
+function renderOperations(){
+  const generated=state.feedGeneratedAt?new Date(state.feedGeneratedAt).toISOString():null;
+  const rows=MCVOperations.health(state.unitFeedMeta,generated,Boolean(state.lastError));
+  const time=value=>value?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(value)):'Not supplied';
+  updateDisplayHTML($('feed-health'),rows.map(row=>`<div class="ops-card"><h3>${escapeHTML(row.name)}</h3><div class="${row.status==='Current'?'ops-current':'ops-warning'}">${escapeHTML(row.status)}</div><p>${escapeHTML(time(row.at))}${row.at?' · '+escapeHTML(relativeAge(Date.parse(row.at)))+' ago':''}</p><p>${escapeHTML(row.note)}</p></div>`).join(''));
+  const ops=state.unitFeedMeta?.operations;
+  const available=ops&&MCVOperations.fresh(ops.updatedAt,6*60000,Date.now());
+  const live=available&&ops.vstp?.available&&!ops.vstp.blocked&&MCVOperations.fresh(ops.vstp.feedAt,3*60000,Date.now());
+  const query=$('vstp-search').value.trim().toUpperCase(),filter=$('vstp-filter').value;
+  const changes=(ops?.changes||[]).filter(row=>(!filter||row.status===filter)&&(!query||[row.uid,row.headcode].some(value=>value.toUpperCase().includes(query))));
+  $('vstp-count').textContent=available?'('+changes.length+')':'';
+  const clock=value=>value?value.slice(0,2)+':'+value.slice(2,4)+(value.endsWith('H')?'½':''):'—';
+  const visits=values=>values.map(v=>[v.arrival?'arr '+clock(v.arrival):'',v.departure?'dep '+clock(v.departure):'',v.pass?'pass '+clock(v.pass):'',v.platform?'P'+v.platform:''].filter(Boolean).join(' · ')).join(' / ')||'No Victoria visit';
+  const labels={new:'New captured schedule',amended:'Amended schedule',cancelled:'Cancelled schedule variant',withdrawn:'Withdrawn VSTP variant','removed-from-victoria':'Removed from Victoria',captured:'Captured schedule'};
+  updateDisplayHTML($('vstp-changes'),!available?'<p class="detail-small">No current VSTP summary supplied. The updated Worker and server publisher are required.</p>':(!live?'<p class="ops-warning">VSTP capture is stale or blocked. Changes below are the last captured state.</p>':'')+(changes.length?changes.map(row=>`<article class="ops-row"><strong>${escapeHTML(row.headcode||row.uid)} · ${escapeHTML(labels[row.status]||row.status)}</strong><div>${escapeHTML(row.uid)} · ${escapeHTML(row.operatingDates.join(', '))} · change ${escapeHTML(time(row.at))}</div><div>${escapeHTML(station(row.origin,row.origin))} → ${escapeHTML(station(row.destination,row.destination))}</div><div>Victoria: ${escapeHTML(visits(row.victoria))}</div>${row.comparison?`<div class="detail-small">Compared with ${escapeHTML(row.comparison)}: ${escapeHTML(visits(row.previousVictoria))}${row.routeChanged?' · Route changed':''}</div>`:''}</article>`).join(''):'<p class="detail-small">No matching captured changes for today or tomorrow. This does not confirm there are no short-notice alterations.</p>'));
+  const links=operationLinks();$('turnaround-count').textContent='('+links.length+')';
+  updateDisplayHTML($('turnaround-links'),!operationsBoardCurrent()?'<p class="detail-small">Waiting for a current board before matching services.</p>':links.length?links.map(pair=>`<div class="ops-row"><strong>${escapeHTML(pair.basis)}</strong><div>${pair.basis.includes('West Turnback')?operationLinkButton(pair.departure)+' → West Turnback → '+operationLinkButton(pair.arrival):operationLinkButton(pair.arrival)+' → '+operationLinkButton(pair.departure)}</div><div class="detail-small">${pair.units?.length?'Units '+escapeHTML(pair.units.join(' + '))+' · ':''}${pair.minutes!=null?pair.minutes+'m between booked visits · ':''}Stock continuity is not confirmed.</div></div>`).join(''):'<p class="detail-small">No unique unit or schedule links in the current board window.</p>');
+}
+$('vstp-search').addEventListener('input',renderOperations);$('vstp-filter').addEventListener('change',renderOperations);
+document.addEventListener('click',event=>{
+  const button=event.target.closest('[data-operation-service]');if(!button)return;
+  const service=state.services.find(s=>s.key===button.dataset.operationService);if(!service)return;
+  state.selectedKey=service.key;state.viewMode=serviceHasDeparture(service)?'departures':'arrivals';state.chosenPlatform='all';state.search='';state.statusFilter='all';state.serviceTypeFilter='all';$('search').value='';state.callingPointView='after';reflectPreferences();render();
+  $('service-details').scrollIntoView({behavior:'smooth',block:'start'});
+});
+$('service-details').addEventListener('submit',event=>{
+  const form=event.target.closest('[data-formation-reference]');if(!form)return;event.preventDefault();
+  const s=state.services.find(x=>x.key===form.dataset.formationReference),count=Number(new FormData(form).get('bookedCount'));
+  if(!s||!Number.isInteger(count)||count<1||count>30)return;
+  formationReferences[MCVOperations.baselineKey(s,shortFormationView(s))]={count,at:new Date().toISOString()};
+  const saved=persistFormationReferences();render();$('formation-reference-status').textContent=saved?'Booked reference saved on this device.':'Reference saved for this session; device storage is unavailable.';
+});
+$('service-details').addEventListener('click',event=>{
+  const button=event.target.closest('[data-clear-formation]');if(!button)return;
+  const s=state.services.find(x=>x.key===button.dataset.clearFormation);if(!s)return;
+  delete formationReferences[MCVOperations.baselineKey(s,shortFormationView(s))];persistFormationReferences();render();
+});
+
+function render(){renderOperations();MCVStaffTools.refresh();renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
     const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
@@ -1927,10 +1979,10 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     if(!board.fallback){rememberRecentDepartures(next);compareFeeds(next)}state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=board.receivedAt;state.lastError=board.fallback?'Live update failed · showing last received board':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
     render();
-  }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);updateFeedBanner();renderNationalRailNotices();}
+  }catch(err){state.lastError=String(err.message||err);console.warn('Staff movements feed:',err);renderOperations();updateFeedBanner();renderNationalRailNotices();}
   finally{state.feedBusy=false;$('refresh').disabled=false}
 }
-function updateClock(){renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner();if(state.diagnosticsOpen){if(Date.now()-state.diagnosticsRenderedAt>=5000)renderFeedDiagnostics();refreshFeedDiagnostics()}}
+function updateClock(){renderOperations();renderNationalRailNotices();MCVData.updateClock('clock','date',{dateOptions:{weekday:'short',day:'numeric',month:'short',year:'numeric'}});updateFeedBanner();if(state.diagnosticsOpen){if(Date.now()-state.diagnosticsRenderedAt>=5000)renderFeedDiagnostics();refreshFeedDiagnostics()}}
 function exportCSV(){const list=selectFilter();if(!state.lastGood||!list.length)return;
   const cols=['View','Movement type','Booked arrival','Booked departure','Expected arrival','Expected departure','Headcode','Service type','Train category','Origin','Destination','Destination CRS','Operator','Formation','Reverse formation','First Class','Platform','Status','Delay minutes','Delay / cancellation reason','Previous calling points','Next location','Calling points after MCV','UID','RID','Feed service ID','Allocated arrival units','Allocated departure units','Allocation updated (London)','Calling points source'];
   const safe=v=>{let x=String(v??'');if(/^[\s]*[=+@-]/.test(x))x="'"+x;return '"'+x.replace(/"/g,'""')+'"'};
@@ -2021,7 +2073,7 @@ applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
-setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails()}},15000);
+setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderOperations();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails()}},15000);
 </script>
 </body>
 </html>

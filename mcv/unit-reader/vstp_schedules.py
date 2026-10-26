@@ -97,6 +97,9 @@ def open_store(path):
         uid TEXT,start_date TEXT,stp TEXT,end_date TEXT,days TEXT,applicable TEXT,bank_holiday TEXT,
         payload_zlib BLOB,deleted INTEGER NOT NULL,stamp INTEGER NOT NULL,digest TEXT NOT NULL,
         PRIMARY KEY(uid,start_date,stp));
+      CREATE TABLE IF NOT EXISTS vstp_changes(
+        uid TEXT,start_date TEXT,stp TEXT,action TEXT,previous_zlib BLOB,
+        PRIMARY KEY(uid,start_date,stp));
       CREATE TABLE IF NOT EXISTS vstp_batches(
         topic TEXT,partition_id INTEGER,offset_id INTEGER,received_at INTEGER,
         payload_zlib BLOB,error TEXT,PRIMARY KEY(topic,partition_id,offset_id));
@@ -112,7 +115,7 @@ def apply_event(db,envelope,received):
     # Retain all identities, including updates diverted away from MCV and deletions.
     encoded=json.dumps(schedule,sort_keys=True,separators=(',',':')).encode()
     digest=hashlib.sha256(encoded).hexdigest()
-    old=db.execute('SELECT stamp,digest FROM vstp_schedules WHERE uid=? AND start_date=? AND stp=?',identity).fetchone()
+    old=db.execute('SELECT stamp,digest,payload_zlib FROM vstp_schedules WHERE uid=? AND start_date=? AND stp=?',identity).fetchone()
     if old and stamp<old[0]:return False
     if old and stamp==old[0]:
         if digest!=old[1]:raise ValueError('Conflicting simultaneous VSTP updates')
@@ -120,6 +123,10 @@ def apply_event(db,envelope,received):
     end=schedule['schedule_end_date'] if schedule else identity[1]
     days=schedule['schedule_days_runs'] if schedule else '1111111'
     payload=zlib.compress(encoded) if schedule and any(p['tiploc_code']=='MNCRVIC' for p in schedule['schedule_segment']['schedule_location']) else None
+    previous=old[2] if old else None
+    # Preserve the last captured Victoria route through a diversion or deletion.
+    db.execute("INSERT INTO vstp_changes VALUES (?,?,?,?,?) ON CONFLICT(uid,start_date,stp) DO UPDATE SET action=excluded.action,previous_zlib=COALESCE(excluded.previous_zlib,vstp_changes.previous_zlib)",
+               (*identity,envelope['VSTPCIFMsgV1']['schedule']['transaction_type'],previous))
     db.execute('INSERT OR REPLACE INTO vstp_schedules VALUES (?,?,?,?,?,?,?,?,?,?,?)',(*identity,end,days,schedule.get('applicable_timetable') if schedule else 'Y',schedule.get('CIF_bank_holiday_running') if schedule else '',payload,int(schedule is None),stamp,digest))
     db.execute("UPDATE metadata SET value=CAST(value AS INTEGER)+1 WHERE name='revision'")
     return True

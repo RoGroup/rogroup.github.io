@@ -162,6 +162,11 @@ def run_once(db, token):
     except Exception as error:
         payload["timetable"] = {"version": 1, "available": False, "routes": []}
         print(f"Booked calling patterns unavailable: {type(error).__name__}: {error}", flush=True)
+    try:
+        from operations import build_operations
+        payload["operations"] = build_operations(FOLDER)
+    except Exception as error:
+        print(f"Staff operations summary unavailable: {type(error).__name__}: {error}", flush=True)
     recent = None
     try:
         from recent_services import capture
@@ -171,6 +176,9 @@ def run_once(db, token):
     except Exception as error:
         print(f"Recent-service capture failed: {type(error).__name__}: {error}", flush=True)
     # Retain the earliest workings if their booked routes make a large upload.
+    # Explanations and change summaries never displace movement evidence.
+    while len(json.dumps(payload).encode()) > 240000 and payload.get("operations", {}).get("changes"):
+        payload["operations"]["changes"].pop()
     # Explanations are optional and never displace movement evidence.
     while len(json.dumps(payload).encode()) > 240000 and payload["timetable"].get("checks"):
         payload["timetable"]["checks"].pop()

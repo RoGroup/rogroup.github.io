@@ -52,6 +52,7 @@ def prune(db,now):
         db.execute('DELETE FROM vstp_schedules WHERE end_date<? AND start_date<?',
                    (time.strftime('%Y-%m-%d',time.gmtime(now-7*86400)),)*2)
 
+        db.execute('DELETE FROM vstp_changes WHERE NOT EXISTS (SELECT 1 FROM vstp_schedules s WHERE s.uid=vstp_changes.uid AND s.start_date=vstp_changes.start_date AND s.stp=vstp_changes.stp)')
 
 def is_caught_up(consumer):
     assigned=consumer.assignment()

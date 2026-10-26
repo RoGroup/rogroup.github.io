@@ -1154,6 +1154,7 @@ async function ingestUnits(request, env, origin) {
         if (!Array.isArray(service[field]) || service[field].length > 20 || !service[field].every(unit => typeof unit === 'string' && /^\d{6}$/.test(unit))) throw new Error('Invalid units');
       }
     }
+    if (snapshot.operations != null) snapshot.operations = validateOperations(snapshot.operations);
     if (snapshot.trust != null) snapshot.trust = validateTrustSnapshot(snapshot.trust);
     if (snapshot.timetable != null) snapshot.timetable = validateBookedPatterns(snapshot.timetable);
     snapshot.updatedAt = new Date().toISOString();
@@ -1175,6 +1176,7 @@ async function enrichUnits(board, env, suppliedSnapshot) {
   try {
     const snapshot = suppliedSnapshot === undefined ? await readUnitSnapshot(env) : suppliedSnapshot;
     board._mcv = {...(board._mcv || {}), unitAllocationsAvailable:Boolean(snapshot?.available), unitReaderRunning:snapshot?.readerRunning ?? null, unitSnapshotAt:snapshot?.updatedAt || null};
+    board._mcv.operations = snapshot?.operations || null;
     if (!snapshot?.available) return;
     const index = new Map(snapshot.services.map(service => [unitSignature(service), service]));
     for (const service of board.trainServices || []) {
@@ -1197,6 +1199,27 @@ async function enrichUnits(board, env, suppliedSnapshot) {
 
 
 // TRUST-only ECS rows share the allocation snapshot upload and KV write.
+function validateOperations(input) {
+  if(!input || input.version!==1 || !Array.isArray(input.changes) || input.changes.length>30)throw Error('Invalid operations summary');
+  const stamp=(value,nullable=false)=>{if(nullable&&value==null)return null;if(typeof value!=='string'||!Number.isFinite(Date.parse(value))||Date.parse(value)>Date.now()+300000)throw Error('Invalid operations time');return value;};
+  const date=value=>{if(typeof value!=='string'||!/^\d{4}-\d\d-\d\d$/.test(value))throw Error('Invalid operations date');return value;};
+  const text=(value,max=80)=>{if(typeof value!=='string'||value.length>max)throw Error('Invalid operations text');return value;};
+  const v=input.vstp;
+  if(!v||['configured','available','blocked'].some(key=>typeof v[key]!=='boolean'))throw Error('Invalid VSTP health');
+  const calls=rows=>{if(!Array.isArray(rows)||rows.length>20)throw Error('Invalid operations visits');return rows.map(row=>Object.fromEntries(['arrival','departure','pass','platform'].map(key=>[key,text(row[key],10)])));};
+  return {version:1,updatedAt:stamp(input.updatedAt),scheduleAt:stamp(input.scheduleAt,true),
+    vstp:{configured:v.configured,available:v.available,blocked:v.blocked,feedAt:stamp(v.feedAt,true)},
+    changes:input.changes.map(row=>{
+      if(!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)||!['Create','Update','Delete','Captured'].includes(row.action)||
+        !['withdrawn','cancelled','removed-from-victoria','amended','new','captured'].includes(row.status)||
+        !Array.isArray(row.operatingDates)||row.operatingDates.length>2||typeof row.routeChanged!=='boolean')throw Error('Invalid VSTP change');
+      return {uid:row.uid,headcode:text(row.headcode,8),startDate:date(row.startDate),endDate:date(row.endDate),
+        operatingDates:row.operatingDates.map(date),at:stamp(row.at),action:row.action,status:row.status,
+        origin:text(row.origin,7),destination:text(row.destination,7),victoria:calls(row.victoria),previousVictoria:calls(row.previousVictoria),
+        comparison:text(row.comparison,30),routeChanged:row.routeChanged};
+    })};
+}
+
 function validateTrustSnapshot(input) {
   if (!input || input.version !== 1 || typeof input.available !== 'boolean' || !Array.isArray(input.services) || input.services.length > 100) throw new Error('Invalid TRUST snapshot');
   if (!input.available) return {version:1, available:false, services:[]};
@@ -1329,7 +1352,7 @@ function mergeTrustServices(board, snapshot) {
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
-  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustFeedAt:trust?.feedAt || null, trustScheduleAt:trust?.scheduleAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
   for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;delete service.trustHistory;delete service.bookedPatternStatus;delete service.bookedOperationalRoute;}
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
