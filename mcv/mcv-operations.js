@@ -46,10 +46,5 @@ function turnbackLinks(services){
   }
   return pairs.filter(pair=>pairs.filter(p=>p.departure.key===pair.departure.key).length===1&&pairs.filter(p=>p.arrival.key===pair.arrival.key).length===1);
 }
-function baselineKey(s,view){return JSON.stringify([s.uid||s.rid||s.serviceId||s.key,s.serviceDate||'',s.bookedArrivalMs??null,s.bookedMs??null,view==='arrivals'?'arrival':'departure']);}
-function shortFormation(service,reference,actual,now=Date.now()){
-  if(service.ecs||service.cancelled||service.futureCancellation||!reference||!fresh(reference.at,48*60*minute,now)||!Number.isInteger(reference.count)||reference.count<1||reference.count>30||!Number.isInteger(actual)||actual<1||actual>=reference.count)return null;
-  return {booked:reference.count,actual,missing:reference.count-actual};
-}
-root.MCVOperations={health,turnaroundLinks,turnbackLinks,baselineKey,shortFormation,fresh};
+root.MCVOperations={health,turnaroundLinks,turnbackLinks,fresh};
 })(typeof window!=='undefined'?window:globalThis);
