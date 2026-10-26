@@ -8,7 +8,7 @@ python="$folder/.venv/bin/python"
 staging=$(mktemp -d)
 trap 'rm -rf "$staging"' EXIT
 chmod 755 "$staging"
-for file in publisher.py trust_snapshot.py schedule_import.py test_trust_snapshot.py recent_services.py test_recent_services.py; do
+for file in vstp_schedules.py publisher.py trust_snapshot.py schedule_import.py test_trust_snapshot.py recent_services.py test_recent_services.py; do
     curl -fsSL "https://raw.githubusercontent.com/RoGroup/rogroup.github.io/$commit/mcv/unit-reader/$file" -o "$staging/$file"
     chmod 644 "$staging/$file"
 done
@@ -31,6 +31,7 @@ for file in publisher.py trust_snapshot.py test_trust_snapshot.py recent_service
     fi
 done
 # Dependencies are installed first; publisher.py is switched last.
+install -m 644 vstp_schedules.py "$folder/vstp_schedules.py"
 install -m 644 trust_snapshot.py "$folder/trust_snapshot.py"
 install -m 644 test_trust_snapshot.py "$folder/test_trust_snapshot.py"
 install -m 644 recent_services.py "$folder/recent_services.py"
@@ -38,4 +39,3 @@ install -m 644 publisher.py "$folder/publisher.py"
 systemctl restart mcv-unit-publisher
 systemctl is-active mcv-unit-publisher
 echo 'Publisher updated. First upload is after 120 seconds. Deploy the matching worker.mjs in Cloudflare.'
-

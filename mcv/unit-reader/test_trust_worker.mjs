@@ -259,3 +259,20 @@ const wrongCheck={trainServices:[{...missingPattern,std:'2026-10-22T04:49:00'}]}
 assert.equal(wrongCheck.trainServices[0].bookedPatternStatus,undefined);
 worker.mergeTrustServices(why,{});assert.equal(why.trainServices[0].bookedPatternStatus,undefined,'Old explanations are cleared before fresh joins');
 console.log('Booked-pattern explanations: exact identity/time, reason validation, UI conversion and freshness clearing passed');
+
+// VSTP's space-prefixed five-digit UID is canonicalized by the server; Darwin
+// may retain the leading space. Match exact UID/date/headcode and booked times.
+const vstpService={...service,uid:'43876'};
+const vstpSnapshot=worker.validateTrustSnapshot({...snapshot,services:[vstpService]});
+assert.equal(vstpSnapshot.services[0].uid,'43876');
+assert.throws(()=>worker.validateTrustSnapshot({...snapshot,services:[{...service,uid:'1234'}]}));
+assert.throws(()=>worker.validateTrustSnapshot({...snapshot,services:[{...service,uid:'<43876>'}]}));
+const vstpRoute={uid:'43876',trainid:service.trainid,sdd:service.sdd,sta:service.sta,std:service.std,
+ callingPoints:[{crs:'CTR',tiploc:'CHST',locationName:'Chester',st:service.std}]};
+const vstpBooked=worker.validateBookedPatterns({version:1,available:true,updatedAt:stamp,scheduleAt:stamp,routes:[vstpRoute],checks:[]});
+const vstpBoard={trainServices:[{uid:' 43876',trainid:service.trainid,sdd:service.sdd,sta:service.sta,std:service.std,destination:[{crs:'CTR'}]}]};
+worker.mergeBookedPatterns(vstpBoard,{timetable:vstpBooked});
+assert.equal(vstpBoard.trainServices[0].trustCallingPoints.callingPoints[0].crs,'CTR');
+console.log('VSTP numeric UID validation and exact booked-pattern join passed');
+
+assert.throws(()=>worker.validateTrustSnapshot({...snapshot,services:[{...service,uid:43876}]}));

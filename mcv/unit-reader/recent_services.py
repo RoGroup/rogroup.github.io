@@ -24,7 +24,7 @@ def booked(value):
 
 
 def identity(service):
-    return tuple(str(service.get(key) or "") for key in ("uid", "trainid", "sdd")) + tuple(booked(service.get(key)) or "" for key in ("sta", "std"))
+    return tuple(str(service.get(key) or "").strip() for key in ("uid", "trainid", "sdd")) + tuple(booked(service.get(key)) or "" for key in ("sta", "std"))
 
 
 def capture(folder, services, allocations, trust, now=None):
@@ -44,7 +44,7 @@ def capture(folder, services, allocations, trust, now=None):
         seen = set()
         for service in services:
             key = identity(service)
-            if key in seen or not re.fullmatch(r"[A-Z]\d{5}", key[0]) or not re.fullmatch(r"\d[A-Z]\d{2}", key[1]) or not re.fullmatch(r"\d{4}-\d\d-\d\d", key[2]):
+            if key in seen or not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", key[0]) or not re.fullmatch(r"\d[A-Z]\d{2}", key[1]) or not re.fullmatch(r"\d{4}-\d\d-\d\d", key[2]):
                 continue
             seen.add(key)
             times = [dt.datetime.fromisoformat(value).timestamp() for value in key[3:] if value]

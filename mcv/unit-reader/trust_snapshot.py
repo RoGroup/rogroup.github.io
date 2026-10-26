@@ -6,6 +6,7 @@ Movement times are matched to their scheduled event before interpreting them.
 import argparse
 from contextlib import closing
 import datetime as dt
+import hashlib
 import json
 import os
 import re
@@ -16,6 +17,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from schedule_import import lookup
+from vstp_schedules import prepare_view
 
 UTC = dt.timezone.utc
 LONDON = ZoneInfo("Europe/London")
@@ -167,7 +169,7 @@ def index_history_archive(raw, cache, schedules, schedule_stamp, now):
                 cache.execute(f"UPDATE history_progress SET {column}=? WHERE id=1", (cursor,))
     replay(life_cursor, False)
     uids = {row[0] for row in schedules.execute("SELECT DISTINCT uid FROM schedules WHERE payload_zlib IS NOT NULL")}
-    relevant = {train for train, body in cache.execute("SELECT train_id,body FROM events WHERE kind='0001'") if json.loads(body).get("train_uid") in uids}
+    relevant = {train for train, body in cache.execute("SELECT train_id,body FROM events WHERE kind='0001'") if str(json.loads(body).get("train_uid") or "").strip() in uids}
     replay(movement_cursor, True, relevant)
     with cache:
         cache.execute("DELETE FROM events WHERE received_at<?", (int(now.timestamp())-2*86400,))
@@ -177,7 +179,7 @@ def project_history(schedule, activation, events, db, now):
     """Return captured evidence separately from live status or location claims."""
     uid, headcode, date = schedule["CIF_train_uid"], schedule["schedule_segment"].get("signalling_id", ""), activation["tp_origin_timestamp"]
     train_id = activation["train_id"]
-    if not re.fullmatch(r"[A-Z]\d{5}",uid) or not re.fullmatch(r"[0-9][A-Z]\d{2}",headcode) or not re.fullmatch(r"[A-Z0-9]{10}",train_id) or train_id[2:6] != headcode:
+    if not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})",uid) or not re.fullmatch(r"[0-9][A-Z]\d{2}",headcode) or not re.fullmatch(r"[A-Z0-9]{10}",train_id) or train_id[2:6] != headcode:
         return None
     route = timed_route(schedule,date)
     visits = [(stop,times) for stop,times in route if stop["tiploc_code"] == "MNCRVIC"]
@@ -282,7 +284,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
         return None
     headcode, uid = segment.get("signalling_id", ""), schedule["CIF_train_uid"]
     train_id, date = activation["train_id"], activation["tp_origin_timestamp"]
-    if not re.fullmatch(r"[0-9][A-Z][0-9]{2}", headcode) or not re.fullmatch(r"[A-Z]\d{5}", uid):
+    if not re.fullmatch(r"[0-9][A-Z][0-9]{2}", headcode) or not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", uid):
         return None
     if not re.fullmatch(r"[A-Z0-9]{10}", train_id) or train_id[2:6] != headcode:
         return None
@@ -397,14 +399,16 @@ def build_booked_patterns(folder, services, now=None):
         stamp = int(header["timestamp"])
         if not 0 <= now.timestamp() - stamp <= SCHEDULE_MAX_AGE:
             return {"version": 1, "available": False, "routes": []}
+        prepare_view(db, folder, now)
+        services = [{**s, "uid":str(s.get("uid") or "").strip()} for s in services]
         identities = [(s.get("uid"), s.get("trainid"), s.get("sdd")) for s in services]
         routes, checks = [], []
         def explain(service, reason):
-            if re.fullmatch(r"[A-Z]\d{5}", str(service.get("uid") or "")) and re.fullmatch(r"\d[A-Z]\d{2}", str(service.get("trainid") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d", str(service.get("sdd") or "")):
+            if re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", str(service.get("uid") or "")) and re.fullmatch(r"\d[A-Z]\d{2}", str(service.get("trainid") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d", str(service.get("sdd") or "")):
                 checks.append({**{key: str(service.get(key) or "") for key in ("uid", "trainid", "sdd", "sta", "std")}, "reason": reason})
         for service, identity in zip(services, identities):
             uid, headcode, date = identity
-            if identities.count(identity) != 1 or not re.fullmatch(r"[A-Z]\d{5}", str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}", str(headcode or "")):
+            if identities.count(identity) != 1 or not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}", str(headcode or "")):
                 continue
             if any(service.get(flag) for flag in ("isCancelled", "filterLocationCancelled", "futureCancellation", "diversion", "affectedByDiversion")) or service.get("isPassengerService") is False:
                 continue
@@ -505,19 +509,28 @@ def build_snapshot(folder, now=None, services=None):
         schedule_stamp = int(header["timestamp"])
         if not 0 <= now.timestamp() - schedule_stamp <= SCHEDULE_MAX_AGE:
             return {**unavailable, "reason": "timetable-stale"}
+        prepare_view(schedules, folder, now)
         location = schedules.execute("SELECT stanox FROM locations WHERE tiploc='MNCRVIC'").fetchone()
         if not location or not location[0]:
             raise ValueError("Missing Victoria STANOX")
         with closing(sqlite3.connect(folder / "trust-history-projection.sqlite3", timeout=10)) as cache:
-            index_history_archive(raw, cache, schedules, schedule_stamp, now)
+            # Only the daily extract or relevant UID membership requires a raw
+            # movement replay. Route edits for an already indexed UID are resolved
+            # against the current view below, without rescanning national history.
+            relevant_uids = sorted(row[0] for row in schedules.execute("SELECT DISTINCT uid FROM schedules WHERE payload_zlib IS NOT NULL"))
+            cache_key = json.dumps([schedule_stamp, relevant_uids], separators=(",", ":")).encode()
+            history_version = int.from_bytes(hashlib.sha256(cache_key).digest()[:8], "big") & ((1 << 63) - 1)
+            index_history_archive(raw, cache, schedules, history_version, now)
             by_train = {}
             for train, kind, body, received in cache.execute("SELECT train_id, kind, body,received_at FROM events ORDER BY queue_time, received_at, batch_row, ordinal"):
-                by_train.setdefault(train, []).append((kind, json.loads(body), received))
+                decoded = json.loads(body)
+                if kind=="0001":decoded["train_uid"]=str(decoded.get("train_uid") or "").strip()
+                by_train.setdefault(train, []).append((kind, decoded, received))
             output = []
             movements = []
             routes = []
             histories = []
-            requested = {(row.get("uid"),row.get("trainid"),row.get("sdd")) for row in services} if services is not None else None
+            requested = {(str(row.get("uid") or "").strip(),row.get("trainid"),row.get("sdd")) for row in services} if services is not None else None
             counts = {"matchedEcs": 0, "withheld": 0}
             for events in by_train.values():
                 activations = [body for kind, body, _ in events if kind == "0001"]

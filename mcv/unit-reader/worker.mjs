@@ -1216,7 +1216,7 @@ function validateTrustSnapshot(input) {
   }
   const services = input.services.map(service => {
     if (!service || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false || service.serviceType !== 'train' ||
-        !/^[A-Z]\d{5}$/.test(service.uid) || !/^[0-9][A-Z]\d{2}$/.test(service.trainid) ||
+        (typeof service.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(service.uid)) || !/^[0-9][A-Z]\d{2}$/.test(service.trainid) ||
         !/^\d{4}-\d\d-\d\d$/.test(service.sdd) || !/^trust:[\w:-]{1,80}$/.test(service.serviceID)) throw new Error('Invalid TRUST identity');
     for (const field of ['sta','std','ata','atd']) if (!iso(service[field])) throw new Error('Invalid TRUST movement');
     if (!(service.sta || service.std)) throw new Error('Missing TRUST booked movement');
@@ -1239,7 +1239,7 @@ function validateTrustSnapshot(input) {
   const movements = input.movements ?? [];
   if (!Array.isArray(movements) || movements.length > 200) throw new Error('Invalid TRUST movements');
   const cleanMovements = movements.map(row => {
-    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+    if (!row || (typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
         !/^\d{4}-\d\d-\d\d$/.test(row.sdd)) throw new Error('Invalid TRUST movement identity');
     for (const field of ['sta','std','ata','atd','lastReportAt']) if (!iso(row[field])) throw new Error('Invalid TRUST report time');
     if (!(row.sta || row.std) || !(row.ata || row.atd) || !row.lastReportAt ||
@@ -1253,7 +1253,7 @@ function validateTrustSnapshot(input) {
   const routes = input.routes ?? [];
   if (!Array.isArray(routes) || routes.length > 200) throw new Error('Invalid TRUST calling patterns');
   const cleanRoutes = routes.map(row => {
-    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+    if (!row || (typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
         !/^\d{4}-\d\d-\d\d$/.test(row.sdd) || !iso(row.sta) || !iso(row.std) || !(row.sta || row.std)) throw new Error('Invalid TRUST calling pattern identity');
     const callingPoints = places(row.callingPoints,100);
     if (!callingPoints.length || callingPoints.some(point=>!point.st || !point.crs || !point.tiploc)) throw new Error('Invalid TRUST booked call');
@@ -1264,7 +1264,7 @@ function validateTrustSnapshot(input) {
   const movementKinds = new Set(['arrival','departure','pass']);
   const lifecycleKinds = new Set(['activation','cancellation','reinstatement','origin-change','identity-change','location-change']);
   const cleanHistories = histories.map(row => {
-    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
+    if (!row || (typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
         !/^\d{4}-\d\d-\d\d$/.test(row.sdd) || !iso(row.sta) || !iso(row.std) || !(row.sta || row.std) ||
         typeof row.reconciliationRequired !== 'boolean' || !Array.isArray(row.events) || row.events.length < 1 || row.events.length > 60) throw new Error('Invalid TRUST history identity');
     const events = row.events.map(event => {
@@ -1308,7 +1308,7 @@ function mergeTrustServices(board, snapshot) {
   const expiresAt = new Date(Math.min(Date.parse(trust.updatedAt)+360000, Date.parse(trust.feedAt)+300000, Date.parse(trust.scheduleAt)+36*3600000)).toISOString();
   // Supplement Darwin with separately labelled reports. Never replace its
   // forecast, cancellation, actual timings or current platform allocation.
-  const identity = row => [row.uid,row.trainid,row.sdd].join('|');
+  const identity = row => [String(row.uid||'').trim(),row.trainid,row.sdd].join('|');
   const reports = new Map();
   for (const row of trust.movements || []) {
     const key = identity(row);
@@ -1386,7 +1386,7 @@ function validateRecent(input) {
       Date.parse(input.startedAt)>now+90000 || Math.abs(now-Date.parse(input.updatedAt))>600000 || !Array.isArray(input.services) || input.services.length>1200) throw Error('Invalid recent archive');
   const keys = new Set();
   const services = input.services.map(row => {
-    if (!row || !/^[A-Z]\d{5}$/.test(row.uid) || !/^\d[A-Z]\d{2}$/.test(row.headcode) || !/^\d{4}-\d\d-\d\d$/.test(row.date) ||
+    if (!row || (typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)) || !/^\d[A-Z]\d{2}$/.test(row.headcode) || !/^\d{4}-\d\d-\d\d$/.test(row.date) ||
         !['Darwin','TRUST'].includes(row.source) || typeof row.cancelled !== 'boolean') throw Error('Invalid recent identity');
     for (const field of ['sta','std']) if (row[field] !== '' && !timestamp(row[field])) throw Error('Invalid recent booked time');
     if (!row.sta && !row.std) throw Error('Missing recent booked time');
@@ -1463,7 +1463,7 @@ function validateBookedPatterns(input) {
   const allowed=new Set(['not-found','cancelled','ambiguous','holiday-rule-unresolved','does-not-visit-mcv','headcode-or-category','ambiguous-visit','outside-window-or-no-departure','booked-time-mismatch','no-public-calls','invalid-timetable']);
   if(!Array.isArray(checks)||checks.length>200)throw Error('Invalid timetable checks');
   const cleanedChecks=checks.map(row=>{
-    if(!row||!/^[A-Z]\d{5}$/.test(row.uid)||!/^\d[A-Z]\d{2}$/.test(row.trainid)||!/^\d{4}-\d\d-\d\d$/.test(row.sdd)||!allowed.has(row.reason))throw Error('Invalid timetable check');
+    if(!row||(typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid))||!/^\d[A-Z]\d{2}$/.test(row.trainid)||!/^\d{4}-\d\d-\d\d$/.test(row.sdd)||!allowed.has(row.reason))throw Error('Invalid timetable check');
     for(const field of ['sta','std'])if(typeof row[field]!=='string'||row[field].length>50)throw Error('Invalid check time');
     return Object.fromEntries(['uid','trainid','sdd','sta','std','reason'].map(key=>[key,row[key]]));
   });
@@ -1475,7 +1475,7 @@ function mergeBookedPatterns(board,snapshot) {
   const available=Boolean(timetable?.available&&fresh(timetable.updatedAt,360000)&&fresh(timetable.scheduleAt,36*3600000));
   board._mcv={...(board._mcv||{}),timetableAvailable:available,timetableSnapshotAt:timetable?.updatedAt||null,timetableScheduleAt:timetable?.scheduleAt||null,timetableCallingPatternsMatched:0};
   if(!available)return;
-  const identity=row=>[row.uid,row.trainid,row.sdd].join('|');
+  const identity=row=>[String(row.uid||'').trim(),row.trainid,row.sdd].join('|');
   const routes=new Map();
   for(const row of timetable.routes||[]){const key=identity(row);routes.set(key,routes.has(key)?null:row)}
   const services=board.trainServices||[];
