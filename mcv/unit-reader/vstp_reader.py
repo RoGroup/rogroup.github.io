@@ -53,6 +53,19 @@ def prune(db,now):
                    (time.strftime('%Y-%m-%d',time.gmtime(now-7*86400)),)*2)
 
 
+def is_caught_up(consumer):
+    assigned=consumer.assignment()
+    if not assigned:return False
+    positions=consumer.position(assigned)
+    if len(positions)!=len(assigned):return False
+    for position in positions:
+        low,high=consumer.get_watermark_offsets(position,timeout=5,cached=False)
+        # A never-populated partition can retain OFFSET_INVALID until its first
+        # message. Verify both watermarks before accepting that negative sentinel.
+        if low==high==0 and position.offset<0:continue
+        if position.offset<low or position.offset<high:return False
+    return True
+
 def main():
     global FOLDER
     from confluent_kafka import Consumer
@@ -102,11 +115,7 @@ def main():
             tick=time.monotonic()
             if tick-last_prune>=60:prune(db,time.time());last_prune=tick
             if tick-last_report>=30:
-                assigned=consumer.assignment();positions=consumer.position(assigned) if assigned else []
-                caught_up=bool(positions)
-                for position in positions:
-                    low,high=consumer.get_watermark_offsets(position,timeout=5,cached=False)
-                    if position.offset<low or position.offset<high:caught_up=False
+                caught_up=is_caught_up(consumer)
                 if caught_up:
                     with db:db.execute("INSERT OR REPLACE INTO metadata VALUES ('heartbeat',?)",(str(int(time.time())),))
                 print(f'VSTP: saved {batches} batches; {changes} schedule changes; caught_up={caught_up}',flush=True)
