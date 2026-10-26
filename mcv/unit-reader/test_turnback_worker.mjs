@@ -56,3 +56,25 @@ const supplements=routes.map((route,index)=>({...base,sta:route.sta,std:route.st
 const supplementSnapshot=worker.validateTrustSnapshot({...trust,services:supplements});
 const absent={trainServices:[]};worker.mergeTrustServices(absent,{trust:supplementSnapshot});assert.equal(absent.trainServices.length,2,'Keep both activated ECS visits when Darwin is absent');
 const partial={trainServices:[structuredClone(original[0])]};worker.mergeTrustServices(partial,{trust:supplementSnapshot});assert.equal(partial.trainServices.length,2,'Darwin outbound suppresses only the matching visit');assert.equal(partial.trainServices.filter(s=>s.mcvSource==='TRUST')[0].std,null);
+// Prior-stop requests and caches must distinguish visits sharing a Darwin RID.
+vm.runInContext(html.slice(html.indexOf('function detailCacheKey('),html.indexOf('function realTimeTrainsUrl('))+
+ html.slice(html.indexOf('function matchDetailedService('),html.indexOf('async function loadPreviousStops(')),context);
+const outVisit={rid:'202610267803290',uid:'N03290',serviceId:'same',serviceDate:'2026-10-26',headcode:'5P31',operatorCode:'TP',bookedArrivalMs:NaN,bookedMs:Date.parse(origin.st),previousStops:[]};
+const backVisit={...outVisit,bookedArrivalMs:Date.parse(returned.st),bookedMs:NaN,previousStops:['Victoria','West Turnback']};
+assert.notEqual(context.detailCacheKey(outVisit),context.detailCacheKey(backVisit),'Separate prior-stop caches for each visit');
+assert.equal(context.matchDetailedService(backVisit,[outVisit,backVisit]),backVisit);
+assert.equal(context.matchDetailedService(outVisit,[backVisit,outVisit]),outVisit);
+assert.equal(context.matchDetailedService(backVisit,[outVisit]),null,'Do not substitute outbound visit');
+assert.equal(context.matchDetailedService(backVisit,[backVisit,{...backVisit}]),null,'Withhold duplicate exact visits');
+assert.equal(context.matchDetailedService(backVisit,[{...backVisit,serviceDate:'2026-10-27'}]),null);
+assert.equal(context.matchDetailedService({...backVisit,bookedArrivalMs:NaN},[backVisit]),null);
+const through={...outVisit,bookedArrivalMs:Date.parse(origin.st)-60000};
+assert.equal(context.matchDetailedService(through,[outVisit]),null,'Every supplied clock must match');
+assert.equal(context.matchDetailedService(backVisit,[{...backVisit,rid:'different',uid:'X12345',serviceId:'different'}]),null);
+const noIds={...backVisit,rid:'',uid:'',serviceId:''};
+assert.equal(context.matchDetailedService(noIds,[backVisit]),backVisit,'Unique headcode/date/clocks fallback');
+const cancelledVisit={trainServices:[{...original[0],filterLocationCancelled:true}]};
+worker.mergeTrustServices(cancelledVisit,{trust});
+assert.equal(cancelledVisit.trainServices[0].bookedOperationalRoute,undefined,'Cancelled Victoria call has no TRUST booked route');
+assert.equal(cancelledVisit.trainServices[0].trustCallingPoints,undefined);
+console.log('Visit detail matching, independent caches and cancelled-call regression checks passed');

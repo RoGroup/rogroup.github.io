@@ -1350,7 +1350,7 @@ function mergeTrustServices(board, snapshot) {
       board._mcv.trustMovementsMatched++;
     }
     const route = uniqueVisitRow(service,trust.routes,original);
-    if (!matches(service,route) || (!service.std && !route?.operational) || service.isCancelled || service.futureCancellation || service.diversion || service.affectedByDiversion) continue;
+    if (!matches(service,route) || (!service.std && !route?.operational) || service.isCancelled || service.filterLocationCancelled || service.futureCancellation || service.diversion || service.affectedByDiversion) continue;
     // Any supplied Darwin pattern, including cancelled or operational calls,
     // takes precedence. Never append booked calls to a partial live pattern.
     if ((service.subsequentLocations || []).length || (service.subsequentCallingPoints || []).some(group=>(group.callingPoint || []).length)) continue;

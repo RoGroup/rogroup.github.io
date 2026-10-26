@@ -1131,7 +1131,10 @@ function latestPlatformChange(s){const h=state.platformHist.get(s.key)||[];retur
 
 
 
-function detailCacheKey(s){return String(s.rid||s.uid||s.serviceId||s.key||'')}
+function detailCacheKey(s){
+  return JSON.stringify([s.rid||s.uid||s.serviceId||s.key||'',serviceDatePath(s),
+    Number.isFinite(s.bookedArrivalMs)?s.bookedArrivalMs:null,Number.isFinite(s.bookedMs)?s.bookedMs:null]);
+}
 function ukDatePath(msValue){
   if(!Number.isFinite(msValue))return '';
   const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(msValue));
@@ -1154,19 +1157,27 @@ function realTimeTrainsUrl(s){
   return 'https://www.realtimetrains.co.uk/service/'+encodeURIComponent(id).replace(/%3A/g,':')+'/'+date+'/detailed#allox_id=0';
 }
 function matchDetailedService(target,candidates){
-  const exact=candidates.find(x=>target.rid&&x.rid===target.rid)
-    ||candidates.find(x=>target.uid&&x.uid===target.uid)
-    ||candidates.find(x=>target.serviceId&&x.serviceId===target.serviceId);
-  if(exact)return exact;
-  const targetTime=Number.isFinite(target.bookedArrivalMs)?target.bookedArrivalMs:target.bookedMs;
-  const matches=candidates.filter(x=>{
+  // A train identity can visit Victoria more than once. Match every supplied
+  // booked clock before accepting an identity, and withhold ambiguous results.
+  const fields=['bookedArrivalMs','bookedMs'].filter(field=>Number.isFinite(target[field]));
+  if(!fields.length)return null;
+  const date=serviceDatePath(target);
+  const eligible=candidates.filter(x=>{
+    if(!date||serviceDatePath(x)!==date)return false;
+    if(!fields.every(field=>Number.isFinite(x[field])&&Math.floor(target[field]/60000)===Math.floor(x[field]/60000)))return false;
     if(target.headcode&&x.headcode&&target.headcode!==x.headcode)return false;
-    const xTime=Number.isFinite(x.bookedArrivalMs)?x.bookedArrivalMs:x.bookedMs;
-    if(Number.isFinite(targetTime)&&Number.isFinite(xTime)&&Math.abs(targetTime-xTime)>5*60000)return false;
     if(target.operatorCode&&x.operatorCode&&target.operatorCode!==x.operatorCode)return false;
     return true;
   });
-  return matches.length===1?matches[0]:null;
+  for(const field of ['rid','uid','serviceId']){
+    if(!target[field])continue;
+    const exact=eligible.filter(x=>x[field]===target[field]);
+    if(exact.length)return exact.length===1?exact[0]:null;
+    // An explicitly different train identity must not enter the loose fallback.
+  }
+  const fallback=eligible.filter(x=>target.headcode&&x.headcode===target.headcode&&
+    ['rid','uid','serviceId'].every(field=>!target[field]||!x[field]||target[field]===x[field]));
+  return fallback.length===1?fallback[0]:null;
 }
 async function loadPreviousStops(s){
   if(s.source==='TRUST'){s.previousStopsLoaded=true;renderDetails();return}
