@@ -520,6 +520,8 @@ def build_snapshot(folder, now=None, services=None):
                 decoded = json.loads(body)
                 if kind=="0001":decoded["train_uid"]=str(decoded.get("train_uid") or "").strip()
                 by_train.setdefault(train, []).append((kind, decoded, received))
+            relevant_uid_set = set(relevant_uids)
+            schedule_results = {}
             output = []
             movements = []
             routes = []
@@ -535,8 +537,16 @@ def build_snapshot(folder, now=None, services=None):
                 if len(dates) != 1 or len(uids) != 1:
                     continue
                 activation = activations[-1]
+                # Lifecycle capture is national. A UID without any retained MCV
+                # route cannot yield a service/history here; do not run expensive
+                # timetable-view lookups for every unrelated national activation.
+                if activation.get("train_uid") not in relevant_uid_set:
+                    continue
                 try:
-                    result = lookup(schedules, activation.get("train_uid"), activation.get("tp_origin_timestamp"))
+                    identity=(activation.get("train_uid"),activation.get("tp_origin_timestamp"))
+                    if identity not in schedule_results:
+                        schedule_results[identity]=lookup(schedules,*identity)
+                    result = schedule_results[identity]
                     if result["status"] != "scheduled":
                         continue
                     route=timed_route(result["schedule"],activation["tp_origin_timestamp"])

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
+from unittest.mock import patch
 from trust_snapshot import build_booked_patterns, build_snapshot, project_train, timed_route, match_booked_visit, UTC
 
 NOW=dt.datetime(2026,10,26,15,13,tzinfo=UTC)
@@ -57,6 +58,21 @@ class TurnbackTests(unittest.TestCase):
         result=build_snapshot(self.folder,NOW)
         self.assertEqual(len(result['services']),2);self.assertEqual(len(result['histories']),2)
         self.assertEqual(len({r['serviceID'] for r in result['services']}),2)
+    def test_national_activations_are_filtered_before_timetable_lookup(self):
+        events=[{'header':{'msg_type':'0001'},'body':ACTIVATION}]
+        for index in range(100):
+            body={**ACTIVATION,'train_uid':f'X{index:05d}','train_id':f'99{index:08d}'}
+            events.append({'header':{'msg_type':'0001'},'body':body})
+        with sqlite3.connect(self.folder/'trust.sqlite3') as raw:
+            raw.execute('CREATE TABLE trust_batches(received_at INTEGER,payload_zlib BLOB,parse_error TEXT)')
+            raw.execute('INSERT INTO trust_batches VALUES (?,?,NULL)',(int(NOW.timestamp()),zlib.compress(json.dumps(events).encode())))
+        import trust_snapshot
+        with patch('trust_snapshot.lookup',wraps=trust_snapshot.lookup) as checked:
+            result=build_snapshot(self.folder,NOW)
+        self.assertEqual(len(result['services']),2)
+        self.assertEqual(checked.call_count,1,'One lookup for the relevant schedule, not 101 national trains')
+        self.assertEqual(checked.call_args.args[1:],('N03290','2026-10-26'))
+
     def test_non_ecs_circular_route_stays_withheld(self):
         s=copy.deepcopy(SCHEDULE);s['schedule_segment']['CIF_train_category']='OO';self.save(s)
         self.assertEqual(self.build([{**OUT,'category':'OO','isPassengerService':True}])['routes'],[])

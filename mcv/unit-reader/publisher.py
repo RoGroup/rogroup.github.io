@@ -139,6 +139,12 @@ def resolve(db, service):
 
 
 def run_once(db, token):
+    started = stage = time.monotonic()
+    def measured(label):
+        nonlocal stage
+        current=time.monotonic()
+        print(f"Publisher stage {label}: {current-stage:.2f}s; total {current-started:.2f}s", flush=True)
+        stage=current
     with urllib.request.urlopen(BASE + "/staff-departures", timeout=30) as response:
         board = json.load(response)
     services = board.get("trainServices")
@@ -147,26 +153,31 @@ def run_once(db, token):
     running = subprocess.run(["/usr/bin/systemctl", "is-active", "mcv-unit-reader"],
                              capture_output=True, text=True).stdout.strip() == "active"
     entries = [resolve(db, service) for service in services] if running else []
+    measured("board and Gemini")
     payload = {"version": 1, "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(),
                "readerRunning": running, "services": entries}
     try:
         from trust_snapshot import build_snapshot
+        print("Publisher preparing TRUST projection", flush=True)
         payload["trust"] = build_snapshot(FOLDER, services=services)
     except Exception as error:
         # TRUST preparation must not stop Gemini allocation publication.
         payload["trust"] = {"version": 1, "available": False, "services": []}
         print(f"TRUST projection unavailable: {type(error).__name__}: {error}", flush=True)
+    measured("TRUST projection")
     try:
         from trust_snapshot import build_booked_patterns
         payload["timetable"] = build_booked_patterns(FOLDER, services)
     except Exception as error:
         payload["timetable"] = {"version": 1, "available": False, "routes": []}
         print(f"Booked calling patterns unavailable: {type(error).__name__}: {error}", flush=True)
+    measured("booked patterns")
     try:
         from operations import build_operations
         payload["operations"] = build_operations(FOLDER)
     except Exception as error:
         print(f"Staff operations summary unavailable: {type(error).__name__}: {error}", flush=True)
+    measured("VSTP summary")
     recent = None
     try:
         from recent_services import capture
@@ -175,6 +186,7 @@ def run_once(db, token):
             recent = archive
     except Exception as error:
         print(f"Recent-service capture failed: {type(error).__name__}: {error}", flush=True)
+    measured("recent archive")
     # Retain the earliest workings if their booked routes make a large upload.
     # Explanations and change summaries never displace movement evidence.
     while len(json.dumps(payload).encode()) > 240000 and payload.get("operations", {}).get("changes"):
@@ -206,6 +218,7 @@ def run_once(db, token):
     with urllib.request.urlopen(request, timeout=30) as response:
         if response.status != 200:
             raise RuntimeError("Snapshot upload failed")
+    measured("snapshot upload")
     matched = sum(entry["status"] == "allocated" for entry in entries)
     print(f"Published {len(entries)} services; {matched} have unit allocations; reader active={running}", flush=True)
     print(f"TRUST snapshot: available={payload['trust']['available']}; {len(payload['trust']['services'])} ECS workings", flush=True)
