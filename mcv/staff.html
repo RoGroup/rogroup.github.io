@@ -147,7 +147,16 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 :root[data-theme="dark"] .stat,
 :root[data-theme="dark"] .platform-card,
 :root[data-theme="dark"] .panel,
-:root[data-theme="dark"] .alert-strip{background:var(--card);border-color:var(--line)}
+:root[data-theme="dark"] /* Compact, grouped notices with comfortable mobile spacing. */
+.alert-service-heading{margin-bottom:7px}
+.alert-service-button{border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:800;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:32px}
+.alert-item ul{margin:0;padding-left:18px;font-weight:400;line-height:1.5}
+.alert-item li+li{margin-top:4px}
+.alert-more{grid-column:1/-1}
+.alert-more>summary{padding:12px 4px;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink)}
+.alert-more .alert-items{padding:0}
+@media(max-width:760px){.alert-strip-head{flex-wrap:wrap}.alert-strip-head span{flex-basis:100%}.national-notices .notice{padding:14px;font-size:14px}}
+.alert-strip{background:var(--card);border-color:var(--line)}
 :root[data-theme="dark"] .stat.alert{border-left-color:var(--amber)}
 :root[data-theme="dark"] .stat.danger{border-left-color:var(--red)}
 :root[data-theme="dark"] .platform-card{color:var(--ink);border-top-color:var(--blue)}
@@ -345,7 +354,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .ops-metric .value{margin-top:4px;font-size:16px;font-weight:900;color:var(--navy);font-variant-numeric:tabular-nums}
 .ops-metric .sub{margin-top:2px;font-size:10px;color:var(--muted)}
 .national-notices[hidden]{display:none}
-.national-notices .notice{padding:10px 0;line-height:1.5;overflow-wrap:anywhere;border-top:1px solid var(--line)}
+.national-notices .notice{padding:16px 18px;line-height:1.6;overflow-wrap:anywhere;border-top:1px solid var(--line);font-size:14px}
+.national-notices .notice:first-child{border-top:0}
+.national-notices .notice>:last-child{margin-bottom:0}
+.national-notices .notice ul,.national-notices .notice ol{padding-left:22px}
 .national-notices .notice p{margin:0 0 8px}
 .national-notices .notice a{color:var(--blue);text-decoration:underline}
 .ops-alerts{display:grid;gap:7px;margin-top:12px}
@@ -384,8 +396,8 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .alert-strip-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);background:#f8fbfe}
 .alert-strip-head strong{color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
 .alert-strip-head span{font-size:10px;color:var(--muted)}
-.alert-items{display:flex;gap:7px;flex-wrap:wrap;padding:10px 12px}
-.alert-item{display:inline-flex;align-items:center;gap:5px;padding:6px 8px;border-radius:6px;background:#f3f9fd;border:1px solid #d6e8f2;color:var(--navy);font-size:10px;font-weight:800;line-height:1.25}
+.alert-items{display:grid;gap:10px;padding:12px 14px}
+.alert-item{display:block;padding:12px 14px;border-radius:6px;background:#f3f9fd;border:1px solid #d6e8f2;color:var(--navy);font-size:12px;font-weight:800;line-height:1.4}
 .alert-item.warn{background:#fff8e7;border-color:#f0d996;color:#634800}.alert-item.danger{background:#fff0f3;border-color:#efc0cb;color:#8d1030}
 .alert-empty{padding:10px 12px;color:var(--muted);font-size:11px}
 .stops li.cancelled-call{border-left-color:#e3a4b4;opacity:.78}.stops li.cancelled-call::before{background:var(--red)}
@@ -1840,25 +1852,32 @@ function renderEvents(){
 function renderOperationalAlerts(){
   const target=$('operational-alerts');
   if(!state.lastGood){target.className='alert-empty';target.textContent='Waiting for live data…';return}
-  const alerts=[];
+  const groups=[];
   for(const s of chronologicalServices('all')){
     if(s.recentlyDeparted)continue;
-    const procedure=MCVData.operatingProcedureNotice(s);if(procedure)alerts.unshift({level:'warn',text:procedure});
-    if(s.terminatesEarly)alerts.unshift({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: ${earlyTerminationNotice(s)}`});
-    if(s.cancelled)alerts.push({level:'danger',text:`${s.headcode||s.booked+' '+s.dest}: cancelled`});
-    else if(overdue(s))alerts.push({level:'warn',text:`${s.headcode||s.dest}: delayed past booked departure`});
-    if(s.reverseFormation)alerts.push({level:'warn',text:`${s.headcode||s.dest}: reverse formation reported`});
-    if(s.futureCancellation&&!s.terminatesEarly)alerts.push({level:'danger',text:`${s.headcode||s.dest}: future cancellation flagged`});
-    if(s.futureDelay)alerts.push({level:'warn',text:`${s.headcode||s.dest}: future delay flagged`});
-    const inward=inwardRisk(s);if(inward)alerts.push({level:inward.level,text:`${s.headcode||s.dest}: ${inward.text}`});
-    const change=latestPlatformChange(s);if(change&&Date.now()-change.at<15*60*1000)alerts.push({level:'warn',text:`${s.headcode||s.dest}: platform ${change.from}→${change.to} · ${relativeAge(change.at)} ago`});
+    const messages=[];let level='warn';
+    const add=(text,severity='warn')=>{if(text&&!messages.includes(text))messages.push(text);if(severity==='danger')level='danger';};
+    const procedure=MCVData.operatingProcedureNotice(s);if(procedure)add(procedure);
+    if(s.terminatesEarly)add(earlyTerminationNotice(s),'danger');
+    if(s.cancelled)add('Cancelled','danger');
+    else if(overdue(s))add('Delayed past booked departure');
+    if(s.reverseFormation)add('Reverse formation reported');
+    if(s.futureCancellation&&!s.terminatesEarly)add('Later cancellation flagged','danger');
+    if(s.futureDelay)add('Later delay flagged');
+    const inward=inwardRisk(s);if(inward)add(inward.text,inward.level);
+    const change=latestPlatformChange(s);if(change&&Date.now()-change.at<15*60*1000)add(`Platform ${change.from} → ${change.to} · ${relativeAge(change.at)} ago`);
+    if(messages.length)groups.push({key:s.key,level,title:[s.headcode,s.booked!=='—'?s.booked:s.bookedArrival,s.dest].filter(Boolean).join(' · '),messages});
   }
-  for(const r of platformSequenceRisks())alerts.push({level:r.level,text:r.text});
-  const unique=[];const seen=new Set();
-  for(const a of alerts){if(seen.has(a.text))continue;seen.add(a.text);unique.push(a);if(unique.length>=10)break}
-  if(!unique.length){target.className='alert-empty';target.textContent='No current alerts derived from the live staff feed.';return}
+  const seen=new Set();
+  for(const r of platformSequenceRisks()){if(seen.has(r.text))continue;seen.add(r.text);groups.push({level:r.level,title:'Platform sequencing',messages:[r.text]});}
+  if(!groups.length){target.className='alert-empty';target.textContent='No current alerts derived from the live staff feed.';return}
+  groups.sort((a,b)=>(a.level==='danger'?0:1)-(b.level==='danger'?0:1));
+  const expanded=target.querySelector('details')?.open||false;
+  const card=a=>`<article class="alert-item ${a.level}"><div class="alert-service-heading">${a.key?`<button class="alert-service-button" type="button" data-operation-service="${escapeHTML(a.key)}">${escapeHTML(a.title)}</button>`:`<strong>${escapeHTML(a.title)}</strong>`}</div><ul>${a.messages.map(text=>`<li>${escapeHTML(text)}</li>`).join('')}</ul></article>`;
   target.className='alert-items';
-  target.innerHTML=unique.map(a=>`<div class="alert-item ${a.level}">${escapeHTML(a.text)}</div>`).join('');
+  const extra=groups.slice(4);
+  const html=groups.slice(0,4).map(card).join('')+(extra.length?`<details class="alert-more"${expanded?' open':''}><summary>Show ${extra.length} more alert groups</summary><div class="alert-items">${extra.map(card).join('')}</div></details>`:'');
+  updateDisplayHTML(target,html);
 }
 
 function nationalRailMessages(raw){
