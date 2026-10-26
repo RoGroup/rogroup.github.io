@@ -257,12 +257,22 @@
     return points.filter(function(point){return point && point.isCancelled !== true && point.isPass !== true && point.isOperational !== true;});
   }
 
+  function bookedOperationalRouteFresh(route) {
+    return Boolean(route && Number.isFinite(Date.parse(route.expiresAt||'')) && Date.parse(route.expiresAt)>Date.now() &&
+      Array.isArray(route.callingPoints) && Array.isArray(route.previousCallingPoints));
+  }
+  function westTurnbackRoute(service) {
+    const route=service && service.bookedOperationalRoute;
+    return (service?.isPassengerService===false || service?.category==='EE') && bookedOperationalRouteFresh(route) &&
+      [...route.callingPoints,...route.previousCallingPoints].some(point=>point.tiploc==='MNCRVRS');
+  }
   function displayDestinationName(name, crs, headcode, service, audience) {
     const base = displayStationName(name, crs);
     const code = text(crs).toUpperCase();
     const plain = text(base).replace(/\s+via\s+.*$/i, '').toUpperCase();
     const train = text(headcode).toUpperCase();
     const source = service || {};
+    if(audience==='staff' && ['MCV','MNCRVIC'].includes(code) && source.std && westTurnbackRoute(source))return base+' via West Turnback';
     const tpe = text(source.operatorCode).toUpperCase() === 'TP' ||
       /^(tpe|transpennine express)$/i.test(text(source.operator));
     if (tpe) {
@@ -559,6 +569,9 @@
   }
 
   function parsePreviousCallingPoints(service) {
+    const supplied=(service?.previousLocations||[]).length || (service?.previousCallingPoints||[]).some(group=>(group.callingPoint||[]).length);
+    const route=service?.bookedOperationalRoute;
+    if(!supplied && bookedOperationalRouteFresh(route))return parseCallingPointGroups({previousCallingPoints:[{callingPoint:route.previousCallingPoints}]},'previousCallingPoints').map((point,index)=>Object.assign(point,{bookedOnly:true,scheduledAbsolute:route.previousCallingPoints[index].st}));
     return parseCallingPointGroups(service, 'previousCallingPoints');
   }
 
@@ -1104,6 +1117,7 @@
         const origin = Array.isArray(service.origin)
           ? (service.origin[0] || {})
           : (service.origin || {});
+        const originName=text(origin.locationName || origin.name)+(audience==='staff' && service.sta && !service.std && ['MCV','MNCRVIC'].includes(text(origin.crs).toUpperCase()) && westTurnbackRoute(service)?' via West Turnback':'');
         const booked = clockToIso(service.std, generatedAt);
         const expected = expectedClockToIso(service.etd, service.std, generatedAt);
         const bookedArrival = clockToIso(service.sta, generatedAt);
@@ -1164,10 +1178,10 @@
           destination_name: displayDestinationName(destination.locationName || destination.name || 'Unknown', destination.crs, service.trainid, service, audience),
           destination_crs: text(destination.crs),
           origin: {
-            name: text(origin.locationName || origin.name),
+            name: originName,
             crs: text(origin.crs)
           },
-          origin_name: text(origin.locationName || origin.name),
+          origin_name: originName,
           origin_crs: text(origin.crs),
           operator: text(service.operator || 'National Rail'),
           operator_code: text(service.operatorCode),
@@ -1177,8 +1191,10 @@
           calling_points: points,
           calling_points_source: !hasDarwinCallingPoints(service) && trustCallingPointsFresh(service.trustCallingPoints) ? (service.trustCallingPoints.source==='Booked calling pattern'?'Booked calling pattern':'TRUST timetable') : 'Darwin',
           trust_calling_points: service.trustCallingPoints || null,
+          booked_operational_route: service.bookedOperationalRoute || null,
           booked_pattern_status: service.bookedPatternStatus || null,
           previous_calling_points: previousPoints,
+          previous_calling_points_source: !((service.previousLocations||[]).length||(service.previousCallingPoints||[]).some(g=>(g.callingPoint||[]).length)) && bookedOperationalRouteFresh(service.bookedOperationalRoute)?'Booked ECS route':'Darwin',
           coaches: coachCount(service.length),
           unit_allocation: service.unitAllocation || null,
           trust_movement: service.trustMovement || null,
@@ -1220,6 +1236,7 @@
   global.MCVData = Object.freeze({
     trustHistoryFresh: function(history){return Boolean(history && Number.isFinite(Date.parse(history.expiresAt || '')) && Date.parse(history.expiresAt)>Date.now());},
     trustCallingPointsFresh: trustCallingPointsFresh,
+    bookedOperationalRouteFresh: bookedOperationalRouteFresh,
     bookedPatternExplanation: bookedPatternExplanation,
     trustMovementText: trustMovementText,
     VERSION: VERSION,

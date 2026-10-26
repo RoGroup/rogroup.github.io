@@ -175,17 +175,19 @@ def index_history_archive(raw, cache, schedules, schedule_stamp, now):
         cache.execute("DELETE FROM events WHERE received_at<?", (int(now.timestamp())-2*86400,))
 
 
-def project_history(schedule, activation, events, db, now):
+def project_history(schedule, activation, events, db, now, visit_index=None):
     """Return captured evidence separately from live status or location claims."""
     uid, headcode, date = schedule["CIF_train_uid"], schedule["schedule_segment"].get("signalling_id", ""), activation["tp_origin_timestamp"]
     train_id = activation["train_id"]
     if not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})",uid) or not re.fullmatch(r"[0-9][A-Z]\d{2}",headcode) or not re.fullmatch(r"[A-Z0-9]{10}",train_id) or train_id[2:6] != headcode:
         return None
     route = timed_route(schedule,date)
-    visits = [(stop,times) for stop,times in route if stop["tiploc_code"] == "MNCRVIC"]
-    if len(visits) != 1 or "pass" in visits[0][1]:
-        return None
-    clocks = visits[0][1]
+    indices = [i for i,(stop,_) in enumerate(route) if stop["tiploc_code"] == "MNCRVIC"]
+    if visit_index is None:
+        if len(indices)!=1:return None
+        visit_index=indices[0]
+    if visit_index not in indices or "pass" in route[visit_index][1]:return None
+    clocks = route[visit_index][1]
     booked = clocks.get("departure") or clocks.get("arrival")
     if not booked or not now-dt.timedelta(hours=6) <= booked <= now+dt.timedelta(hours=2):
         return None
@@ -278,7 +280,7 @@ def reported_time(body, scheduled, now):
         return None
 
 
-def project_train(schedule, activation, events, db, now, ecs_only=True):
+def project_train(schedule, activation, events, db, now, ecs_only=True, visit_index=None):
     segment = schedule["schedule_segment"]
     if ecs_only and segment.get("CIF_train_category") != "EE":
         return None
@@ -299,9 +301,12 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
         return None
     route = timed_route(schedule, date)
     indices = [i for i, (stop, _) in enumerate(route) if stop["tiploc_code"] == "MNCRVIC"]
-    if len(indices) != 1:
-        return None
-    index = indices[0]
+    if visit_index is None:
+        if len(indices)!=1:return None
+        visit_index=indices[0]
+    if visit_index not in indices:return None
+    if len(indices)>1 and segment.get("CIF_train_category")!='EE':return None
+    index = visit_index
     stop, times = route[index]
     if "pass" in times or not (times.get("arrival") or times.get("departure")):
         return None  # Passing movements require a separate staff presentation.
@@ -313,7 +318,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
             continue
         event = body.get("event_type")
         planned_type = body.get("planned_event_type")
-        field = "arrival" if planned_type in {"ARRIVAL", "DESTINATION"} else "departure" if planned_type == "DEPARTURE" else None
+        field = "arrival" if planned_type in {"ARRIVAL", "DESTINATION"} else "departure" if planned_type in {"DEPARTURE", "ORIGIN"} else None
         actual = reported_time(body, times.get(field), now) if field else None
         if actual is None:
             continue
@@ -370,7 +375,7 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
     operator = schedule.get("atoc_code") or ""
     operators = {"NT": "Northern", "TP": "TransPennine Express", "AW": "Transport for Wales"}
     return {
-        "serviceID": f"trust:{date}:{train_id}", "uid": uid, "trainid": headcode, "sdd": date,
+        "serviceID": f"trust:{date}:{train_id}" + (f":visit:{index}" if len(indices)>1 else ""), "uid": uid, "trainid": headcode, "sdd": date,
         "operatorCode": operator, "operator": operators.get(operator, operator or "Operator not supplied"),
         "category": segment.get("CIF_train_category"), "serviceType": "train", "isPassengerService": segment.get("CIF_train_category") != "EE",
         "origin": [place(route[0][0])], "destination": [place(route[-1][0])],
@@ -387,86 +392,75 @@ def project_train(schedule, activation, events, db, now, ecs_only=True):
     }
 
 
-def build_booked_patterns(folder, services, now=None):
-    """Match the current Darwin board directly to the effective daily timetable.
+def operational_points(parts, db):
+    result=[]
+    for point,clocks in parts:
+        booked=clocks.get("arrival") or clocks.get("departure") or clocks.get("pass")
+        if booked is None:continue
+        code=point["tiploc_code"]
+        row=db.execute("SELECT crs,description FROM locations WHERE tiploc=?",(code,)).fetchone()
+        crs=(row[0] if row else "") or code
+        if crs.startswith("X"):crs=code
+        result.append({"tiploc":code,"crs":crs,"locationName":str((row[1] if row else None) or code),"st":booked.isoformat()})
+    return result
 
-    No TRUST activation or raw-feed freshness is required for booked calls.
-    Never creates services or supplies actuals, forecasts or live platforms.
-    """
-    now = now or dt.datetime.now(UTC)
-    with closing(open_readonly(Path(folder) / "schedules.sqlite3")) as db:
-        header = json.loads(db.execute("SELECT value FROM metadata WHERE name='header'").fetchone()[0])
-        stamp = int(header["timestamp"])
-        if not 0 <= now.timestamp() - stamp <= SCHEDULE_MAX_AGE:
-            return {"version": 1, "available": False, "routes": []}
-        prepare_view(db, folder, now)
-        services = [{**s, "uid":str(s.get("uid") or "").strip()} for s in services]
-        identities = [(s.get("uid"), s.get("trainid"), s.get("sdd")) for s in services]
-        routes, checks = [], []
-        def explain(service, reason):
-            if re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", str(service.get("uid") or "")) and re.fullmatch(r"\d[A-Z]\d{2}", str(service.get("trainid") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d", str(service.get("sdd") or "")):
-                checks.append({**{key: str(service.get(key) or "") for key in ("uid", "trainid", "sdd", "sta", "std")}, "reason": reason})
-        for service, identity in zip(services, identities):
-            uid, headcode, date = identity
-            if identities.count(identity) != 1 or not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})", str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}", str(headcode or "")):
-                continue
-            if any(service.get(flag) for flag in ("isCancelled", "filterLocationCancelled", "futureCancellation", "diversion", "affectedByDiversion")) or service.get("isPassengerService") is False:
-                continue
-            if (service.get("subsequentLocations") or any(group.get("callingPoint") for group in service.get("subsequentCallingPoints", []))):
-                continue
+
+def match_booked_visit(route,service):
+    def matches(value, planned):
+        if not value or planned is None:return False
+        if re.fullmatch(r"\d\d:\d\d(?::\d\d)?", value):return value[:5]==planned.strftime("%H:%M")
+        moment=dt.datetime.fromisoformat(value.replace("Z","+00:00"))
+        if moment.tzinfo is None:
+            moment=moment.replace(tzinfo=LONDON)
+            if moment.utcoffset()!=moment.replace(fold=1).utcoffset() or moment.astimezone(UTC).astimezone(LONDON).replace(tzinfo=None)!=moment.replace(tzinfo=None):return False
+        return int(moment.timestamp()//60)==int(planned.timestamp()//60)
+    found=[]
+    if not (service.get("sta") or service.get("std")):return None
+    for index,(stop,times) in enumerate(route):
+        if stop["tiploc_code"]!="MNCRVIC" or "pass" in times:continue
+        public={name:public_booked_time(stop.get("public_"+name),times.get(name)) for name in ("arrival","departure")}
+        chosen=next((candidate for candidate in (public,times) if all(matches(str(service.get(field) or ""),candidate.get(name)) for field,name in (("sta","arrival"),("std","departure")) if service.get(field))),None)
+        if chosen is not None:found.append((index,chosen))
+    return found[0] if len(found)==1 else None
+
+
+def build_booked_patterns(folder, services, now=None):
+    """Fill absent patterns with exact booked visits, including ECS return moves."""
+    now=now or dt.datetime.now(UTC)
+    with closing(open_readonly(Path(folder)/"schedules.sqlite3")) as db:
+        header=json.loads(db.execute("SELECT value FROM metadata WHERE name='header'").fetchone()[0]);stamp=int(header["timestamp"])
+        if not 0<=now.timestamp()-stamp<=SCHEDULE_MAX_AGE:return {"version":1,"available":False,"routes":[]}
+        prepare_view(db,folder,now)
+        services=[{**row,"uid":str(row.get("uid") or "").strip()} for row in services]
+        signatures=[tuple(row.get(k) for k in ("uid","trainid","sdd","sta","std")) for row in services]
+        routes,checks=[],[]
+        def explain(service,reason):
+            if re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})",str(service.get("uid") or "")) and re.fullmatch(r"\d[A-Z]\d{2}",str(service.get("trainid") or "")) and re.fullmatch(r"\d{4}-\d\d-\d\d",str(service.get("sdd") or "")):
+                checks.append({**{k:str(service.get(k) or "") for k in ("uid","trainid","sdd","sta","std")},"reason":reason})
+        for service,signature in zip(services,signatures):
+            uid,headcode,date=signature[:3]
+            if signatures.count(signature)!=1 or not re.fullmatch(r"(?:[A-Z]\d{5}|\d{5})",str(uid or "")) or not re.fullmatch(r"\d[A-Z]\d{2}",str(headcode or "")):continue
+            if any(service.get(k) for k in ("isCancelled","filterLocationCancelled","futureCancellation","diversion","affectedByDiversion")):continue
+            if service.get("subsequentLocations") or any(g.get("callingPoint") for g in service.get("subsequentCallingPoints",[])):continue
             try:
-                result = lookup(db, uid, date)
-                if result["status"] != "scheduled":
-                    explain(service, result["status"])
-                    continue
-                schedule = result["schedule"]
-                if schedule["schedule_segment"].get("signalling_id") != headcode or schedule["schedule_segment"].get("CIF_train_category") == "EE":
-                    explain(service, "headcode-or-category")
-                    continue
-                route = timed_route(schedule, date)
-                indices = [i for i, (stop, _) in enumerate(route) if stop["tiploc_code"] == "MNCRVIC"]
-                if len(indices) != 1:
-                    explain(service, "ambiguous-visit")
-                    continue
-                index = indices[0]
-                times = route[index][1]
-                if not times.get("departure") or "pass" in times or not now-dt.timedelta(minutes=30) <= times["departure"].astimezone(UTC) <= now+dt.timedelta(hours=24):
-                    explain(service, "outside-window-or-no-departure")
-                    continue
-                def matches(value, planned):
-                    if not value or planned is None:
-                        return False
-                    if re.fullmatch(r"\d\d:\d\d(?::\d\d)?", value):
-                        return value[:5] == planned.strftime("%H:%M")
-                    moment = dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
-                    if moment.tzinfo is None:
-                        moment = moment.replace(tzinfo=LONDON)
-                        if moment.utcoffset() != moment.replace(fold=1).utcoffset() or moment.astimezone(UTC).astimezone(LONDON).replace(tzinfo=None) != moment.replace(tzinfo=None):
-                            return False
-                    return int(moment.timestamp() // 60) == int(planned.timestamp() // 60)
-                stop = route[index][0]
-                public_times = {name: public_booked_time(stop.get("public_"+name), times.get(name)) for name in ("arrival", "departure")}
-                # Darwin can supply public rather than working booked times.
-                # Require one consistent pair, never a widened time tolerance
-                # or an arrival from one basis and departure from the other.
-                chosen = next((candidate for candidate in (public_times, times)
-                    if all(matches(str(service.get(field) or ""), candidate.get(name))
-                           for field, name in (("sta", "arrival"), ("std", "departure")) if service.get(field))), None)
-                if chosen is None or not service.get("std"):
-                    explain(service, "booked-time-mismatch")
-                    continue
-                calls = booked_passenger_points(route[index+1:], db)
-                if 0 < len(calls) <= 100:
-                    routes.append({"uid": uid, "trainid": headcode, "sdd": date,
-                        "sta": chosen["arrival"].isoformat() if chosen.get("arrival") else None,
-                        "std": chosen["departure"].isoformat(), "callingPoints": calls})
-                else:
-                    explain(service, "no-public-calls")
-            except (ValueError, TypeError, KeyError):
-                explain(service, "invalid-timetable")
-                continue
-        return {"version": 1, "available": True, "updatedAt": now.isoformat(),
-                "scheduleAt": dt.datetime.fromtimestamp(stamp, UTC).isoformat(), "routes": routes[:200], "checks": checks[:200]}
+                result=lookup(db,uid,date)
+                if result["status"]!="scheduled":explain(service,result["status"]);continue
+                schedule=result["schedule"];segment=schedule["schedule_segment"];ecs=segment.get("CIF_train_category")=="EE"
+                if segment.get("signalling_id")!=headcode or (service.get("isPassengerService") is False and not ecs) or (service.get("isPassengerService") is True and ecs):explain(service,"headcode-or-category");continue
+                route=timed_route(schedule,date)
+                if not ecs and sum(stop["tiploc_code"]=="MNCRVIC" for stop,_ in route)!=1:explain(service,"ambiguous-visit");continue
+                matched=match_booked_visit(route,service)
+                if matched is None:explain(service,"booked-time-mismatch");continue
+                index,chosen=matched;times=route[index][1];anchor=times.get("departure") or times.get("arrival")
+                if not anchor or (not ecs and not service.get("std")) or not now-dt.timedelta(minutes=30)<=anchor.astimezone(UTC)<=now+dt.timedelta(hours=24):explain(service,"outside-window-or-no-departure");continue
+                calls=operational_points(route[index+1:],db) if ecs else booked_passenger_points(route[index+1:],db)
+                before=operational_points(route[:index],db) if ecs else []
+                if len(calls)>100 or len(before)>100 or (not calls and not before):explain(service,"no-public-calls");continue
+                row={"uid":uid,"trainid":headcode,"sdd":date,"sta":chosen["arrival"].isoformat() if chosen.get("arrival") else None,"std":chosen["departure"].isoformat() if chosen.get("departure") else None,"callingPoints":calls}
+                if ecs:row.update(operational=True,previousCallingPoints=before)
+                routes.append(row)
+            except (ValueError,TypeError,KeyError):explain(service,"invalid-timetable")
+        return {"version":1,"available":True,"updatedAt":now.isoformat(),"scheduleAt":dt.datetime.fromtimestamp(stamp,UTC).isoformat(),"routes":routes[:200],"checks":checks[:200]}
 
 
 def public_booked_time(value, working):
@@ -545,24 +539,25 @@ def build_snapshot(folder, now=None, services=None):
                     result = lookup(schedules, activation.get("train_uid"), activation.get("tp_origin_timestamp"))
                     if result["status"] != "scheduled":
                         continue
+                    route=timed_route(result["schedule"],activation["tp_origin_timestamp"])
+                    visits=[i for i,(stop,_) in enumerate(route) if stop["tiploc_code"]=="MNCRVIC"]
+                    if len(visits)>1 and result["schedule"]["schedule_segment"].get("CIF_train_category")!="EE":continue
                     local_events = [(kind,body) for kind,body,_ in events if kind != "0003" or str(body.get("loc_stanox","")).zfill(5) == str(location[0]).zfill(5)]
-                    service = project_train(result["schedule"], activation, local_events, schedules, now, ecs_only=False)
-                    if requested is None or (activation.get("train_uid"),result["schedule"]["schedule_segment"].get("signalling_id"),activation.get("tp_origin_timestamp")) in requested:
-                        history = project_history(result["schedule"],activation,events,schedules,now)
-                        if history:
-                            histories.append(history)
-                except (ValueError, TypeError, KeyError):
-                    counts["withheld"] += 1
+                    for visit in visits:
+                        service=project_train(result["schedule"],activation,local_events,schedules,now,ecs_only=False,visit_index=visit)
+                        if requested is None or (activation.get("train_uid"),result["schedule"]["schedule_segment"].get("signalling_id"),activation.get("tp_origin_timestamp")) in requested:
+                            history=project_history(result["schedule"],activation,events,schedules,now,visit_index=visit)
+                            if history:histories.append(history)
+                        if service and service["category"]=="EE":output.append({k:v for k,v in service.items() if k!="timetableCallingPoints"})
+                        if service and (service["ata"] or service["atd"]):
+                            movements.append({k:service[k] for k in ("uid","trainid","sdd","sta","std","ata","atd")} | {"reportedPlatform":service["platform"] if service["trust"]["platformSource"]=="reported" else "","lastReportAt":service["trust"]["lastReportAt"]})
+                        if service and service["timetableCallingPoints"]:
+                            row={k:service[k] for k in ("uid","trainid","sdd","sta","std")}|{"callingPoints":service["timetableCallingPoints"][0]["callingPoint"]}
+                            if service["category"]=="EE":row.update(operational=True,previousCallingPoints=operational_points(route[:visit],schedules))
+                            routes.append(row)
+                except (ValueError,TypeError,KeyError):
+                    counts["withheld"]+=1
                     continue
-                if service and service["category"] == "EE":
-                    output.append({key:value for key,value in service.items() if key != "timetableCallingPoints"})
-                if service and (service["ata"] or service["atd"]):
-                    movements.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std", "ata", "atd")}
-                    | {"reportedPlatform": service["platform"] if service["trust"]["platformSource"] == "reported" else "",
-                       "lastReportAt": service["trust"]["lastReportAt"]})
-                if service and service["timetableCallingPoints"]:
-                    routes.append({key: service[key] for key in ("uid", "trainid", "sdd", "sta", "std")}
-                        | {"callingPoints": service["timetableCallingPoints"][0]["callingPoint"]})
             output.sort(key=lambda row: row.get("std") or row["sta"])
             counts["matchedEcs"] = len(output)
             return {"version": 1, "available": True, "updatedAt": now.isoformat(),

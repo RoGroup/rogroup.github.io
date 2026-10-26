@@ -8,12 +8,12 @@ python="$folder/.venv/bin/python"
 staging=$(mktemp -d)
 trap 'rm -rf "$staging"' EXIT
 chmod 755 "$staging"
-for file in vstp_schedules.py publisher.py trust_snapshot.py schedule_import.py test_trust_snapshot.py recent_services.py test_recent_services.py; do
+for file in vstp_schedules.py publisher.py trust_snapshot.py schedule_import.py test_trust_snapshot.py recent_services.py test_recent_services.py test_turnback.py; do
     curl -fsSL "https://raw.githubusercontent.com/RoGroup/rogroup.github.io/$commit/mcv/unit-reader/$file" -o "$staging/$file"
     chmod 644 "$staging/$file"
 done
 cd "$staging"
-"$python" -m unittest -v test_trust_snapshot.py test_recent_services.py
+"$python" -m unittest -v test_trust_snapshot.py test_recent_services.py test_turnback.py
 publisher_user=$(systemctl show mcv-unit-publisher --property=User --value)
 publisher_user=${publisher_user:-root}
 preview='import json,sys; from pathlib import Path; from trust_snapshot import build_snapshot; s=build_snapshot(Path(sys.argv[1])); print(json.dumps({"available":s["available"],"reason":s.get("reason"),"ecs":len(s["services"]),"movements":len(s.get("movements",[])),"callingPatterns":len(s.get("routes",[])),"journeyHistories":len(s.get("histories",[]))},indent=2))'

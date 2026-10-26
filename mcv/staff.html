@@ -809,7 +809,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
-<script src="mcv-data.js?v=20261022-staff-tools"></script>
+<script src="mcv-data.js?v=20261026-turnback-visits"></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
@@ -1240,7 +1240,6 @@ function parseServices(json){
     const rawPlatform=raw.platform_withheld===true?'':String(raw.platform??'').trim();
     const platform=rawPlatform.replace(/^platform\s+/i,'').toUpperCase().replace(/^(TBC|TBD|UNKNOWN|[-–—?])$/i,'');
     const points=Array.isArray(raw.calling_points)?raw.calling_points:[];
-    const mcvIndex=points.findIndex(p=>String(p.station?.crs||p.crs||'').toUpperCase()==='MCV'||String(p.station?.name||p.name||'').toUpperCase()==='MANCHESTER VICTORIA');
     const mapCallingPoint=p=>({
       name:station(p.station?.name||p.name,p.station?.crs||p.crs),
       crs:String(p.station?.crs||p.crs||''),
@@ -1252,10 +1251,10 @@ function parseServices(json){
       rerouteDelay:Number(p.reroute_delay)||0,
       delayReason:String(p.delay_reason||'').trim()
     });
-    let onward=(mcvIndex>=0?points.slice(mcvIndex+1):points.filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')).map(mapCallingPoint);
-    const previousStops=(Array.isArray(raw.previous_calling_points)?raw.previous_calling_points:[])
-      .filter(p=>String(p.station?.crs||p.crs||'').toUpperCase()!=='MCV')
-      .map(mapCallingPoint);
+    // The adapter already returns subsequent points. A later MCV is a return visit.
+    let onward=points.map(mapCallingPoint);
+    let previousStops=(Array.isArray(raw.previous_calling_points)?raw.previous_calling_points:[]).map(mapCallingPoint);
+    let previousStopsBooked=raw.previous_calling_points_source==='Booked ECS route';
     const headcode=String(raw.headcode||'').trim().toUpperCase();
     const uid=String(raw.uid||raw.train_uid||'').trim();
     const rid=String(raw.rid||'').trim();
@@ -1313,7 +1312,11 @@ function parseServices(json){
       get stops(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&!MCVData.trustCallingPointsFresh(raw.trust_calling_points)?[]:onward},
       get callingPointsSource(){return ['TRUST timetable','Booked calling pattern'].includes(raw.calling_points_source)&&MCVData.trustCallingPointsFresh(raw.trust_calling_points)?raw.calling_points_source:''},
       bookedPatternStatus:raw.booked_pattern_status||null,get bookedPatternReason(){return MCVData.bookedPatternExplanation(this.bookedPatternStatus)},
-      callingPointsReturned:points.length,previousStops,notForDisplay:raw.not_for_display===true,serviceClass,ecs,
+      callingPointsReturned:points.length,
+      get previousStops(){return previousStopsBooked&&!MCVData.bookedOperationalRouteFresh(raw.booked_operational_route)?[]:previousStops},
+      set previousStops(value){previousStops=value;previousStopsBooked=false},
+      get bookedOperationalRoute(){return MCVData.bookedOperationalRouteFresh(raw.booked_operational_route)?raw.booked_operational_route:null},
+      notForDisplay:raw.not_for_display===true,serviceClass,ecs,
       trainCategory:String(raw.train_category||'').trim().toUpperCase(),trainType:String(raw.train_type||''),activities:String(raw.activities||'').trim(),
       isCharter:raw.is_charter===true,reverseFormation:raw.is_reverse_formation===true,isOperationalCall:raw.is_operational_call===true,
       uncertainty:String(raw.uncertainty||'').trim(),futureDelay:raw.future_delay===true,futureCancellation:raw.future_cancellation===true,
@@ -1668,7 +1671,7 @@ function renderDetails(){
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),procedure=MCVData.operatingProcedureNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
-  const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before';
+  const beforeStops=Array.isArray(s.previousStops)?s.previousStops:[],showBefore=state.callingPointView==='before'||(s.ecs&&!Number.isFinite(s.bookedMs)&&beforeStops.length>0);
   const displayedStops=showBefore?beforeStops:s.stops;
   const detailsLoading=state.detailsBusy.has(detailCacheKey(s));
   const flow=serviceFlow(s),movement=movementType(s),trts=trtsDirection(s);
@@ -1766,7 +1769,7 @@ function renderDetails(){
         <h3>${showBefore?'Calling points before Manchester Victoria':'Calling points after Manchester Victoria'} · ${displayedStops.length}</h3>
 
       </div>
-      ${!showBefore&&s.callingPointsSource?'<div class="reason blue"><strong>Booked calling pattern</strong><br>Live calling points were not supplied by Darwin. These are scheduled stops; live changes and forecasts are not supplied.</div>':''}
+      ${(s.bookedOperationalRoute||(!showBefore&&s.callingPointsSource))?'<div class="reason blue"><strong>Booked '+(s.ecs?'ECS route':'calling pattern')+'</strong><br>Scheduled '+(s.ecs?'operational timing points':'stops')+'; live changes and forecasts are not supplied.</div>':''}
       ${displayedStops.length?`<ol class="stops">${displayedStops.map(p=>`<li class="${p.cancelled?'cancelled-call ':''}${p.affectedByDiversion?'altered-call':''}"><div class="stop-name">${escapeHTML(p.name)}${p.cancelled?'<span class="stop-flag cancel">CANCELLED CALL</span>':''}${p.affectedByDiversion?'<span class="stop-flag">ALTERED / DIVERSION</span>':''}</div><div class="stop-sub">${p.booked!=='—'?'Booked '+escapeHTML(p.booked):'Time not supplied'}${p.expected!=='—'&&p.expected!==p.booked?' · Expected '+escapeHTML(p.expected):''}${p.platform?' · Platform '+escapeHTML(p.platform):''}${p.rerouteDelay?' · Reroute +'+escapeHTML(String(p.rerouteDelay))+'m':''}${p.delayReason?' · '+escapeHTML(p.delayReason):''}</div></li>`).join('')}</ol>`:(showBefore?(detailsLoading?'<div class="placeholder">Loading detailed route information…</div>':(s.previousStopsError?`<div class="placeholder">Unable to load prior stops: ${escapeHTML(s.previousStopsError)}</div>`:'<div class="placeholder">No previous calling points were returned for this service.</div>')):(flow.key==='terminate'?'<div class="placeholder">Service terminates at Manchester Victoria.</div>':`<div class="placeholder">${escapeHTML(s.bookedPatternReason||'No matched booked calling pattern is available. Darwin calling points may appear closer to departure.')}</div>`))}
     </section>
 

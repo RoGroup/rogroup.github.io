@@ -1256,8 +1256,13 @@ function validateTrustSnapshot(input) {
     if (!row || (typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)) || !/^[0-9][A-Z]\d{2}$/.test(row.trainid) ||
         !/^\d{4}-\d\d-\d\d$/.test(row.sdd) || !iso(row.sta) || !iso(row.std) || !(row.sta || row.std)) throw new Error('Invalid TRUST calling pattern identity');
     const callingPoints = places(row.callingPoints,100);
-    if (!callingPoints.length || callingPoints.some(point=>!point.st || !point.crs || !point.tiploc)) throw new Error('Invalid TRUST booked call');
-    return {uid:row.uid,trainid:row.trainid,sdd:row.sdd,sta:row.sta ?? null,std:row.std ?? null,callingPoints};
+    if (row.operational!=null && row.operational!==true) throw new Error('Invalid operational route flag');
+    const previousCallingPoints=row.operational ? places(row.previousCallingPoints||[],100) : [];
+    if ((!callingPoints.length && !(row.operational && row.sta && !row.std && previousCallingPoints.length)) ||
+        [...callingPoints,...previousCallingPoints].some(point=>!point.st || !point.crs || !point.tiploc)) throw new Error('Invalid TRUST booked call');
+    const clean={uid:row.uid,trainid:row.trainid,sdd:row.sdd,sta:row.sta ?? null,std:row.std ?? null,callingPoints};
+    if(row.operational)Object.assign(clean,{operational:true,previousCallingPoints});
+    return clean;
   });
   const histories = input.histories ?? [];
   if (!Array.isArray(histories) || histories.length > 200) throw new Error('Invalid TRUST histories');
@@ -1294,13 +1299,38 @@ function sameBookedMinute(darwin, planned) {
     return Number.isFinite(a) && Math.floor(a/60000) === Math.floor(b/60000);
 }
 
+function sameVisitIdentity(a,b) {
+  return String(a.uid||'').trim()===String(b.uid||'').trim() && a.trainid===b.trainid && a.sdd===b.sdd;
+}
+function sameVisitTimes(service,row) {
+  const fields=['sta','std'].filter(field=>service[field]);
+  return fields.length>0 && fields.every(field=>sameBookedMinute(service[field],row[field]));
+}
+function uniqueVisitRow(service,rows,services) {
+  const candidates=(rows||[]).filter(row=>sameVisitIdentity(service,row)&&sameVisitTimes(service,row));
+  if(candidates.length!==1)return null;
+  const row=candidates[0];
+  return services.filter(other=>sameVisitIdentity(other,row)&&sameVisitTimes(other,row)).length===1 ? row : null;
+}
+function attachBookedRoute(service,route,expiresAt,source) {
+  if(!route)return false;
+  if(route.operational && !(service.isPassengerService===false || service.category==='EE'))return false;
+  const destinations=service.destination||[],last=route.callingPoints.at(-1);
+  const terminalReturn=route.operational && service.sta && !service.std && !last && destinations.length===1 &&
+    ['MCV','MNCRVIC'].includes(String(destinations[0].crs||destinations[0].tiploc||'').toUpperCase());
+  if(!terminalReturn && (destinations.length!==1 || !last || ![last.crs,last.tiploc].includes(String(destinations[0].crs||'').toUpperCase())))return false;
+  if(route.operational)service.bookedOperationalRoute={expiresAt,previousCallingPoints:route.previousCallingPoints||[],callingPoints:route.callingPoints};
+  if(route.callingPoints.length)service.trustCallingPoints={source,expiresAt,callingPoints:route.callingPoints};
+  return true;
+}
+
 function mergeTrustServices(board, snapshot) {
   const trust = snapshot?.trust;
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
   board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
-  for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;delete service.trustHistory;delete service.bookedPatternStatus;}
+  for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;delete service.trustHistory;delete service.bookedPatternStatus;delete service.bookedOperationalRoute;}
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
   const output = [...original];
@@ -1308,59 +1338,41 @@ function mergeTrustServices(board, snapshot) {
   const expiresAt = new Date(Math.min(Date.parse(trust.updatedAt)+360000, Date.parse(trust.feedAt)+300000, Date.parse(trust.scheduleAt)+36*3600000)).toISOString();
   // Supplement Darwin with separately labelled reports. Never replace its
   // forecast, cancellation, actual timings or current platform allocation.
-  const identity = row => [String(row.uid||'').trim(),row.trainid,row.sdd].join('|');
-  const reports = new Map();
-  for (const row of trust.movements || []) {
-    const key = identity(row);
-    reports.set(key, reports.has(key) ? null : row);
-  }
-  const routes = new Map();
-  for (const row of trust.routes || []) {
-    const key = identity(row);
-    routes.set(key, routes.has(key) ? null : row);
-  }
   const matches = (service,row) => {
-    if (!row || service.mcvSource === 'TRUST' || original.filter(item=>identity(item)===identity(service)).length !== 1) return false;
+    if (!row || service.mcvSource === 'TRUST') return false;
     const fields = ['sta','std'].filter(field=>service[field]);
     return fields.length > 0 && fields.every(field=>sameBookedMinute(service[field],row[field]));
   };
   for (const service of original) {
-    const row = reports.get(identity(service));
+    const row = uniqueVisitRow(service,trust.movements,original);
     if (matches(service,row)) {
       service.trustMovement = {...row, source:'TRUST', location:'Manchester Victoria', expiresAt};
       board._mcv.trustMovementsMatched++;
     }
-    const route = routes.get(identity(service));
-    if (!matches(service,route) || !service.std || service.isCancelled || service.futureCancellation || service.diversion || service.affectedByDiversion) continue;
+    const route = uniqueVisitRow(service,trust.routes,original);
+    if (!matches(service,route) || (!service.std && !route?.operational) || service.isCancelled || service.futureCancellation || service.diversion || service.affectedByDiversion) continue;
     // Any supplied Darwin pattern, including cancelled or operational calls,
     // takes precedence. Never append booked calls to a partial live pattern.
     if ((service.subsequentLocations || []).length || (service.subsequentCallingPoints || []).some(group=>(group.callingPoint || []).length)) continue;
-    const destinations = service.destination || [];
-    const last = route.callingPoints.at(-1);
-    if (destinations.length !== 1 || !last || ![last.crs,last.tiploc].includes(String(destinations[0].crs || '').toUpperCase())) continue;
-    service.trustCallingPoints = {source:'TRUST timetable',expiresAt,callingPoints:route.callingPoints};
-    board._mcv.trustCallingPatternsMatched++;
+    if(attachBookedRoute(service,route,expiresAt,'TRUST timetable'))board._mcv.trustCallingPatternsMatched++;
   }
   for (const service of trust.services || []) {
     if (output.length >= 200 || service.mcvSource !== 'TRUST' || service.category !== 'EE' || service.isPassengerService !== false) continue;
-    const key = service.uid+'|'+service.sdd;
+    const key = [service.uid,service.sdd,service.sta,service.std].join('|');
     if (seen.has(key)) continue;
     seen.add(key);
     // Darwin wins. A same-headcode/date conflict is withheld even when the UID
     // differs: it must be reconciled rather than added as a second train.
     if (original.some(existing => (!existing.sdd || String(existing.sdd) === service.sdd) &&
-        (existing.uid === service.uid || existing.trainid === service.trainid))) continue;
-    output.push({...service, trust:{...service.trust, expiresAt}});
+        ((String(existing.uid||'').trim()===service.uid && ((!existing.sta&&!existing.std)||sameVisitTimes(existing,service))) || (String(existing.uid||'').trim()!==service.uid && existing.trainid===service.trainid)))) continue;
+    const appended={...service,trust:{...service.trust,expiresAt}};
+    appended.bookedOperationalRoute={expiresAt,previousCallingPoints:(service.previousCallingPoints||[]).flatMap(g=>g.callingPoint||[]),callingPoints:(service.subsequentCallingPoints||[]).flatMap(g=>g.callingPoint||[])};
+    output.push(appended);
     board._mcv.trustServicesAdded++;
   }
-  const histories = new Map();
-  for (const row of trust.histories || []) {
-    const key = identity(row);
-    histories.set(key,histories.has(key) ? null : row);
-  }
   for (const service of output) {
-    const row = histories.get(identity(service));
-    if (!row || output.filter(item=>identity(item)===identity(service)).length !== 1) continue;
+    const row = uniqueVisitRow(service,trust.histories,output);
+    if (!row) continue;
     const fields = ['sta','std'].filter(field=>service[field]);
     if (!fields.length || !fields.every(field=>sameBookedMinute(service[field],row[field]))) continue;
     const actual = row.events.filter(event=>event.timeBasis==='actual');
@@ -1476,27 +1488,20 @@ function mergeBookedPatterns(board,snapshot) {
   board._mcv={...(board._mcv||{}),timetableAvailable:available,timetableSnapshotAt:timetable?.updatedAt||null,timetableScheduleAt:timetable?.scheduleAt||null,timetableCallingPatternsMatched:0};
   if(!available)return;
   const identity=row=>[String(row.uid||'').trim(),row.trainid,row.sdd].join('|');
-  const routes=new Map();
-  for(const row of timetable.routes||[]){const key=identity(row);routes.set(key,routes.has(key)?null:row)}
   const services=board.trainServices||[];
   const expiresAt=new Date(Math.min(Date.parse(timetable.updatedAt)+360000,Date.parse(timetable.scheduleAt)+36*3600000)).toISOString();
   for(const service of services){
     const checks=(timetable.checks||[]).filter(row=>identity(row)===identity(service)&&['sta','std'].every(field=>String(service[field]||'')===row[field]));
-    if(checks.length===1&&services.filter(row=>identity(row)===identity(service)).length===1)service.bookedPatternStatus={reason:checks[0].reason,expiresAt};
-    if(service.mcvSource==='TRUST'||service.isPassengerService===false||service.trustCallingPoints||!service.std||
+    if(checks.length===1&&services.filter(row=>identity(row)===identity(service)&&['sta','std'].every(f=>String(row[f]||'')===String(service[f]||''))).length===1)service.bookedPatternStatus={reason:checks[0].reason,expiresAt};
+    if(service.mcvSource==='TRUST'||service.trustCallingPoints||(!service.std&&!service.sta)||
       service.isCancelled||service.filterLocationCancelled||service.futureCancellation||service.diversion||service.affectedByDiversion||service.trustHistory?.reconciliationRequired)continue;
     const lifecycle=(service.trustHistory?.events||[]).filter(event=>['cancellation','reinstatement'].includes(event.kind));
     if(lifecycle.at(-1)?.kind==='cancellation')continue;
     if((service.subsequentLocations||[]).length||(service.subsequentCallingPoints||[]).some(group=>(group.callingPoint||[]).length))continue;
-    if(services.filter(item=>identity(item)===identity(service)).length!==1)continue;
-    const route=routes.get(identity(service));
-    if(!route||!['sta','std'].filter(field=>service[field]).every(field=>sameBookedMinute(service[field],route[field])))continue;
-    const destinations=service.destination||[],last=route.callingPoints.at(-1);
-    if(destinations.length!==1||!last||![last.crs,last.tiploc].includes(String(destinations[0].crs||'').toUpperCase())){
-      service.bookedPatternStatus={reason:'destination-mismatch',expiresAt};continue;
-    }
+    const route=uniqueVisitRow(service,timetable.routes,services);
+    if(!route || (service.isPassengerService===false && !route.operational) || (!service.std && !route.operational))continue;
+    if(!attachBookedRoute(service,route,expiresAt,'Booked calling pattern')){service.bookedPatternStatus={reason:'destination-mismatch',expiresAt};continue;}
     delete service.bookedPatternStatus;
-    service.trustCallingPoints={source:'Booked calling pattern',expiresAt,callingPoints:route.callingPoints};
     board._mcv.timetableCallingPatternsMatched++;
   }
 }
