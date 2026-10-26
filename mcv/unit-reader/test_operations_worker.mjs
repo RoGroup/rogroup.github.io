@@ -53,3 +53,14 @@ assert.doesNotMatch(html,/data-formation-reference|data-clear-formation|shortFor
 assert.equal(ops.shortFormation,undefined);
 context.state.lastError='Network failure';assert.equal(context.operationLinks().length,0);
 console.log('Actual panel rendering, search, escaped text, no manual formation entry and board-failure gating passed');
+
+const possibleArrival={...a,arrivalUnits:[],platform:'3',operatorCode:'TP'};
+const possibleDeparture={...b,departureUnits:[],platform:'3',operatorCode:'TP'};
+assert.equal(ops.possibleTurnarounds([possibleArrival,possibleDeparture],[],now).length,1);
+assert.match(ops.possibleTurnarounds([possibleArrival,possibleDeparture],[],now)[0].basis,/Possible pairing/);
+assert.equal(ops.possibleTurnarounds([possibleArrival,possibleDeparture,{...possibleDeparture,key:'ambiguous'}],[],now).length,0);
+assert.equal(ops.possibleTurnarounds([possibleArrival,{...possibleDeparture,platform:'4'}],[],now).length,0);
+assert.equal(ops.possibleTurnarounds([possibleArrival,{...possibleDeparture,operatorCode:'NT'}],[],now).length,0);
+assert.equal(ops.possibleTurnarounds([{...possibleArrival,arrivalUnits:['150123']},{...possibleDeparture,departureUnits:['150124']}],[],now).length,0);
+assert.equal(ops.possibleTurnarounds([possibleArrival,possibleDeparture],[{arrival:possibleArrival,departure:possibleDeparture}],now).length,0);
+console.log('Possible pairing fallback: absent units, ambiguity, platform/operator conflicts and stronger-link precedence passed');

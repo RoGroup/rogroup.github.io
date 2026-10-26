@@ -32,6 +32,23 @@ function turnaroundLinks(services,now=Date.now()){
   }
   return candidates.filter(pair=>candidates.filter(p=>p.arrival.key===pair.arrival.key).length===1&&candidates.filter(p=>p.departure.key===pair.departure.key).length===1);
 }
+function possibleTurnarounds(services,established=[],now=Date.now()){
+  const linked=new Set(established.filter(pair=>!String(pair.basis||'').includes('West Turnback')).flatMap(pair=>[pair.arrival.key,pair.departure.key]));
+  const active=services.filter(s=>!s.cancelled&&!s.futureCancellation&&!s.routeDiverted&&!s.recentlyDeparted);
+  const candidates=[];
+  for(const a of active){
+    if(!Number.isFinite(a.bookedArrivalMs)||Number.isFinite(a.bookedMs)||!a.platform||!a.operatorCode)continue;
+    for(const b of active){
+      if(a.key===b.key||!Number.isFinite(b.bookedMs)||Number.isFinite(b.bookedArrivalMs)||a.operatorCode!==b.operatorCode||String(a.platform).trim().toUpperCase()!==String(b.platform||'').trim().toUpperCase())continue;
+      const gap=b.bookedMs-a.bookedArrivalMs;
+      if(gap<0||gap>90*minute||b.bookedMs<now-15*minute||a.bookedArrivalMs>now+6*60*minute)continue;
+      const au=unitKey(a.arrivalUnits),bu=unitKey(b.departureUnits);
+      if(au&&bu&&au!==bu)continue;
+      candidates.push({arrival:a,departure:b,minutes:Math.round(gap/minute),basis:'Possible pairing · platform, operator and timing only',units:[]});
+    }
+  }
+  return candidates.filter(pair=>!linked.has(pair.arrival.key)&&!linked.has(pair.departure.key)&&candidates.filter(p=>p.arrival.key===pair.arrival.key).length===1&&candidates.filter(p=>p.departure.key===pair.departure.key).length===1);
+}
 function turnbackLinks(services){
   const pairs=[];
   for(const a of services){
@@ -46,5 +63,5 @@ function turnbackLinks(services){
   }
   return pairs.filter(pair=>pairs.filter(p=>p.departure.key===pair.departure.key).length===1&&pairs.filter(p=>p.arrival.key===pair.arrival.key).length===1);
 }
-root.MCVOperations={health,turnaroundLinks,turnbackLinks,fresh};
+root.MCVOperations={health,turnaroundLinks,possibleTurnarounds,turnbackLinks,fresh};
 })(typeof window!=='undefined'?window:globalThis);
