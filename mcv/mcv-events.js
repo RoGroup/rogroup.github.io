@@ -94,11 +94,7 @@ async function load(force=false){
   finally{state.checkedAt=Date.now();state.busy=false;$('events-refresh').disabled=false;render();}
 }
 function selectView(event){
-  const events=active();$('staff-board-view').hidden=events;$('events-view').hidden=!events;
-  root.document.querySelectorAll('.mcv-site-nav a').forEach(link=>{
-    const href=link.getAttribute('href');if(href!=='staff.html'&&href!=='staff.html#events')return;
-    if(events===(href==='staff.html#events'))link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
-  });
+  const events=active();
   if(events){render();load();}
   if(event?.type==='hashchange')root.scrollTo({top:0,behavior:'auto'});
 }

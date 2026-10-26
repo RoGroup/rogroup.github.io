@@ -15,7 +15,7 @@ window.addEventListener('pageshow',function(event){
   });
 });
 </script>
-<script src="mcv-site.js?v=20261026-navigation"></script>
+<script src="mcv-site.js?v=20261026-explore"></script>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#262262">
@@ -692,6 +692,7 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <link rel="stylesheet" href="mcv-site.css?v=20261026-navigation">
 <link rel="stylesheet" href="mcv-operations.css?v=20261026-2">
 <link rel="stylesheet" href="mcv-events.css?v=20261026-1">
+<link rel="stylesheet" href="mcv-explore.css?v=20261026-1">
 </head>
 <body>
 <header class="top">
@@ -836,12 +837,25 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   <div id="events-list" class="events-list"></div><button type="button" class="button events-load-more" id="events-more" hidden>Show more</button>
   <p class="events-source-note">Source: Data Thistle via Rail Data Marketplace · Manchester sample. Listed capacity is not attendance or a passenger forecast. Finish times are estimates calculated only where a performance duration is supplied. All times Europe/London. Coverage is not exhaustive; listings may change.</p>
 </section>
-  <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="index.html">Back to display selector</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
+<section id="platform-view" hidden aria-labelledby="platform-view-heading">
+  <div class="panel explore-toolbar"><h2 id="platform-view-heading">Platform view</h2><p>Arrivals and departures in booked order, with formations and available turnaround links.</p>
+  <div class="explore-filters"><label>Platform<select id="platform-view-select"><option value="all">All platforms</option></select></label><label>Movement<select id="platform-view-type"><option value="all">Arrivals and departures</option><option value="Arrival">Arrivals</option><option value="Departure">Departures</option></select></label></div>
+  <p id="platform-view-status" role="status">Waiting for the staff board…</p><strong id="platform-view-count"></strong><p class="detail-small">Platform allocations may change. Turnaround links retain their evidence labels; stock continuity is not confirmed. All times Europe/London.</p></div>
+  <div id="platform-view-list" class="explore-list"></div>
+</section>
+<section id="calling-point-view" hidden aria-labelledby="calling-point-heading">
+  <div class="panel explore-toolbar"><h2 id="calling-point-heading">Calling-point explorer</h2><p>Find passenger departures by an onward station name or CRS code.</p>
+  <div class="explore-filters"><label>Calling point<input id="calling-point-query" type="search" list="calling-point-options" maxlength="100" placeholder="e.g. Bolton or BON"><datalist id="calling-point-options"></datalist></label><label class="explore-checkbox"><input id="calling-point-removed" type="checkbox">Include cancelled / removed calls</label></div>
+  <p id="explorer-status" role="status">Waiting for the staff board…</p><strong id="calling-point-count"></strong><p id="calling-point-coverage" class="detail-small"></p><p class="detail-small">Search covers available onward calling patterns in the current board, including later booked patterns where supplied. All times Europe/London.</p></div>
+  <div id="calling-point-list" class="explore-list"></div>
+</section>
+  <footer class="bottom">Manchester Victoria · Staff Display <span aria-hidden="true">·</span> <a href="directory.html">Display directory</a> <span aria-hidden="true">·</span> All times Europe/London</footer>
 </main>
 
 <script src="mcv-data.js?v=20261026-charter-classification"></script>
 <script src="mcv-operations.js?v=20261026-4"></script>
-<script src="mcv-events.js?v=20261026-1" defer></script>
+<script src="mcv-events.js?v=20261026-explore" defer></script>
+<script src="mcv-explore.js?v=20261026-1" defer></script>
 <script src="mcv-diagnostics.js?v=20261022-staff-tools"></script>
 <script src="mcv-service-report.js?v=20261022-1"></script>
 <script src="mcv-recent.js?v=20261022-2"></script>
@@ -1952,7 +1966,15 @@ document.addEventListener('click',event=>{
   state.selectedKey=service.key;state.viewMode=serviceHasDeparture(service)?'departures':'arrivals';state.chosenPlatform='all';state.search='';state.statusFilter='all';state.serviceTypeFilter='all';$('search').value='';state.callingPointView='after';reflectPreferences();render();
   $('service-details').scrollIntoView({behavior:'smooth',block:'start'});
 });
-function render(){renderOperations();MCVStaffTools.refresh();renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents()}
+function render(){renderOperations();MCVStaffTools.refresh();renderNationalRailNotices();updateFeedBanner();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();renderEvents();window.dispatchEvent(new Event("mcv-board-render"))}
+window.MCVStaffViews={
+ snapshot:()=>({services:operationServices().map(s=>({...s,platform:s.platformHidden?'':s.platform})),links:operationLinks(),current:operationsBoardCurrent(),lastGood:state.lastGood}),
+ open:key=>{
+  const service=state.services.find(s=>s.key===key);if(!service)return;
+  state.selectedKey=key;state.viewMode=serviceHasDeparture(service)?'departures':'arrivals';state.chosenPlatform='all';state.search='';state.statusFilter='all';state.serviceTypeFilter='all';state.callingPointView='after';$('search').value='';reflectPreferences();
+  location.hash='';render();setTimeout(()=>$('service-details').scrollIntoView({behavior:'smooth',block:'start'}),0);
+ }
+};
 async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$('refresh').disabled=true;
   try{
     const board=await MCVData.fetchBoard({url:STAFF_FEED_URL,allowStale:true});
@@ -2063,7 +2085,7 @@ applyTheme(document.documentElement.dataset.theme==='dark'?'dark':'light');
 updateClock();renderEvents();fetchDepartures();centreSignalMap();
 window.addEventListener('resize',centreSignalMap);
 setInterval(updateClock,1000);setInterval(fetchDepartures,REFRESH_MS);
-setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderOperations();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails()}},15000);
+setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderOperations();renderStats();renderOperationalAlerts();renderPlatforms();renderPlatformTimeline();renderTable();renderDetails();window.dispatchEvent(new Event("mcv-board-render"))}},15000);
 </script>
 </body>
 </html>

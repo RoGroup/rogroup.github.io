@@ -23,13 +23,13 @@ response=await worker.ingestEvents(new Request('https://example.org/events-inges
 response=await worker.readEvents(env,'');assert.equal((await response.json()).available,true);
 stored.receivedAt='2020-01-01T00:00:00Z';assert.equal((await (await worker.readEvents(env,'')).json()).stale,true);
 assert.equal((await (await worker.readEvents({},'')).json()).available,false);
-// Actual navigation/setup logic: same-page switching preserves the staff board.
+// Events loading follows the shared router without owning visibility or navigation.
 const nodes=new Map(),listeners=new Map();const node=id=>{if(!nodes.has(id))nodes.set(id,{value:'',hidden:false,disabled:false,innerHTML:'',textContent:'',checked:false,classList:{toggle(){}},addEventListener(type,fn){listeners.set(id+':'+type,fn);}});return nodes.get(id);};
 const nav=[{href:'staff.html'},{href:'staff.html#events'}].map(row=>({...row,attrs:{},getAttribute(){return this.href;},setAttribute(k,v){this.attrs[k]=v;},removeAttribute(k){delete this.attrs[k];}}));
 const calls=[];const browser={Date,Intl,URL,console,location:{hash:''},document:{readyState:'complete',hidden:false,getElementById:node,querySelectorAll:selector=>selector==='.mcv-site-nav a'?nav:[]},addEventListener:(type,fn)=>listeners.set(type,fn),setInterval:()=>0,scrollTo(){},MCVSite:{fetch:async()=>{calls.push('events');return {ok:true,json:async()=>({...data,available:true})};}}};browser.window=browser;vm.createContext(browser);vm.runInContext(uiSource,browser);
-assert.equal(node('staff-board-view').hidden,false);assert.equal(node('events-view').hidden,true);assert.equal(calls.length,0,'Do not fetch events until the tab opens');
-browser.location.hash='#events';listeners.get('hashchange')({type:'hashchange'});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(node('staff-board-view').hidden,true);assert.equal(node('events-view').hidden,false);assert.equal(nav[1].attrs['aria-current'],'page');assert.equal(calls.length,1);
-browser.location.hash='';listeners.get('hashchange')({type:'hashchange'});assert.equal(node('staff-board-view').hidden,false);assert.equal(nav[0].attrs['aria-current'],'page');
+assert.equal(node('staff-board-view').hidden,false);assert.equal(calls.length,0,'Do not fetch events until the tab opens');
+browser.location.hash='#events';listeners.get('hashchange')({type:'hashchange'});await new Promise(resolve=>setTimeout(resolve,0));assert.equal(calls.length,1);
+browser.location.hash='';listeners.get('hashchange')({type:'hashchange'});assert.equal(node('staff-board-view').hidden,false);
 console.log('Events: schema/auth/storage, London dates, overnight/TBC times, safe rendering, filters and same-page navigation passed');
 
 let ready;browser.document.readyState='interactive';browser.document.addEventListener=(type,fn)=>{if(type==='DOMContentLoaded')ready=fn;};

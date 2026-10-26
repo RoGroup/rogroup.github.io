@@ -1,0 +1,13 @@
+#platform-view[hidden],#calling-point-view[hidden]{display:none!important}
+.explore-toolbar{padding:20px;margin-bottom:16px}
+.explore-toolbar h2{margin-top:0}
+.explore-filters{display:flex;flex-wrap:wrap;align-items:end;gap:16px;margin:18px 0}
+.explore-filters label{display:flex;flex-direction:column;gap:6px;font-weight:700}
+.explore-filters input[type=search]{width:min(100%,420px)}
+.explore-filters input,.explore-filters select{padding:10px 12px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font:inherit;min-height:44px}
+.explore-filters .explore-checkbox{flex-direction:row;align-items:center}
+.explore-list{display:grid;gap:12px}
+.explore-card{padding:18px;border:1px solid var(--line);border-left:4px solid var(--blue,#0698d6);border-radius:9px;background:var(--card);overflow-wrap:anywhere}
+.explore-card-title{display:flex;align-items:center;flex-wrap:wrap;gap:12px}
+.explore-card p{margin:10px 0 0}
+@media(max-width:760px){.explore-filters label{width:100%}.explore-filters input[type=search]{width:100%}.explore-card{padding:14px}}
