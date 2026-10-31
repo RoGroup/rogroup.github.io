@@ -706,11 +706,12 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 <link rel="stylesheet" href="mcv-operations.css?v=20261026-2">
 <link rel="stylesheet" href="mcv-events.css?v=20261026-1">
 <link rel="stylesheet" href="mcv-explore.css?v=20261026-1">
+<link rel="stylesheet" href="mcv-brand.css?v=20261031-1">
 </head>
 <body>
 <header class="top">
   <div class="identity">
-    <a class="home-logo" href="index.html" aria-label="Back to main launcher" title="Back to main launcher"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a>
+    <a class="home-logo" href="index.html" aria-label="Manchester Victoria staff display" title="Manchester Victoria staff display"><img class="logo" src="assets/railstaffhublogo.png" alt="Rail Staff Hub"></a>
     <div class="titleblock"><h1>Manchester Victoria</h1><div class="subhead">Staff Display · Live Operations Overview</div></div>
   </div>
   <div class="top-right"><button type="button" id="install-app" class="button" hidden>Install app</button><button type="button" id="theme-toggle" class="button theme-toggle" aria-pressed="false" title="Switch to dark mode">Dark mode</button><div><div class="clock" id="clock">--:--:--</div><div class="date" id="date">Connecting…</div></div></div>
@@ -933,7 +934,7 @@ function applyTheme(theme){
     button.setAttribute('title',dark?'Switch to light mode':'Switch to dark mode');
   }
   const themeMeta=document.querySelector('meta[name="theme-color"]');
-  if(themeMeta)themeMeta.setAttribute('content',dark?'#10142b':'#f2f5fa');
+  if(themeMeta)themeMeta.setAttribute('content',dark?'#101225':'#f1f3f3');
 }
 function toggleTheme(){
   const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
@@ -2120,3 +2121,4 @@ setInterval(()=>{if(state.lastGood){MCVStaffTools.refresh();renderOperations();r
 </script>
 </body>
 </html>
+

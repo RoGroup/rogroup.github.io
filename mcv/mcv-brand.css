@@ -1,0 +1,120 @@
+/* Staff Hub presentation, based on Northern's Bunday / navy / blue design language.
+   Loaded last. Operational status colours and all feed behaviour remain independent. */
+:root{
+  --navy:#262262;--blue:#006ea7;--amber:#fbbb22;
+  --ink:#262262;--muted:#5f6c76;--paper:#f1f3f3;--card:#fff;--line:#d5d9df;--pale:#eaf5fb;
+  --brand-accent:#6ac1e7;--brand-button:#262262;--brand-button-hover:#1c194a;
+  --brand-soft:#f7f8fa;--brand-shadow:0 3px 12px #26226209;
+  --brand-selected:#e7f3fb;--brand-surface-ink:#262262;
+}
+:root[data-theme="dark"]{
+  --ink:#f1f3ff;--muted:#b7c1d6;--paper:#101225;--card:#1a1e38;--line:#3c4366;--pale:#25334d;
+  --blue:#6ac1e7;--brand-button:#302b70;--brand-button-hover:#403982;
+  --brand-soft:#151930;--brand-shadow:0 3px 14px #0002;
+  --brand-selected:#282c50;--brand-surface-ink:#f1f3ff;
+}
+body{font-family:Bunday,Arial,sans-serif;line-height:1.45}
+:root[data-theme] .top{padding:22px clamp(16px,3vw,48px);background:var(--card);border-bottom:0;gap:20px}
+:root[data-theme] .top h1{text-transform:none;letter-spacing:-.02em;font-size:clamp(23px,2.4vw,34px);line-height:1.16;color:var(--ink)}
+:root[data-theme] .titleblock{border-left-color:var(--line)}
+:root[data-theme] .subhead{font-size:12px;letter-spacing:.025em;text-transform:none;color:var(--blue);font-weight:700}
+:root[data-theme] .clock{font-size:29px;color:var(--ink)}
+:root[data-theme] .date{font-size:11px;letter-spacing:.03em;text-transform:none}
+:root[data-theme] .logo{width:150px;height:52px}
+:root[data-theme] .mcv-site-nav{background:var(--card);padding:12px clamp(16px,3vw,48px) 18px;gap:9px;border-bottom:1px solid var(--line);font-size:14px}
+:root[data-theme] .mcv-site-nav :is(a,button){border:2px solid var(--navy);border-radius:52px;min-height:44px;padding:10px 20px;line-height:1.2;font:700 14px Bunday,Arial,sans-serif;background:transparent;color:var(--ink);text-decoration:none;transition:background-color .15s,border-color .15s,color .15s}
+:root[data-theme="dark"] .mcv-site-nav :is(a,button){border-color:var(--brand-accent)}
+:root[data-theme] .mcv-site-nav :is(a,button):hover{background:var(--brand-accent);border-color:var(--brand-accent);color:#262262}
+:root[data-theme] .mcv-site-nav a[aria-current="page"]{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .mcv-site-nav a[aria-current="page"]{background:var(--brand-accent);border-color:var(--brand-accent);color:#262262}
+:root[data-theme] .mcv-feed-health{background:var(--brand-soft);padding:9px clamp(16px,3vw,48px);font-size:12px;border-color:var(--line);color:var(--muted)}
+.container{padding-top:24px}
+:root[data-theme] .feedbar{background:#262262;color:#fff;border:0;border-radius:16px;padding:18px 22px;box-shadow:var(--brand-shadow);gap:12px}
+:root[data-theme] .feedbar strong{color:#fff;font-size:16px}
+:root[data-theme] .feedbar .note{color:#d6d8ef;font-size:12px}
+:root[data-theme] .feedbar .dot.ok{background:#8cd496}
+:root[data-theme] .feedbar .button.primary{background:#fbbb22;border-color:#fbbb22;color:#262262}
+:root[data-theme] .feedbar .button.primary:hover{background:#ffd365;border-color:#ffd365;color:#262262}
+:root[data-theme] :is(.button,.signal-control-btn){border:2px solid var(--brand-button);border-radius:52px;background:var(--brand-button);color:#fff;font-weight:700;padding:10px 20px;min-height:44px;line-height:1.2;transition:background-color .15s,border-color .15s,color .15s}
+:root[data-theme] :is(.button,.signal-control-btn):hover{background:var(--brand-button-hover);border-color:var(--brand-button-hover);color:#fff}
+:root[data-theme] .button.primary{background:#006ea7;border-color:#006ea7;color:#fff}
+:root[data-theme] .button.primary:hover{background:#005b8a;border-color:#005b8a;color:#fff}
+:root[data-theme] .button:disabled{opacity:.55}
+:root[data-theme] .theme-toggle{background:transparent;color:var(--ink);border-color:var(--line);min-width:102px}
+:root[data-theme] .theme-toggle:hover{background:var(--pale);border-color:var(--blue);color:var(--ink)}
+:root[data-theme] :is(a,button,input,select,textarea,summary,[tabindex]):focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+:root[data-theme] :is(.panel,.stat,.platform-card,.alert-strip,.event-card,.explore-card){border-radius:16px;background:var(--card);border-color:var(--line);box-shadow:var(--brand-shadow)}
+:root[data-theme] .stat{padding:18px 20px}
+:root[data-theme] .stat-title{text-transform:none;letter-spacing:0;font-size:13px;color:var(--muted)}
+:root[data-theme] .stat-value{font-size:34px;letter-spacing:-.02em;color:var(--ink)}
+:root[data-theme] .stat-sub{line-height:1.45}
+:root[data-theme] .stat.alert{border-left-color:var(--amber)}
+:root[data-theme] .stat.danger{border-left-color:var(--red)}
+:root[data-theme] :is(.panel-title,.diagnostics-heading,.alert-strip-head){padding:18px 20px;border-color:var(--line);background:var(--card);gap:14px}
+:root[data-theme] :is(.panel-title h2,.diagnostics-heading h2,.section-heading h2,.events-heading h2,.explore-toolbar h2){color:var(--ink);font-size:22px;line-height:1.25;font-weight:700;letter-spacing:-.015em}
+:root[data-theme] .alert-strip-head strong{color:var(--ink);font-size:17px;line-height:1.3;text-transform:none;letter-spacing:0}
+:root[data-theme] .alert-strip-head span{font-size:12px;color:var(--muted)}
+:root[data-theme] .national-notices .notice{padding:18px 20px;font-size:15px}
+:root[data-theme] .national-notices .notice a{color:var(--blue);text-underline-offset:3px}
+:root[data-theme] :is(.controls,.diagnostics-body){padding:16px 20px}
+:root[data-theme] :is(.controls input,.controls select,.recent-form input,.events-filters input,.events-filters select,.explore-filters input,.explore-filters select,.ops-filter input,.ops-filter select){background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:10px 12px;box-shadow:none}
+:root[data-theme] .type-segment{border-radius:52px;border:1px solid var(--line);background:var(--brand-soft);padding:3px;gap:3px}
+:root[data-theme] .type-segment button{border:0;border-radius:52px;background:transparent;color:var(--muted);min-height:38px;padding:8px 14px;text-transform:none;letter-spacing:0;font-size:12px}
+:root[data-theme] .type-segment button.active{background:var(--brand-button);color:#fff}
+:root[data-theme] .type-segment button:hover{background:var(--pale);color:var(--ink)}
+:root[data-theme] .movement-tabs{background:var(--brand-soft);padding:0 8px;border-color:var(--line)}
+:root[data-theme] .movement-tabs button{font-size:14px;text-transform:none;letter-spacing:0;padding:14px 16px;color:var(--muted)}
+:root[data-theme] .movement-tabs button.active{background:transparent;border-bottom-color:var(--blue);color:var(--ink)}
+:root[data-theme] .table th{background:#262262;text-transform:none;letter-spacing:0;font-size:13px;padding:13px 11px}
+:root[data-theme] .table td{padding:15px 11px}
+:root[data-theme] .service-row:hover{background:var(--pale)}
+:root[data-theme] .service-row.selected{background:var(--brand-selected)}
+:root[data-theme] :is(.dest,.time-big,.detail-heading,.detail-group h3,.kv-value,.stop-name){color:var(--ink)}
+:root[data-theme] .detail-heading{font-size:26px;line-height:1.2}
+:root[data-theme] .detail-group h3{text-transform:none;letter-spacing:0;font-size:16px}
+:root[data-theme] :is(.board-note,.event-foot,.signal-foot,.timeline-note){background:var(--brand-soft);border-color:var(--line);color:var(--muted)}
+:root[data-theme] .platform-card{padding:18px;border-top:4px solid var(--blue);text-align:left;color:var(--ink)}
+:root[data-theme] .platform-card:hover{background:var(--pale);border-color:var(--blue)}
+:root[data-theme] .platform-card.is-selected{background:#262262;border-color:#262262;color:#fff}
+:root[data-theme] .platform-card.is-selected :is(.platform-caption,.platform-meta,.platform-dest){color:#fff}
+:root[data-theme] .platform-card[data-delay="true"]{border-top-color:var(--amber)}
+:root[data-theme] .platform-card[data-cancel="true"]{border-top-color:var(--red)}
+:root[data-theme] .platform-no{text-transform:none;letter-spacing:0;font-size:15px}
+:root[data-theme] .platform-dest{font-size:19px;color:var(--ink)}
+:root[data-theme] .ops-panel>summary{padding:18px 20px;color:var(--ink);font-size:17px;text-transform:none;letter-spacing:0}
+:root[data-theme] .events-toolbar,:root[data-theme] .explore-toolbar{padding:22px}
+:root[data-theme] :is(.event-card,.explore-card){padding:22px}
+:root[data-theme] .event-card h3{font-size:22px;color:var(--ink);line-height:1.25}
+:root[data-theme] .event-category{text-transform:none;letter-spacing:0;font-size:12px}
+:root[data-theme] .event-state{font-size:12px}
+:root[data-theme] .event-cancelled{border-color:var(--red)}
+:root[data-theme] .explore-card{border-left:4px solid var(--blue)}
+:root[data-theme] .bottom{border-top:1px solid var(--line);margin-top:24px;color:var(--muted)}
+:root[data-theme] .bottom a{color:var(--blue)}
+@media(max-width:760px){
+  :root[data-theme] .top{padding:16px;gap:14px;flex-wrap:wrap}
+  :root[data-theme] .identity{gap:12px;min-width:0}
+  :root[data-theme] .logo{width:100px;height:40px}
+  :root[data-theme] .titleblock{padding-left:12px;min-width:0}
+  :root[data-theme] .top h1{font-size:24px}
+  :root[data-theme] .subhead{font-size:11px;letter-spacing:0}
+  :root[data-theme] .top-right{width:100%;justify-content:space-between;gap:10px}
+  :root[data-theme] .clock{font-size:25px}
+  :root[data-theme] .date{font-size:11px}
+  :root[data-theme] .mcv-site-nav{padding:12px 16px 16px;gap:8px}
+  :root[data-theme] .mcv-site-nav :is(a,button){padding:10px 15px;font-size:13px}
+  :root[data-theme] .mcv-feed-health{padding:9px 16px;font-size:11px}
+  :root[data-theme] .feedbar{padding:18px;align-items:flex-start}
+  :root[data-theme] .feedbar .note{flex-basis:100%;font-size:12px}
+  :root[data-theme] .feedbar .push{margin-left:0}
+  :root[data-theme] .stat{padding:16px}
+  :root[data-theme] .stat-value{font-size:32px}
+  :root[data-theme] .stats .stat:last-child:nth-child(odd){grid-column:1/-1}
+  :root[data-theme] :is(.panel-title,.diagnostics-heading,.alert-strip-head){padding:16px;flex-wrap:wrap}
+  :root[data-theme] :is(.panel-title h2,.diagnostics-heading h2,.section-heading h2){font-size:20px}
+  :root[data-theme] .national-notices .notice{padding:16px}
+  :root[data-theme] :is(.controls,.diagnostics-body,.events-toolbar,.explore-toolbar,.event-card,.explore-card){padding:16px}
+  :root[data-theme] .button{white-space:normal;max-width:100%;text-align:center}
+}
+@media(max-width:380px){:root[data-theme] .logo{width:75px}:root[data-theme] .top h1{font-size:21px}}
+@media(prefers-reduced-motion:reduce){:root[data-theme] :is(.button,.signal-control-btn),:root[data-theme] .mcv-site-nav :is(a,button){transition:none}}
