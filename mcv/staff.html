@@ -543,21 +543,22 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 /* Mobile service cards need explicit dark surfaces because the responsive
    card rules are declared after the main dark-theme block. */
 @media(max-width:760px){
+  /* Keep the mobile departures cards aligned with the GBR blue-black dark palette. */
   :root[data-theme="dark"] .table-area{
-    background:#11172f;
+    background:#101b27;
   }
   :root[data-theme="dark"] .table tr.service-row{
-    background:#171c3d;
-    color:#eef2ff;
-    border-color:#343b64;
+    background:#172838;
+    color:#eef3f7;
+    border-color:#304252;
     box-shadow:0 2px 8px rgba(0,0,0,.18);
   }
   :root[data-theme="dark"] .table tr.service-row:hover{
-    background:#1d2448;
+    background:#1b3448;
   }
   :root[data-theme="dark"] .table tr.service-row.selected{
-    background:#203959;
-    border-color:#3f91ba;
+    background:#203b50;
+    border-color:#3989b5;
     box-shadow:inset 3px 0 var(--blue);
   }
   :root[data-theme="dark"] .table tr.service-row.is-overdue{
@@ -567,10 +568,10 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
     box-shadow:inset 4px 0 var(--amber),inset 7px 0 var(--blue);
   }
   :root[data-theme="dark"] .service-formation{
-    border-top-color:#343b64!important;
+    border-top-color:#304252!important;
   }
   :root[data-theme="dark"] .service-expected::before{
-    color:#8f9db5;
+    color:#9aabba;
   }
 }
 </style>
