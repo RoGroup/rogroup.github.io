@@ -1,7 +1,7 @@
 /* Shared navigation, feed health and bounded requests for the MCV screens. */
 (function(global){
   'use strict';
-  const RELEASE='2026.10.22.1';
+  const RELEASE='2026.11.04.1';
   const REQUEST_TIMEOUT=12000;
   const pending=new Map();
   const health={receivedAt:0,generatedAt:0,error:false,meta:null,feedName:'Darwin Feed'};
