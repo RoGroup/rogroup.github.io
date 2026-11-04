@@ -326,11 +326,11 @@
       const destination = (Array.isArray(source.destination) ? source.destination : []).find(function(point){
         return point && text(point.crs).toUpperCase() === code;
       });
-      const via = text(destination && destination.via).replace(/^via\\s+/i, '').trim();
+      const via = text(destination && destination.via).replace(/^via\s+/i, '').trim();
       // Headbolt Lane services routed via Atherton also pass through Walkden;
       // show the more useful passenger-facing route label consistently.
       if (/^atherton$/i.test(via)) return 'Headbolt Lane via Walkden';
-      if (via) return base.replace(/\\s+via\\s+.*$/i, '') + ' via ' + via;
+      if (via) return base.replace(/\s+via\s+.*$/i, '') + ' via ' + via;
       const route = destinationRoutePoints(source);
       if (route.some(function(point){
         return text(point.crs).toUpperCase() === 'WKD' ||
