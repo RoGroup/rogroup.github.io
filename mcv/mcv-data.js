@@ -320,6 +320,10 @@
       }
     }
     const headbolt = code === 'HBL' || plain === 'HEADBOLT LANE';
+    // Some Darwin records carry the via text inside locationName, with no via field.
+    if (headbolt && (/^2K[0-9]{2}$/.test(train) || /\bvia\s+atherton\b/i.test(base))) {
+      return 'Headbolt Lane via Walkden';
+    }
     // Headbolt Lane workings can also run via Walkden, matching the
     // destination-specific route treatment already used for Wigan Wallgate.
     if (headbolt) {
