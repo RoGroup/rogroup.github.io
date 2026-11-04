@@ -5,12 +5,18 @@ const minute=60000;
 const fresh=(value,max,now)=>{const age=now-Date.parse(value||'');return Number.isFinite(age)&&age>=-30000&&age<=max;};
 function health(meta,generatedAt,boardError,now=Date.now()){
   meta=meta||{};const ops=meta.operations,summaryFresh=fresh(ops?.updatedAt,6*minute,now);
-  const row=(name,ok,at,note)=>({name,status:ok?'Current':at?'Stale / unavailable':'Not supplied',at:at||null,note});
-  return [row('Darwin',!boardError&&fresh(generatedAt,2*minute,now),generatedAt,'Board generated time'),
-    row('Gemini',meta.unitAllocationsAvailable===true&&meta.unitReaderRunning===true&&fresh(meta.unitSnapshotAt,6*minute,now),meta.unitSnapshotAt,'Allocation publisher snapshot; reader '+(meta.unitReaderRunning===true?'running':meta.unitReaderRunning===false?'stopped':'unknown')),
-    row('TRUST',meta.trustAvailable===true&&fresh(meta.trustSnapshotAt,6*minute,now)&&fresh(meta.trustFeedAt,5*minute,now),meta.trustFeedAt,'Last captured movement batch'),
-    row('VSTP',summaryFresh&&ops?.vstp?.available===true&&!ops.vstp.blocked&&fresh(ops.vstp.feedAt,3*minute,now),ops?.vstp?.feedAt,ops?.vstp?.blocked?'Capture blocked; inspection required':'Last verified broker catch-up'),
-    row('Daily timetable',summaryFresh&&fresh(ops?.scheduleAt||meta.timetableScheduleAt,36*60*minute,now),ops?.scheduleAt||meta.timetableScheduleAt,'Full timetable extract time')];
+  const row=(name,ok,at,note,disconnected=false,blocked=false)=>{
+    const hasTime=Boolean(at),isFresh=hasTime&&fresh(at,6*minute,now);
+    const status=ok?'Connected':blocked?'Disconnected':disconnected?'Disconnected':!hasTime?'Not supplied':isFresh?'Delayed updates':'Stale data';
+    return {name,status,at:at||null,note};
+  };
+  return [
+    row('Darwin',!boardError&&fresh(generatedAt,2*minute,now),generatedAt,'Board generated time',boardError),
+    row('Gemini',meta.unitAllocationsAvailable===true&&meta.unitReaderRunning===true&&fresh(meta.unitSnapshotAt,6*minute,now),meta.unitSnapshotAt,'Allocation publisher snapshot; reader '+(meta.unitReaderRunning===true?'running':meta.unitReaderRunning===false?'stopped':'unknown'),meta.unitReaderRunning===false),
+    row('TRUST',meta.trustAvailable===true&&fresh(meta.trustSnapshotAt,6*minute,now)&&fresh(meta.trustFeedAt,5*minute,now),meta.trustFeedAt,'Last captured movement batch',meta.trustAvailable===false),
+    row('VSTP',summaryFresh&&ops?.vstp?.available===true&&!ops.vstp.blocked&&fresh(ops.vstp.feedAt,3*minute,now),ops?.vstp?.feedAt,ops?.vstp?.blocked?'Capture blocked; inspection required':'Last verified broker catch-up',ops?.vstp?.available===false,Boolean(ops?.vstp?.blocked)),
+    row('Daily timetable',summaryFresh&&fresh(ops?.scheduleAt||meta.timetableScheduleAt,36*60*minute,now),ops?.scheduleAt||meta.timetableScheduleAt,'Full timetable extract time',false)
+  ];
 }
 const unitKey=values=>Array.isArray(values)&&values.length&&values.every(x=>/^\d{6}$/.test(x))?[...new Set(values)].sort().join('|'):'';
 function turnaroundLinks(services,now=Date.now()){
