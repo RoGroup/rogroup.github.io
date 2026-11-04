@@ -537,3 +537,9 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
   :root[data-theme] .top{padding-top:19px}
   :root[data-theme] .top::before{height:4px}
 }
+
+/* The supplied Rail Staff Hub mark is purple artwork; render it as a clean white mark on the navy GBR header. */
+:root[data-theme] .top .home-logo img.logo{
+  filter:brightness(0) invert(1)!important;
+  opacity:1!important;
+}
