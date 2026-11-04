@@ -307,3 +307,43 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
   :root[data-theme] .location-kicker{font-size:9px}
   :root[data-theme] .top h1{font-size:24px}
 }
+
+
+/* Alert component polish: target the actual .alert-item markup used by the live board. */
+:root[data-theme] .alert-strip{border-left:1px solid var(--line)}
+:root[data-theme] .alert-item{
+  border-radius:6px;
+  box-shadow:none;
+}
+:root[data-theme="dark"] .alert-item{
+  background:#17364c;
+  border-color:#31546a;
+  color:#e5f0f6;
+}
+:root[data-theme="dark"] .alert-item.warn{
+  background:#352f20;
+  border-color:#69582d;
+  color:#f2e4bd;
+}
+:root[data-theme="dark"] .alert-item.danger{
+  background:#30242b;
+  border-color:#69404b;
+  color:#f0dce1;
+}
+:root[data-theme="dark"] .alert-item :is(a,strong,.alert-service-button){color:inherit}
+:root[data-theme="dark"] .alert-item ul{color:#d4e0e8}
+:root[data-theme="light"] .alert-item{
+  background:#f2f6f8;
+  border-color:#d5e0e7;
+  color:#263e50;
+}
+:root[data-theme="light"] .alert-item.warn{
+  background:#fbf6e9;
+  border-color:#e7d6a9;
+  color:#59491f;
+}
+:root[data-theme="light"] .alert-item.danger{
+  background:#f8eff0;
+  border-color:#e4c9ce;
+  color:#63313b;
+}
