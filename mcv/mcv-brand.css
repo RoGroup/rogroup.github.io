@@ -391,3 +391,12 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
   :root[data-theme] .detail-heading{font-size:19px}
   :root[data-theme] .events-toolbar,:root[data-theme] .explore-toolbar{padding:13px}
 }
+
+:root[data-theme] .ops-health-status{font-weight:800;font-size:13px;letter-spacing:.01em}
+:root[data-theme] .ops-connected{color:#238451}
+:root[data-theme] :is(.ops-delayed-updates,.ops-stale-data){color:#a66b0a}
+:root[data-theme] .ops-disconnected{color:#bd3442}
+:root[data-theme] .ops-not-supplied{color:var(--muted)}
+:root[data-theme="dark"] .ops-connected{color:#83d5a5}
+:root[data-theme="dark"] :is(.ops-delayed-updates,.ops-stale-data){color:#f0c56c}
+:root[data-theme="dark"] .ops-disconnected{color:#ff8791}
