@@ -347,3 +347,47 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
   border-color:#e4c9ce;
   color:#63313b;
 }
+
+
+/* Cross-tab consistency pass: shared surfaces, controls, feed diagnostics and service record. */
+:root[data-theme] :is(.events-toolbar,.explore-toolbar,.ops-panel,.staff-tools-panel,.signal-panel,.occupancy-panel){
+  background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--brand-shadow);
+}
+:root[data-theme] :is(.events-heading,.section-heading,.explore-toolbar,.ops-panel summary){color:var(--ink)}
+:root[data-theme] :is(.events-heading h2,.explore-toolbar h2,.section-heading h2){font-family:'Rail Alphabet 3',Arial,sans-serif;font-weight:700;letter-spacing:-.015em}
+:root[data-theme] :is(.events-toolbar,.explore-toolbar,.ops-filter,.staff-tools-controls) :is(input,select),
+:root[data-theme] .controls :is(input,select){
+  border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);
+  font:500 14px 'Rail Alphabet 3',Arial,sans-serif;min-height:42px;
+}
+:root[data-theme] .movement-tabs button{font:700 13px 'Rail Alphabet 3',Arial,sans-serif;letter-spacing:.025em}
+:root[data-theme] .movement-tabs button.active{color:var(--blue);border-bottom:3px solid var(--blue)}
+:root[data-theme] .ops-card{background:var(--brand-soft);border:1px solid var(--line);border-radius:8px;box-shadow:none;color:var(--ink)}
+:root[data-theme] .ops-card h3{color:var(--ink);font-weight:700}
+:root[data-theme] .ops-current{color:#238451}
+:root[data-theme] .ops-warning{color:#a66b0a}
+:root[data-theme="dark"] .ops-current{color:#83d5a5}
+:root[data-theme="dark"] .ops-warning{color:#f0c56c}
+:root[data-theme] .ops-row{background:var(--brand-soft);border:1px solid var(--line);border-radius:8px;padding:12px 14px;margin:8px 0}
+:root[data-theme] .service-details-title{position:sticky;top:0;z-index:2;background:var(--card)}
+:root[data-theme] .detail-context{background:var(--brand-soft);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px}
+:root[data-theme] .detail-heading{color:var(--ink);font-size:21px;font-weight:700;letter-spacing:-.015em}
+:root[data-theme] .ops-metric,:root[data-theme] .keyvalues>div{background:var(--brand-soft);border:1px solid var(--line);border-radius:7px;padding:10px 12px}
+:root[data-theme] .detail-group{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
+:root[data-theme] .detail-group h3{color:var(--ink);font-size:15px;font-weight:700;letter-spacing:0}
+:root[data-theme] .ops-alert{border-radius:6px;box-shadow:none}
+:root[data-theme] .stops li{border-color:var(--line)}
+:root[data-theme] :is(.status-pill,.movement-chip,.category-chip,.countdown-chip){font-family:'Rail Alphabet 3',Arial,sans-serif}
+:root[data-theme] .table th{background:#173b59;color:#fff;font-weight:700}
+:root[data-theme] .table td,:root[data-theme] .events li{border-color:var(--line)}
+:root[data-theme] .table tbody tr:hover{background:var(--brand-selected)}
+:root[data-theme] .events .event-time{color:var(--blue);font-weight:700}
+:root[data-theme] .platform-card{border-radius:9px}
+:root[data-theme] .platform-card:hover{border-color:var(--blue);transform:translateY(-1px)}
+:root[data-theme] .explore-toolbar,:root[data-theme] .events-toolbar{padding:18px}
+:root[data-theme] .ops-panel summary{font-weight:700}
+@media(max-width:760px){
+  :root[data-theme] .detail-context{margin:10px;padding:12px}
+  :root[data-theme] .detail-heading{font-size:19px}
+  :root[data-theme] .events-toolbar,:root[data-theme] .explore-toolbar{padding:13px}
+}
