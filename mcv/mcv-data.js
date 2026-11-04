@@ -327,12 +327,18 @@
         return point && text(point.crs).toUpperCase() === code;
       });
       const via = text(destination && destination.via).replace(/^via\\s+/i, '').trim();
+      // Headbolt Lane services routed via Atherton also pass through Walkden;
+      // show the more useful passenger-facing route label consistently.
+      if (/^atherton$/i.test(via)) return 'Headbolt Lane via Walkden';
       if (via) return base.replace(/\\s+via\\s+.*$/i, '') + ' via ' + via;
       const route = destinationRoutePoints(source);
       if (route.some(function(point){
         return text(point.crs).toUpperCase() === 'WKD' ||
           text(point.tiploc).toUpperCase() === 'WALKDEN' ||
-          /^walkden$/i.test(text(point.locationName));
+          /^walkden$/i.test(text(point.locationName)) ||
+          text(point.crs).toUpperCase() === 'ATH' ||
+          text(point.tiploc).toUpperCase() === 'ATHERTON' ||
+          /^atherton$/i.test(text(point.locationName));
       })) return 'Headbolt Lane via Walkden';
     }
     const southport = code === 'SOP' || plain === 'SOUTHPORT';
