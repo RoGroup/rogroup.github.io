@@ -344,7 +344,7 @@
     const southport = code === 'SOP' || plain === 'SOUTHPORT';
     if (/^2I[0-9]{2}$/.test(train) && wallgate) return 'Wigan Wallgate via Atherton';
     if (/^2K[0-9]{2}$/.test(train)) {
-      if (headbolt) return 'Headbolt Lane via Atherton';
+      if (headbolt) return 'Headbolt Lane via Walkden';
       if (wallgate) return 'Wigan Wallgate via Atherton';
     }
     if (/^2W[0-9]{2}$/.test(train)) {
