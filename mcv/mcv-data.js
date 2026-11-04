@@ -320,6 +320,21 @@
       }
     }
     const headbolt = code === 'HBL' || plain === 'HEADBOLT LANE';
+    // Headbolt Lane workings can also run via Walkden, matching the
+    // destination-specific route treatment already used for Wigan Wallgate.
+    if (headbolt) {
+      const destination = (Array.isArray(source.destination) ? source.destination : []).find(function(point){
+        return point && text(point.crs).toUpperCase() === code;
+      });
+      const via = text(destination && destination.via).replace(/^via\\s+/i, '').trim();
+      if (via) return base.replace(/\\s+via\\s+.*$/i, '') + ' via ' + via;
+      const route = destinationRoutePoints(source);
+      if (route.some(function(point){
+        return text(point.crs).toUpperCase() === 'WKD' ||
+          text(point.tiploc).toUpperCase() === 'WALKDEN' ||
+          /^walkden$/i.test(text(point.locationName));
+      })) return 'Headbolt Lane via Walkden';
+    }
     const southport = code === 'SOP' || plain === 'SOUTHPORT';
     if (/^2I[0-9]{2}$/.test(train) && wallgate) return 'Wigan Wallgate via Atherton';
     if (/^2K[0-9]{2}$/.test(train)) {
