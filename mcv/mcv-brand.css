@@ -1,4 +1,4 @@
-/* Staff Hub presentation, based on Northern's Bunday / navy / blue design language.
+/* Staff Hub presentation using Rail Alphabet 3 with Northern navy / blue design language.
    Loaded last. Operational status colours and all feed behaviour remain independent. */
 :root{
   --navy:#262262;--blue:#006ea7;--amber:#fbbb22;
@@ -13,7 +13,7 @@
   --brand-soft:#151930;--brand-shadow:0 3px 14px #0002;
   --brand-selected:#282c50;--brand-surface-ink:#f1f3ff;
 }
-body{font-family:Bunday,Arial,sans-serif;line-height:1.45}
+body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
 :root[data-theme] .top{padding:22px clamp(16px,3vw,48px);background:var(--card);border-bottom:0;gap:20px}
 :root[data-theme] .top h1{text-transform:none;letter-spacing:-.02em;font-size:clamp(23px,2.4vw,34px);line-height:1.16;color:var(--ink)}
 :root[data-theme] .titleblock{border-left-color:var(--line)}
@@ -22,7 +22,7 @@ body{font-family:Bunday,Arial,sans-serif;line-height:1.45}
 :root[data-theme] .date{font-size:11px;letter-spacing:.03em;text-transform:none}
 :root[data-theme] .logo{width:150px;height:52px}
 :root[data-theme] .mcv-site-nav{background:var(--card);padding:12px clamp(16px,3vw,48px) 18px;gap:9px;border-bottom:1px solid var(--line);font-size:14px}
-:root[data-theme] .mcv-site-nav :is(a,button){border:2px solid var(--navy);border-radius:52px;min-height:44px;padding:10px 20px;line-height:1.2;font:700 14px Bunday,Arial,sans-serif;background:transparent;color:var(--ink);text-decoration:none;transition:background-color .15s,border-color .15s,color .15s}
+:root[data-theme] .mcv-site-nav :is(a,button){border:2px solid var(--navy);border-radius:52px;min-height:44px;padding:10px 20px;line-height:1.2;font:700 14px 'Rail Alphabet 3',Arial,sans-serif;background:transparent;color:var(--ink);text-decoration:none;transition:background-color .15s,border-color .15s,color .15s}
 :root[data-theme="dark"] .mcv-site-nav :is(a,button){border-color:var(--brand-accent)}
 :root[data-theme] .mcv-site-nav :is(a,button):hover{background:var(--brand-accent);border-color:var(--brand-accent);color:#262262}
 :root[data-theme] .mcv-site-nav a[aria-current="page"]{background:var(--navy);border-color:var(--navy);color:#fff}
