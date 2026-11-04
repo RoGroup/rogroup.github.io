@@ -118,3 +118,113 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
 }
 @media(max-width:380px){:root[data-theme] .logo{width:75px}:root[data-theme] .top h1{font-size:21px}}
 @media(prefers-reduced-motion:reduce){:root[data-theme] :is(.button,.signal-control-btn),:root[data-theme] .mcv-site-nav :is(a,button){transition:none}}
+
+
+/* GBR-inspired visual refresh — visual layer only; operational logic is untouched.
+   Uses a restrained deep-blue / bright-blue / red / white railway palette.
+   This is an original interface treatment, not an official GBR mark or livery. */
+:root{
+  --navy:#17324d;
+  --blue:#087fbd;
+  --ink:#183149;
+  --muted:#607487;
+  --paper:#f2f5f7;
+  --card:#ffffff;
+  --line:#d3dde5;
+  --pale:#e7f1f7;
+  --brand-accent:#168fc9;
+  --brand-button:#17324d;
+  --brand-button-hover:#254a69;
+  --brand-soft:#edf2f5;
+  --brand-shadow:0 2px 8px rgba(17,43,65,.07);
+  --brand-selected:#e2f0f8;
+}
+:root[data-theme="dark"]{
+  --ink:#edf4f8;
+  --muted:#a9bdcc;
+  --paper:#0c1926;
+  --card:#14283a;
+  --line:#2b4357;
+  --pale:#1b354a;
+  --blue:#48a9dc;
+  --brand-accent:#48a9dc;
+  --brand-button:#1c5277;
+  --brand-button-hover:#28688f;
+  --brand-soft:#102235;
+  --brand-shadow:0 2px 10px rgba(0,0,0,.16);
+  --brand-selected:#1c3a50;
+}
+:root[data-theme] body{background:var(--paper);color:var(--ink)}
+:root[data-theme] .top{
+  position:relative;
+  padding-top:25px;
+  background:var(--card);
+  border-bottom:1px solid var(--line);
+}
+:root[data-theme] .top::before{
+  content:"";
+  position:absolute;
+  top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,#c52b38 0 32%,#ffffff 32% 66%,#168fc9 66% 100%);
+}
+:root[data-theme] .top h1{font-weight:700;letter-spacing:-.025em}
+:root[data-theme] .logo{opacity:.92}
+:root[data-theme] .mcv-site-nav{
+  background:var(--card);
+  padding-top:10px;padding-bottom:12px;
+  border-bottom:1px solid var(--line);
+}
+:root[data-theme] .mcv-site-nav :is(a,button){
+  border:1px solid var(--line);
+  border-radius:6px;
+  font-weight:600;
+  min-height:40px;
+}
+:root[data-theme] .mcv-site-nav :is(a,button):hover{
+  background:var(--pale);border-color:var(--blue);color:var(--ink);
+}
+:root[data-theme] .mcv-site-nav a[aria-current="page"]{
+  background:var(--brand-button);border-color:var(--brand-button);color:#fff;
+}
+:root[data-theme="dark"] .mcv-site-nav a[aria-current="page"]{
+  background:#2476a6;border-color:#2476a6;color:#fff;
+}
+:root[data-theme] .mcv-feed-health{background:var(--brand-soft)}
+:root[data-theme] .feedbar{
+  background:#173b59;
+  border:1px solid #245574;
+  border-radius:9px;
+  box-shadow:none;
+}
+:root[data-theme="dark"] .feedbar{background:#173b59;border-color:#285775}
+:root[data-theme] .feedbar .button.primary{
+  background:#f4c542;border-color:#f4c542;color:#17324d;
+  border-radius:6px;
+}
+:root[data-theme] :is(.button,.signal-control-btn){
+  border-radius:6px;
+  font-weight:600;
+}
+:root[data-theme] .theme-toggle{border-radius:6px}
+:root[data-theme] :is(.panel,.stat,.platform-card,.alert-strip,.event-card,.explore-card){
+  border-radius:9px;
+  box-shadow:var(--brand-shadow);
+}
+:root[data-theme] .stat{border-top:3px solid var(--blue)}
+:root[data-theme] .stat.alert{border-top-color:#e5a927;border-left-color:#e5a927}
+:root[data-theme] .stat.danger{border-top-color:#c52b38;border-left-color:#c52b38}
+:root[data-theme] :is(.panel-title,.diagnostics-heading,.alert-strip-head){
+  background:var(--brand-soft);
+}
+:root[data-theme] .table th{background:#173b59;color:#fff}
+:root[data-theme] .platform-card{border-top-width:3px}
+:root[data-theme] .platform-card.is-selected{
+  background:#173b59;border-color:#173b59;color:#fff;
+}
+:root[data-theme] .platform-card.is-selected :is(.platform-caption,.platform-meta,.platform-dest){color:#fff}
+:root[data-theme] .explore-card{border-left-color:var(--blue)}
+:root[data-theme] .bottom{background:transparent}
+@media(max-width:760px){
+  :root[data-theme] .top::before{height:3px}
+  :root[data-theme] .mcv-site-nav :is(a,button){border-radius:6px}
+}
