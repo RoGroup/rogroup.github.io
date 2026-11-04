@@ -1983,7 +1983,7 @@ function renderOperations(){
   const generated=state.feedGeneratedAt?new Date(state.feedGeneratedAt).toISOString():null;
   const rows=MCVOperations.health(state.unitFeedMeta,generated,Boolean(state.lastError));
   const time=value=>value?new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date(value)):'Not supplied';
-  updateDisplayHTML($('feed-health'),rows.map(row=>`<div class="ops-card"><h3>${escapeHTML(row.name)}</h3><div class="${row.status==='Current'?'ops-current':'ops-warning'}">${escapeHTML(row.status)}</div><p>${escapeHTML(time(row.at))}${row.at?' · '+escapeHTML(relativeAge(Date.parse(row.at)))+' ago':''}</p><p>${escapeHTML(row.note)}</p></div>`).join(''));
+  updateDisplayHTML($('feed-health'),rows.map(row=>`<div class="ops-card"><h3>${escapeHTML(row.name)}</h3><div class="ops-health-status ${'ops-'+row.status.toLowerCase().replace(/[^a-z]+/g,'-')}">${escapeHTML(row.status)}</div><p>${escapeHTML(time(row.at))}${row.at?' · '+escapeHTML(relativeAge(Date.parse(row.at)))+' ago':''}</p><p>${escapeHTML(row.note)}</p></div>`).join(''));
   const ops=state.unitFeedMeta?.operations;
   const available=ops&&MCVOperations.fresh(ops.updatedAt,6*60000,Date.now());
   const live=available&&ops.vstp?.available&&!ops.vstp.blocked&&MCVOperations.fresh(ops.vstp.feedAt,3*60000,Date.now());
