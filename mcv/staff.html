@@ -709,6 +709,45 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
   .theme-toggle{font-size:9px;padding:6px 8px}
 }
 </style>
+<style id="staff-mobile-spacing-polish">
+/* Give the mobile board more breathing room and reduce the feeling of stacked controls. */
+@media(max-width:760px){
+  .container{padding:16px 13px 34px}
+  .top{gap:11px;padding:12px 14px 13px}
+  .feedbar{padding:13px 14px;gap:10px;margin-bottom:20px}
+  .feedbar .note{line-height:1.45}
+  .section-heading{margin:25px 0 13px;gap:6px}
+  .section-heading h2{line-height:1.2}
+  .section-heading p{line-height:1.45}
+  .stats{gap:10px;margin-bottom:22px}
+  .stat{padding:13px;border-radius:10px}
+  .platforms{gap:10px}
+  .platform-card{padding:13px;border-radius:10px}
+  .workspace{margin-top:22px;gap:18px}
+  .panel{margin-bottom:4px;border-radius:12px}
+  .panel-title{padding:16px}
+  .movement-tabs{padding:4px 10px 2px}
+  .movement-tabs button{padding:12px 11px 10px}
+  .controls{padding:13px;gap:9px}
+  .controls input,.controls select{min-height:43px;padding:10px}
+  .controls .tick-control{padding:5px 4px}
+  .table-area{padding:11px}
+  .table tr.service-row{padding:13px 12px;margin-bottom:10px;gap:7px 10px;border-radius:10px}
+  .service-formation{padding-top:9px!important;margin-top:4px}
+  .board-note{padding:12px 14px;line-height:1.55}
+  .details-content{padding:17px}
+  .events{padding-left:22px}
+}
+@media(max-width:460px){
+  .container{padding-left:12px;padding-right:12px}
+  .stats{gap:9px}
+  .stat{padding:12px}
+  .platforms{gap:9px}
+  .platform-card{padding:12px}
+  .controls{gap:9px}
+  .table tr.service-row{padding:12px 11px;gap:7px 8px}
+}
+</style>
 <link rel="stylesheet" href="mcv-site.css?v=20261104-ra3">
 <link rel="stylesheet" href="mcv-operations.css?v=20261026-2">
 <link rel="stylesheet" href="mcv-events.css?v=20261026-1">
