@@ -228,3 +228,82 @@ body{font-family:'Rail Alphabet 3',Arial,sans-serif;line-height:1.45}
   :root[data-theme] .top::before{height:3px}
   :root[data-theme] .mcv-site-nav :is(a,button){border-radius:6px}
 }
+
+
+/* Refinement pass: clearer location hierarchy and calmer operational alerts. */
+:root[data-theme] .location-kicker{
+  margin:0 0 3px;
+  color:var(--blue);
+  font:700 10px/1.2 'Rail Alphabet 3',Arial,sans-serif;
+  letter-spacing:.13em;
+}
+:root[data-theme] .top h1{
+  margin:0;
+  font-size:clamp(25px,2.3vw,33px);
+  font-weight:700;
+  letter-spacing:-.025em;
+}
+:root[data-theme] .subhead{
+  margin-top:4px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:500;
+}
+:root[data-theme] .alert-strip{
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-left:4px solid #c58a24;
+  background:var(--card);
+  box-shadow:none;
+}
+:root[data-theme] .alert-strip-head{
+  padding:13px 17px;
+  background:var(--brand-soft);
+}
+:root[data-theme] .alert-strip-head strong{
+  font-size:15px;
+  font-weight:700;
+}
+:root[data-theme] .alert-strip-head span{
+  color:var(--muted);
+}
+:root[data-theme] .alert-strip .alert,
+:root[data-theme] .alert-strip .notice,
+:root[data-theme] .alert-strip .alert-item{
+  border-radius:5px;
+  box-shadow:none;
+}
+:root[data-theme] .alert-strip .alert.danger,
+:root[data-theme] .alert-strip .notice.danger,
+:root[data-theme] .alert-strip .alert-item.danger{
+  background:rgba(197,43,56,.09);
+  border-color:rgba(197,43,56,.32);
+  color:var(--ink);
+}
+:root[data-theme] .alert-strip .alert.warn,
+:root[data-theme] .alert-strip .notice.warn,
+:root[data-theme] .alert-strip .alert-item.warn{
+  background:rgba(197,138,36,.10);
+  border-color:rgba(197,138,36,.34);
+  color:var(--ink);
+}
+:root[data-theme="dark"] .alert-strip .alert.danger,
+:root[data-theme="dark"] .alert-strip .notice.danger,
+:root[data-theme="dark"] .alert-strip .alert-item.danger{
+  background:rgba(197,43,56,.18);
+  border-color:rgba(225,91,101,.42);
+  color:var(--ink);
+}
+:root[data-theme="dark"] .alert-strip .alert.warn,
+:root[data-theme="dark"] .alert-strip .notice.warn,
+:root[data-theme="dark"] .alert-strip .alert-item.warn{
+  background:rgba(197,138,36,.16);
+  border-color:rgba(224,171,76,.4);
+  color:var(--ink);
+}
+:root[data-theme] .alert-strip :is(a,strong){color:inherit}
+:root[data-theme] .alert-strip a{text-underline-offset:2px}
+@media(max-width:760px){
+  :root[data-theme] .location-kicker{font-size:9px}
+  :root[data-theme] .top h1{font-size:24px}
+}
