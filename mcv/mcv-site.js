@@ -139,7 +139,7 @@
         const a=document.createElement('a');a.href=href;a.textContent=label;if(page===href)a.setAttribute('aria-current','page');nav.append(a);
       }
       if(page==='staff.html'){
-        for(const [hash,label] of [['events','Events'],['platform','Platform view'],['calling-points','Calling-point explorer']]){const a=document.createElement('a');a.href='staff.html#'+hash;a.textContent=label;nav.append(a);}
+        const a=document.createElement('a');a.href='staff.html#events';a.textContent='Events';nav.append(a);
       }
       const header=document.querySelector('header,.top');
       if(header)header.insertAdjacentElement('afterend',nav);else document.body.prepend(nav);
