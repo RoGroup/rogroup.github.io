@@ -2088,6 +2088,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     traksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
   });
   nav.append(launch);
+
+  const rttLaunch=document.createElement('button');
+  rttLaunch.type='button';rttLaunch.className='traksy-launch';rttLaunch.textContent='RTT';
+  rttLaunch.setAttribute('aria-label','Open RealTimeTrains Manchester Victoria');
+  rttLaunch.addEventListener('click',()=>{
+    const url='https://www.realtimetrains.co.uk/search/detailed/gb-nr:MCV?stp=WVS';
+    if(window.matchMedia('(max-width: 700px), (pointer: coarse)').matches){
+      window.open(url,'_blank','noopener,noreferrer');
+      return;
+    }
+    openRttViewer(url);
+  });
+  nav.append(rttLaunch);
 });
 
 // Open RealTimeTrains inside the staff page, with a new-tab fallback if framing is blocked.
