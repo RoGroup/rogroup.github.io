@@ -236,6 +236,8 @@
     if (operationalLocations[code]) return operationalLocations[code];
     if (operationalLocations[rawUpper]) return operationalLocations[rawUpper];
 
+    if (code === 'WAC' || rawUpper === 'WARRINGTON CTL') return 'Warrington Central';
+
     if (code === 'SFD') return 'Salford Central';
     if (rawUpper === 'SALFORD' && code !== 'SLD') return 'Salford Central';
 
