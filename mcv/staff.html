@@ -321,6 +321,16 @@ button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,inpu
 .staff-tools-panel{margin-top:18px}.staff-tools-controls{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:12px 0}.staff-tools-controls label{display:flex;flex-direction:column;gap:6px;flex:1 1 230px;font-size:13px;min-width:0}.staff-tools-controls select{padding:11px;border:1px solid var(--line);border-radius:7px;font:inherit;color:var(--ink);background:var(--card,#fff);width:100%;min-width:0}.comparison-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}.comparison-table{width:100%;border-collapse:collapse;table-layout:fixed;min-width:480px;font-size:12px}.comparison-table th,.comparison-table td{padding:10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;overflow-wrap:anywhere}.comparison-table th:first-child{width:24%}.comparison-different td{background:#0698d611}.comparison-table thead{color:var(--navy)}:root[data-theme="dark"] .staff-tools-controls select{background:#171d31;color:#f3f5ff}:root[data-theme="dark"] .comparison-table thead{color:#fff}.details-content{overflow-anchor:none;overflow-wrap:anywhere}
 @media(max-width:1100px){.sidebar{display:flex;flex-direction:column}.sidebar>.panel{width:100%;box-sizing:border-box}}
 @media(max-width:760px),(hover:none) and (pointer:coarse){.workspace{grid-template-columns:minmax(0,1fr)}.sidebar{display:flex;flex-direction:column;min-width:0}.details-content{max-height:none!important;overflow:visible!important;overscroll-behavior:auto;touch-action:auto}.details-content .detail-context{position:static}#back-to-board{display:inline-flex}.details-content .button,.staff-tools-panel .button,.staff-tools-controls select{min-height:44px}.details-content .keyvalues{grid-template-columns:minmax(0,1fr)}.details-content .kv-value{overflow-wrap:anywhere}.details-content .ops-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.service-report-text{font-size:14px}.service-details-title{flex-wrap:wrap}.formation-diagram-scroll{max-width:100%;overflow-x:auto}.details-content,.staff-tools-panel{scroll-margin-top:12px}}
+
+/* RealTimeTrains in-page viewer */
+.rtt-viewer{width:min(1200px,96vw);height:min(92dvh,900px);max-width:none;max-height:none;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);box-shadow:0 18px 70px rgba(0,0,0,.45);overflow:hidden}
+.rtt-viewer::backdrop{background:rgba(4,12,22,.78);backdrop-filter:blur(3px)}
+.rtt-viewer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line);background:var(--panel)}
+.rtt-viewer-title{font-weight:900;font-size:14px}
+.rtt-viewer-actions{display:flex;align-items:center;gap:8px}
+.rtt-viewer-actions a,.rtt-viewer-close{appearance:none;border:1px solid var(--line);border-radius:7px;padding:7px 10px;background:var(--card);color:var(--text);font:inherit;font-size:12px;font-weight:800;text-decoration:none;cursor:pointer}
+.rtt-viewer-frame{display:block;width:100%;height:calc(100% - 52px);border:0;background:#fff}
+@media(max-width:700px){.rtt-viewer{width:100vw;height:100dvh;max-width:none;max-height:none;border:0;border-radius:0}.rtt-viewer-head{padding:calc(9px + env(safe-area-inset-top)) 10px 9px}}
 </style>
 
 
@@ -2078,6 +2088,30 @@ document.addEventListener('DOMContentLoaded',()=>{
     traksyReturnFocus=launch;setSignalControls(true);$('signal-controls-exit').focus({preventScroll:true});
   });
   nav.append(launch);
+});
+
+// Open RealTimeTrains inside the staff page, with a new-tab fallback if framing is blocked.
+let rttViewer=null;
+function openRttViewer(url){
+  if(!rttViewer){
+    rttViewer=document.createElement('dialog');
+    rttViewer.className='rtt-viewer';
+    rttViewer.setAttribute('aria-label','RealTimeTrains service details');
+    rttViewer.innerHTML='<div class="rtt-viewer-head"><div class="rtt-viewer-title">RealTimeTrains</div><div class="rtt-viewer-actions"><a class="rtt-viewer-newtab" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a><button class="rtt-viewer-close" type="button">Done</button></div></div><iframe class="rtt-viewer-frame" title="RealTimeTrains service details" loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>';
+    document.body.appendChild(rttViewer);
+    rttViewer.querySelector('.rtt-viewer-close').addEventListener('click',()=>rttViewer.close());
+    rttViewer.addEventListener('close',()=>{rttViewer.querySelector('iframe').src='about:blank'});
+    rttViewer.addEventListener('click',event=>{if(event.target===rttViewer)rttViewer.close()});
+  }
+  rttViewer.querySelector('.rtt-viewer-newtab').href=url;
+  rttViewer.querySelector('iframe').src=url;
+  if(!rttViewer.open)rttViewer.showModal();
+}
+document.addEventListener('click',event=>{
+  const link=event.target.closest('a.rtt-button');
+  if(!link)return;
+  event.preventDefault();
+  openRttViewer(link.href);
 });
 
 $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
