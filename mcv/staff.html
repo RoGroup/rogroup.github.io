@@ -2094,11 +2094,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   rttLaunch.setAttribute('aria-label','Open RealTimeTrains Manchester Victoria');
   rttLaunch.addEventListener('click',()=>{
     const url='https://www.realtimetrains.co.uk/search/detailed/gb-nr:MCV?stp=WVS';
-    if(window.matchMedia('(max-width: 700px), (pointer: coarse)').matches){
-      window.open(url,'_blank','noopener,noreferrer');
-      return;
-    }
-    openRttViewer(url);
+    window.open(url,'_blank','noopener,noreferrer');
   });
   nav.append(rttLaunch);
 });
