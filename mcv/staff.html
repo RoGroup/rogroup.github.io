@@ -2124,13 +2124,8 @@ document.addEventListener('click',event=>{
   const link=event.target.closest('a.rtt-button');
   if(!link)return;
   event.preventDefault();
-  // RealTimeTrains' browser verification may not complete in a mobile iframe.
-  // Use a top-level tab on mobile so its security check can run normally.
-  if(window.matchMedia('(max-width: 700px), (pointer: coarse)').matches){
-    window.open(link.href,'_blank','noopener,noreferrer');
-    return;
-  }
-  openRttViewer(link.href);
+  // RealTimeTrains browser verification is not reliable inside an iframe.
+  window.open(link.href,'_blank','noopener,noreferrer');
 });
 
 $('signal-controls').addEventListener('click',e=>setSignalControls(e.currentTarget.getAttribute('aria-pressed')!=='true'));
