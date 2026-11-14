@@ -128,7 +128,7 @@ def lookup(db, uid, operating_date):
     date = dt.date.fromisoformat(operating_date)
     rows = db.execute("""SELECT stp, bank_holiday, payload_zlib, start_date
         FROM schedules WHERE uid=? AND start_date<=? AND end_date>=?
-        AND substr(days, ?, 1)='1' AND applicable='Y'""",
+        AND substr(days, ?, 1)='1'""",
         (uid, operating_date, operating_date, date.weekday() + 1)).fetchall()
     if not rows:
         return {"status": "not-found"}
