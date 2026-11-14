@@ -1304,7 +1304,10 @@ function earlyTerminationNotice(s){
 function intendedDestinationAfterEarlyTermination(raw){
   if(!raw)return null;
   const groups=raw.subsequentCallingPoints;
-  const points=Array.isArray(raw.subsequentLocations)?raw.subsequentLocations:
+  // Some Darwin records include an empty subsequentLocations array while
+  // still supplying the actual route in subsequentCallingPoints.
+  const locations=Array.isArray(raw.subsequentLocations)?raw.subsequentLocations:[];
+  const points=locations.length?locations:
     (Array.isArray(groups)?groups:[]).flatMap(group=>Array.isArray(group.callingPoint)?group.callingPoint:[]);
   const onward=points.filter(point=>point&&String(point.crs||'').toUpperCase()!=='MCV'&&
     point.isPass!==true&&point.isOperational!==true);
