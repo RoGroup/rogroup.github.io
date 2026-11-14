@@ -1345,10 +1345,16 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
       service.serviceDate===row.operatingDate&&
       (service.cancelled||service.terminatesEarly||service.cancelledAtVictoria));
     if(duplicate||darwinCancelled)continue;
-    // Match on the full CIF identity; headcodes alone can be reused.
-    const movement=trustMovements.find(item=>String(item.uid||'').trim()===String(row.uid||'').trim()&&
-      String(item.trainid||'').trim().toUpperCase()===String(row.headcode||'').trim().toUpperCase()&&
-      String(item.sdd||'')===row.operatingDate&&item.atd);
+    // Prefer the full CIF identity. TRUST may carry a different UID after a
+    // short-notice VSTP replan, so also accept the same headcode/date only when
+    // TRUST's booked departure matches this VSTP departure to within 2 minutes.
+    const movement=trustMovements.find(item=>{
+      if(!item.atd||String(item.trainid||'').trim().toUpperCase()!==headcode||
+         String(item.sdd||'')!==row.operatingDate)return false;
+      if(String(item.uid||'').trim()===String(row.uid||'').trim())return true;
+      const trustBookedMs=Date.parse(item.std||'');
+      return Number.isFinite(trustBookedMs)&&Math.abs(trustBookedMs-bookedMs)<=2*60000;
+    });
     const actualDepartureMs=movement?Date.parse(movement.atd):NaN;
     const trustDeparted=Number.isFinite(actualDepartureMs)&&actualDepartureMs<=now+60000;
     // Keep a confirmed departure briefly as JUST DEPARTED. Uncorroborated
@@ -1828,7 +1834,7 @@ function renderDetails(){
   renderFeedDiagnostics();
   const s=visibleServices().find(x=>x.key===state.selectedKey);
   if(!s){updateDisplayHTML($('service-details'),'<div class="placeholder">Select a service in the departures table to see its operational summary, live timings, calling points and platform context.</div>');return}
-  $('details-feed-source').textContent=s.source==='TRUST'?'TRUST Feed':'Darwin Feed';
+  $('details-feed-source').textContent=s.source==='TRUST'?'TRUST Feed':s.source==='VSTP'?'VSTP Booked':'Darwin Feed';
   const diff=timeDiff(s),reason=reasonFor(s),notice=trainNotice(s),procedure=MCVData.operatingProcedureNotice(s),dwell=dwellMinutes(s);
   const hist=state.platformHist.get(s.key)||[];
   const nextCall=s.stops.find(p=>!p.cancelled)||s.stops[0]||null;
