@@ -1317,10 +1317,17 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
   for(const row of rows){
     if(row?.source!=='VSTP'||row.operatingDate!==today||!row.departure)continue;
     const bookedMs=Date.parse(row.departure);if(!Number.isFinite(bookedMs))continue;
+    const headcode=String(row.headcode||'').trim().toUpperCase();
     const duplicate=services.some(service=>service.uid===row.uid&&(
       service.serviceDate===row.operatingDate||
       (!service.serviceDate&&Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<60000)));
-    if(duplicate)continue;
+    // Darwin may report an early termination/cancellation under the original
+    // headcode while the VSTP variant has a different UID. Do not resurrect
+    // the cancelled onward working as a separate booked-only departure.
+    const darwinCancelled=services.some(service=>service.headcode===headcode&&
+      service.serviceDate===row.operatingDate&&
+      (service.cancelled||service.terminatesEarly||service.cancelledAtVictoria));
+    if(duplicate||darwinCancelled)continue;
     // Match on the full CIF identity; headcodes alone can be reused.
     const movement=trustMovements.find(item=>String(item.uid||'').trim()===String(row.uid||'').trim()&&
       String(item.trainid||'').trim().toUpperCase()===String(row.headcode||'').trim().toUpperCase()&&
@@ -1332,7 +1339,7 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
     if(trustDeparted&&now-actualDepartureMs>RECENT_DEPARTED_MS)continue;
     if(!trustDeparted&&now>bookedMs+15*60000)continue;
     const origin=station(row.origin?.name,row.origin?.crs),dest=station(row.destination?.name,row.destination?.crs);
-    const headcode=String(row.headcode||'').trim().toUpperCase(),category=String(row.category||'').trim().toUpperCase();
+    const category=String(row.category||'').trim().toUpperCase();
     const ecs=['EE','EL','ES'].includes(category);
     additions.push({
       key:row.key,trainId:headcode||row.uid,headcode,uid:row.uid,rid:'',serviceId:row.key,
