@@ -63,7 +63,7 @@ def build_operations(folder,now=None):
                     if match.get('status')!='scheduled':continue
                     schedule=match['schedule'];segment=schedule.get('schedule_segment',{})
                     points=segment.get('schedule_location') or []
-                    visit=next((point for point in points if point.get('tiploc_code')=='MNCRVIC' and point.get('public_departure')),None)
+                    visit=next((point for point in points if point.get('tiploc_code')=='MNCRVIC' and (point.get('public_departure') or point.get('departure'))),None)
                     if not visit:continue
                     def place(point):
                         loc=location_rows.get(point.get('tiploc_code'),{})
