@@ -130,4 +130,5 @@ def build_operations(folder,now=None):
                 if len(result['changes'])>=30:break
         return result
     finally:
+        if view_db:view_db.close()
         if daily:daily.close()
