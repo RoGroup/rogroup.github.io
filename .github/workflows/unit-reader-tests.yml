@@ -1,0 +1,24 @@
+name: MCV unit-reader tests
+
+on:
+  push:
+    branches: ["master"]
+    paths:
+      - "mcv/unit-reader/**"
+      - ".github/workflows/unit-reader-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run unit-reader tests
+        working-directory: mcv/unit-reader
+        run: python -m unittest discover -p 'test_*.py'
