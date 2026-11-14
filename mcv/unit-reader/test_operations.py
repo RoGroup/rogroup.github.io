@@ -44,6 +44,15 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(rows[0]['headcode'],'2N01')
         self.assertEqual(rows[0]['departure'],'2026-10-26T11:00:00+00:00')
         self.assertEqual(rows[0]['platform'],'5')
+    def test_non_performance_monitored_vstp_schedule_is_projected(self):
+        message=event()
+        message['VSTPCIFMsgV1']['schedule']['applicable_timetable']='N'
+        self.add(message)
+        rows=self.result()['scheduledServices']
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['headcode'],'2N01')
+        self.assertEqual(rows[0]['departure'],'2026-10-26T11:00:00+00:00')
+
     def test_new_amend_divert_and_withdraw(self):
         self.add(event());r=self.result();self.assertTrue(r['vstp']['available']);self.assertEqual(r['changes'][0]['status'],'new')
         amended=event(action='Update',stamp=(STAMP+1)*1000);amended['VSTPCIFMsgV1']['schedule']['schedule_segment'][0]['schedule_location'][1]['scheduled_departure_time']='110500'
