@@ -1302,14 +1302,14 @@ function earlyTerminationNotice(s){
   return s.terminatesEarly?'Terminates early at Victoria — onward journey cancelled'+(s.earlyTerminationAwaitingUpdate?' · awaiting arrival confirmation':''):'';
 }
 
-function mergeTodaysVstpServices(services,operations,trust){
+function mergeTodaysVstpServices(services,operations,trustMeta){
   const now=Date.now();
   if(!operations||!MCVOperations.fresh(operations.updatedAt,6*60000,now)||
      operations.vstp?.available!==true||operations.vstp.blocked||
      !MCVOperations.fresh(operations.vstp.feedAt,3*60000,now))return services;
-  const trustFresh=trust?.available===true&&MCVOperations.fresh(trust.updatedAt,6*60000,now)&&
-    MCVOperations.fresh(trust.feedAt,10*60000,now);
-  const trustMovements=trustFresh&&Array.isArray(trust.movements)?trust.movements:[];
+  const trustFresh=trustMeta?.trustAvailable===true&&MCVOperations.fresh(trustMeta.trustSnapshotAt,6*60000,now)&&
+    MCVOperations.fresh(trustMeta.trustFeedAt,5*60000,now);
+  const trustMovements=trustFresh&&Array.isArray(trustMeta.trustMovements)?trustMeta.trustMovements:[];
   const dateParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part=>[part.type,part.value]));
   const today=dateParts.year+'-'+dateParts.month+'-'+dateParts.day;
   const rows=Array.isArray(operations?.scheduledServices)?operations.scheduledServices:[];
@@ -2102,7 +2102,7 @@ async function fetchDepartures(){if(state.feedBusy)return;state.feedBusy=true;$(
     state.unitFeedMeta=json._mcv||{};
     state.nationalRailNotices=nationalRailMessages(json);
     const parsed=retainPendingEarlyTerminations(parseServices(json),state.services);
-    const next=mergeTodaysVstpServices(parsed,state.unitFeedMeta?.operations,state.unitFeedMeta?.trust);
+    const next=mergeTodaysVstpServices(parsed,state.unitFeedMeta?.operations,state.unitFeedMeta);
     const generated=Date.parse(json.generatedAt||json.generated_at||'');
     if(!board.fallback){rememberRecentDepartures(next);compareFeeds(next)}state.services=next;state.feedMode=hasArrivalData?'movements':'departures';state.feedGeneratedAt=Number.isFinite(generated)?generated:0;state.lastGood=board.receivedAt;state.lastError=board.fallback?'Live update failed · showing last received board':'';
     if(state.selectedKey&&!visibleServices().some(s=>s.key===state.selectedKey&&serviceVisibleInView(s)))state.selectedKey='';
