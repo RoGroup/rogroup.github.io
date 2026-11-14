@@ -1303,15 +1303,16 @@ function earlyTerminationNotice(s){
 }
 
 function mergeTodaysVstpServices(services,operations){
-  const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  const dateParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part=>[part.type,part.value]));
+  const today=dateParts.year+'-'+dateParts.month+'-'+dateParts.day;
   const rows=Array.isArray(operations?.scheduledServices)?operations.scheduledServices:[];
   const additions=[];
   for(const row of rows){
     if(row?.source!=='VSTP'||row.operatingDate!==today||!row.departure)continue;
     const bookedMs=Date.parse(row.departure);if(!Number.isFinite(bookedMs))continue;
-    const duplicate=services.some(service=>service.uid===row.uid&&
-      (!service.serviceDate||service.serviceDate===row.operatingDate)&&
-      Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<60000);
+    const duplicate=services.some(service=>service.uid===row.uid&&(
+      service.serviceDate===row.operatingDate||
+      (!service.serviceDate&&Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<60000)));
     if(duplicate)continue;
     const origin=station(row.origin?.name,row.origin?.crs),dest=station(row.destination?.name,row.destination?.crs);
     const headcode=String(row.headcode||'').trim().toUpperCase();
