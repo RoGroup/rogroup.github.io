@@ -15,12 +15,25 @@ class OperationsTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.folder=Path(self.tmp.name)
         self.store=open_store(self.folder/'vstp.sqlite3');self.addCleanup(self.store.close)
         self.daily=sqlite3.connect(self.folder/'schedules.sqlite3');self.addCleanup(self.daily.close)
-        self.daily.executescript('CREATE TABLE metadata(name TEXT,value TEXT); CREATE TABLE schedules(uid TEXT,start_date TEXT,stp TEXT,end_date TEXT,days TEXT,applicable TEXT,bank_holiday TEXT,payload_zlib BLOB);')
+        self.daily.executescript('CREATE TABLE metadata(name TEXT,value TEXT); CREATE TABLE schedules(uid TEXT,start_date TEXT,stp TEXT,end_date TEXT,days TEXT,applicable TEXT,bank_holiday TEXT,payload_zlib BLOB); CREATE TABLE locations(tiploc TEXT,stanox TEXT,crs TEXT,description TEXT);')
+        self.daily.executemany('INSERT INTO locations VALUES (?,?,?,?)',[('MNCRVIC','31510','MCV','Manchester Victoria'),('CHST','40000','CTR','Chester'),('ORIGIN','31500','ORG','Origin')])
         self.daily.execute('INSERT INTO metadata VALUES (?,?)',('header',json.dumps({'timestamp':STAMP})));self.daily.commit()
         with self.store:self.store.execute("INSERT OR REPLACE INTO metadata VALUES ('heartbeat',?)",(str(STAMP),))
     def add(self,e):
         with self.store:apply_event(self.store,e,STAMP+10)
     def result(self,now=NOW):return build_operations(self.folder,now)
+    def test_today_vstp_departure_is_projected_and_tomorrow_is_not(self):
+        self.add(event())
+        result=self.result()
+        self.assertEqual(len(result['scheduledServices']),1)
+        row=result['scheduledServices'][0]
+        self.assertEqual(row['headcode'],'2N01')
+        self.assertEqual(row['operatingDate'],'2026-10-26')
+        self.assertEqual(row['departure'],'2026-10-26T11:00:00+00:00')
+        self.assertEqual(row['origin']['crs'],'ORG')
+        self.assertEqual(row['destination']['crs'],'CTR')
+        self.assertEqual(row['platform'],'5')
+        self.assertEqual(self.result(NOW+dt.timedelta(days=1))['scheduledServices'],[])
     def test_new_amend_divert_and_withdraw(self):
         self.add(event());r=self.result();self.assertTrue(r['vstp']['available']);self.assertEqual(r['changes'][0]['status'],'new')
         amended=event(action='Update',stamp=(STAMP+1)*1000);amended['VSTPCIFMsgV1']['schedule']['schedule_segment'][0]['schedule_location'][1]['scheduled_departure_time']='110500'
