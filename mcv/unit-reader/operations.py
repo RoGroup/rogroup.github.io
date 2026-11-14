@@ -26,12 +26,13 @@ def build_operations(folder,now=None):
     now=now or dt.datetime.now(UTC);folder=Path(folder)
     result={'version':1,'updatedAt':now.isoformat(),'scheduleAt':None,
             'vstp':{'configured':False,'available':False,'blocked':False,'feedAt':None},'changes':[],'scheduledServices':[]}
-    daily=None
-    try:
+    daily=None;view_db=None
+    try
         daily=sqlite3.connect((folder/'schedules.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)
         header=daily.execute("SELECT value FROM metadata WHERE name='header'").fetchone()
         result['scheduleAt']=dt.datetime.fromtimestamp(int(json.loads(header[0])['timestamp']),UTC).isoformat()
     except (sqlite3.Error,ValueError,TypeError,KeyError):
+        if view_db:view_db.close()
         if daily:daily.close()
         daily=None
     try:
@@ -46,7 +47,11 @@ def build_operations(folder,now=None):
             # Build today's public departures from the effective VSTP-overlaid timetable.
             # These remain explicitly booked-only and never assert live running.
             if result['vstp']['available'] and daily:
-                prepare_view(daily,folder,now)
+                # Keep the immutable daily timetable connection separate: the VSTP
+                # overlay creates a TEMP schedules view and must not affect the
+                # baseline used to classify amendments/cancellations below.
+                view_db=sqlite3.connect((folder/'schedules.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)
+                prepare_view(view_db,folder,now)
                 today_text=now.astimezone(LONDON).date().isoformat()
                 location_rows={row[0]:{'crs':row[1] or '', 'name':row[2] or row[0]}
                                for row in daily.execute('SELECT tiploc,crs,description FROM locations')}
@@ -54,7 +59,7 @@ def build_operations(folder,now=None):
                     "SELECT DISTINCT uid FROM vstp_schedules WHERE deleted=0 AND payload_zlib IS NOT NULL AND start_date<=? AND end_date>=?",
                     (today_text,today_text))]
                 for service_uid in uids:
-                    match=lookup(daily,service_uid,today_text)
+                    match=lookup(view_db,service_uid,today_text)
                     if match.get('status')!='scheduled':continue
                     schedule=match['schedule'];segment=schedule.get('schedule_segment',{})
                     points=segment.get('schedule_location') or []
