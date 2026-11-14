@@ -27,7 +27,7 @@ def build_operations(folder,now=None):
     result={'version':1,'updatedAt':now.isoformat(),'scheduleAt':None,
             'vstp':{'configured':False,'available':False,'blocked':False,'feedAt':None},'changes':[],'scheduledServices':[]}
     daily=None;view_db=None
-    try
+    try:
         daily=sqlite3.connect((folder/'schedules.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)
         header=daily.execute("SELECT value FROM metadata WHERE name='header'").fetchone()
         result['scheduleAt']=dt.datetime.fromtimestamp(int(json.loads(header[0])['timestamp']),UTC).isoformat()
