@@ -34,6 +34,16 @@ class OperationsTests(unittest.TestCase):
         self.assertEqual(row['destination']['crs'],'CTR')
         self.assertEqual(row['platform'],'5')
         self.assertEqual(self.result(NOW+dt.timedelta(days=1))['scheduledServices'],[])
+    def test_vstp_victoria_departure_without_public_departure_is_projected(self):
+        message=event()
+        point=message['VSTPCIFMsgV1']['schedule']['schedule_segment'][0]['schedule_location'][1]
+        point.pop('public_departure_time',None)
+        self.add(message)
+        rows=self.result()['scheduledServices']
+        self.assertEqual(len(rows),1)
+        self.assertEqual(rows[0]['headcode'],'2N01')
+        self.assertEqual(rows[0]['departure'],'2026-10-26T11:00:00+00:00')
+        self.assertEqual(rows[0]['platform'],'5')
     def test_new_amend_divert_and_withdraw(self):
         self.add(event());r=self.result();self.assertTrue(r['vstp']['available']);self.assertEqual(r['changes'][0]['status'],'new')
         amended=event(action='Update',stamp=(STAMP+1)*1000);amended['VSTPCIFMsgV1']['schedule']['schedule_segment'][0]['schedule_location'][1]['scheduled_departure_time']='110500'
