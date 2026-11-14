@@ -1303,6 +1303,9 @@ function earlyTerminationNotice(s){
 }
 
 function mergeTodaysVstpServices(services,operations){
+  if(!operations||!MCVOperations.fresh(operations.updatedAt,6*60000,Date.now())||
+     operations.vstp?.available!==true||operations.vstp.blocked||
+     !MCVOperations.fresh(operations.vstp.feedAt,3*60000,Date.now()))return services;
   const dateParts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(part=>[part.type,part.value]));
   const today=dateParts.year+'-'+dateParts.month+'-'+dateParts.day;
   const rows=Array.isArray(operations?.scheduledServices)?operations.scheduledServices:[];
