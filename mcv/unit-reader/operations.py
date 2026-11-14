@@ -7,6 +7,7 @@ from contextlib import closing
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from schedule_import import lookup
+from vstp_schedules import prepare_view
 
 UTC=dt.timezone.utc
 LONDON=ZoneInfo('Europe/London')
@@ -24,7 +25,7 @@ def visits(schedule):
 def build_operations(folder,now=None):
     now=now or dt.datetime.now(UTC);folder=Path(folder)
     result={'version':1,'updatedAt':now.isoformat(),'scheduleAt':None,
-            'vstp':{'configured':False,'available':False,'blocked':False,'feedAt':None},'changes':[]}
+            'vstp':{'configured':False,'available':False,'blocked':False,'feedAt':None},'changes':[],'scheduledServices':[]}
     daily=None
     try:
         daily=sqlite3.connect((folder/'schedules.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)
@@ -42,6 +43,47 @@ def build_operations(folder,now=None):
             heartbeat=float(meta.get('heartbeat','0'));blocked=meta.get('blocked')=='1'
             result['vstp']={'configured':True,'available':not blocked and 0<=now.timestamp()-heartbeat<=180,
                             'blocked':blocked,'feedAt':dt.datetime.fromtimestamp(heartbeat,UTC).isoformat() if heartbeat>0 else None}
+            # Build today's public departures from the effective VSTP-overlaid timetable.
+            # These remain explicitly booked-only and never assert live running.
+            if result['vstp']['available'] and daily:
+                prepare_view(daily,folder,now)
+                today_text=now.astimezone(LONDON).date().isoformat()
+                location_rows={row[0]:{'crs':row[1] or '', 'name':row[2] or row[0]}
+                               for row in daily.execute('SELECT tiploc,crs,description FROM locations')}
+                uids=[row[0] for row in db.execute(
+                    "SELECT DISTINCT uid FROM vstp_schedules WHERE deleted=0 AND payload_zlib IS NOT NULL AND start_date<=? AND end_date>=?",
+                    (today_text,today_text))]
+                for service_uid in uids:
+                    match=lookup(daily,service_uid,today_text)
+                    if match.get('status')!='scheduled':continue
+                    schedule=match['schedule'];segment=schedule.get('schedule_segment',{})
+                    points=segment.get('schedule_location') or []
+                    visit=next((point for point in points if point.get('tiploc_code')=='MNCRVIC' and point.get('public_departure')),None)
+                    if not visit:continue
+                    def place(point):
+                        loc=location_rows.get(point.get('tiploc_code'),{})
+                        return {'name':loc.get('name') or point.get('tiploc_code',''),
+                                'crs':loc.get('crs') or ''}
+                    departure=visit.get('public_departure') or visit.get('departure') or ''
+                    if not departure:continue
+                    # CIF times are local London wall-clock times; the board displays
+                    # only today's operating date, not tomorrow's overnight continuation.
+                    hour,minute=int(departure[:2]),int(departure[2:4])
+                    when=dt.datetime.combine(now.astimezone(LONDON).date(),dt.time(hour,minute),LONDON)
+                    origin=place(points[0]) if points else {'name':'Unknown','crs':''}
+                    destination=place(points[-1]) if points else {'name':'Unknown','crs':''}
+                    if destination.get('crs')=='MCV':continue
+                    platform=str(visit.get('platform') or '').strip()
+                    result['scheduledServices'].append({
+                        'key':'vstp:'+service_uid+':'+today_text,'uid':service_uid,
+                        'headcode':str(segment.get('signalling_id') or ''),
+                        'operatingDate':today_text,'departure':when.isoformat(),
+                        'origin':origin,'destination':destination,'platform':platform,
+                        'operatorCode':str(schedule.get('atoc_code') or ''),
+                        'category':str(segment.get('CIF_train_category') or ''),
+                        'source':'VSTP','status':'Booked schedule'
+                    })
+                    if len(result['scheduledServices'])>=120:break
             has_log=db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='vstp_changes'").fetchone()
             # Current state, not a complete event history. Include cancellations and
             # withdrawn/diverted variants whose previous or daily route visits MCV.
