@@ -67,6 +67,21 @@ assert.equal(ops.possibleTurnarounds([possibleArrival,{...possibleDeparture,oper
 assert.equal(ops.possibleTurnarounds([{...possibleArrival,arrivalUnits:['150123']},{...possibleDeparture,departureUnits:['150124']}],[],now).length,0);
 assert.equal(ops.possibleTurnarounds([possibleArrival,possibleDeparture],[{arrival:possibleArrival,departure:possibleDeparture}],now).length,0);
 console.log('Possible pairing fallback: absent units, ambiguity, platform/operator conflicts and stronger-link precedence passed');
+const mergeStart=html.indexOf('function mergeTodaysVstpServices(');
+const mergeEnd=html.indexOf('function parseServices(',mergeStart);
+assert.ok(mergeStart>=0&&mergeEnd>mergeStart,'VSTP merge helper exists');
+context.MCVOperations=ops;
+context.station=(name)=>name;
+context.fmt=value=>new Date(value).toISOString().slice(11,16);
+vm.runInContext(html.slice(mergeStart,mergeEnd),context);
+const currentVstp={...summary,updatedAt:stamp,vstp:{configured:true,available:true,blocked:false,feedAt:stamp}};
+const added=context.mergeTodaysVstpServices([],currentVstp);
+assert.equal(added.length,1);assert.equal(added[0].source,'VSTP');assert.equal(added[0].status,'Booked schedule');assert.equal(added[0].platform,'5');
+const darwin={uid:'43876',serviceDate:todayLondon,bookedMs:Date.parse(stamp),key:'darwin'};
+assert.equal(context.mergeTodaysVstpServices([darwin],currentVstp).length,1,'Darwin service takes precedence over its VSTP duplicate');
+assert.equal(context.mergeTodaysVstpServices([],{...currentVstp,vstp:{...currentVstp.vstp,available:false}}).length,0,'Stale VSTP is not added to the live board');
+console.log('Today's VSTP board merge, Darwin deduplication and stale-feed guard passed');
+
 
 const leedsArrival={...a,key:'1J21',headcode:'1J21',arrivalUnits:['195013'],platform:'1'};
 const leedsDeparture={...b,key:'1J22',headcode:'1J22',departureUnits:['195013'],platform:'1',futureCancellation:true};
