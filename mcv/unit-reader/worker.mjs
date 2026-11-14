@@ -1212,10 +1212,10 @@ function validateOperations(input) {
   const scheduled=input.scheduledServices??[];
   if(!Array.isArray(scheduled)||scheduled.length>120)throw Error('Invalid VSTP booked services');
   const scheduledServices=scheduled.map(row=>{
-    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\\d{5}|\\d{5})$/.test(row.uid)||
+    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)||
        row.key!=='vstp:'+row.uid+':'+row.operatingDate||
-       !/^\\d{4}-\\d\\d-\\d\\d$/.test(row.operatingDate)||
-       typeof row.departure!=='string'||!/^\\d{4}-\\d\\d-\\d\\dT.*(?:Z|[+-]\\d\\d:\\d\\d)$/.test(row.departure)||
+       !/^\d{4}-\d\d-\d\d$/.test(row.operatingDate)||
+       typeof row.departure!=='string'||!/^\d{4}-\d\d-\d\dT.*(?:Z|[+-]\d\d:\d\d)$/.test(row.departure)||
        !Number.isFinite(Date.parse(row.departure))||typeof row.headcode!=='string'||row.headcode.length>8||
        typeof row.platform!=='string'||row.platform.length>10||
        typeof row.operatorCode!=='string'||row.operatorCode.length>4||
