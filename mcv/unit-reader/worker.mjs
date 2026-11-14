@@ -1209,8 +1209,29 @@ function validateOperations(input) {
   const v=input.vstp;
   if(!v||['configured','available','blocked'].some(key=>typeof v[key]!=='boolean'))throw Error('Invalid VSTP health');
   const calls=rows=>{if(!Array.isArray(rows)||rows.length>20)throw Error('Invalid operations visits');return rows.map(row=>Object.fromEntries(['arrival','departure','pass','platform'].map(key=>[key,text(row[key],10)])));};
+  const scheduled=input.scheduledServices??[];
+  if(!Array.isArray(scheduled)||scheduled.length>120)throw Error('Invalid VSTP booked services');
+  const scheduledServices=scheduled.map(row=>{
+    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\\d{5}|\\d{5})$/.test(row.uid)||
+       row.key!=='vstp:'+row.uid+':'+row.operatingDate||
+       !/^\\d{4}-\\d\\d-\\d\\d$/.test(row.operatingDate)||
+       typeof row.departure!=='string'||!/^\\d{4}-\\d\\d-\\d\\dT.*(?:Z|[+-]\\d\\d:\\d\\d)$/.test(row.departure)||
+       !Number.isFinite(Date.parse(row.departure))||typeof row.headcode!=='string'||row.headcode.length>8||
+       typeof row.platform!=='string'||row.platform.length>10||
+       typeof row.operatorCode!=='string'||row.operatorCode.length>4||
+       typeof row.category!=='string'||row.category.length>4||
+       !row.origin||!row.destination)throw Error('Invalid VSTP booked service');
+    const place=value=>{
+      if(!value||typeof value.name!=='string'||value.name.length>120||typeof value.crs!=='string'||value.crs.length>7)throw Error('Invalid VSTP place');
+      return {name:value.name,crs:value.crs};
+    };
+    return {key:row.key,uid:row.uid,headcode:row.headcode,operatingDate:date(row.operatingDate),
+      departure:row.departure,origin:place(row.origin),destination:place(row.destination),
+      platform:row.platform,operatorCode:row.operatorCode,category:row.category,source:'VSTP',status:'Booked schedule'};
+  });
   return {version:1,updatedAt:stamp(input.updatedAt),scheduleAt:stamp(input.scheduleAt,true),
     vstp:{configured:v.configured,available:v.available,blocked:v.blocked,feedAt:stamp(v.feedAt,true)},
+    scheduledServices,
     changes:input.changes.map(row=>{
       if(!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)||!['Create','Update','Delete','Captured'].includes(row.action)||
         !['withdrawn','cancelled','removed-from-victoria','amended','new','captured'].includes(row.status)||
