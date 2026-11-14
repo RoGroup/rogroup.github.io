@@ -1318,7 +1318,8 @@ function mergeTodaysVstpServices(services,operations){
       (!service.serviceDate&&Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<60000)));
     if(duplicate)continue;
     const origin=station(row.origin?.name,row.origin?.crs),dest=station(row.destination?.name,row.destination?.crs);
-    const headcode=String(row.headcode||'').trim().toUpperCase();
+    const headcode=String(row.headcode||'').trim().toUpperCase(),category=String(row.category||'').trim().toUpperCase();
+    const ecs=['EE','EL','ES'].includes(category);
     additions.push({
       key:row.key,trainId:headcode||row.uid,headcode,uid:row.uid,rid:'',serviceId:row.key,
       serviceDate:row.operatingDate,bookedMs,expectedMs:NaN,bookedArrivalMs:NaN,expectedArrivalMs:NaN,
@@ -1328,14 +1329,14 @@ function mergeTodaysVstpServices(services,operations){
       operator:String(row.operatorCode||'VSTP'),operatorCode:String(row.operatorCode||''),
       platform:String(row.platform||'').trim(),rawPlatform:String(row.platform||'').trim(),
       platformWithheld:false,platformHidden:false,coaches:null,reverseFormation:false,
-      status:'Booked schedule',statusCode:'vstp-booked',delayed:false,cancelled:false,departed:false,arrived:false,
+      status:'Booked schedule',statusCode:'vstp-booked',delayed:false,cancelled:false,departed:false,arrived:false,trainCategory:category,
       terminatesEarly:false,stopsRemoved:false,lateReason:'',coaches:null,reportTimes:{},
       cancelledAtVictoria:false,unitAllocation:null,source:'VSTP',vstpBooked:true,trust:null,trustMovement:null,
       trustHistory:null,routeDiverted:false,stops:[],callingPoints:[],activeCallingPoints:[],
-      stopsText:'',serviceType:'train',serviceClass:'train',notForDisplay:false,ecs:false,
+      stopsText:'',serviceType:'train',serviceClass:ecs?'empty stock':'train',notForDisplay:false,ecs,
       destinations:[{name:dest,crs:String(row.destination?.crs||'').toUpperCase(),via:''}],
       origins:[{name:origin,crs:String(row.origin?.crs||'').toUpperCase()}],
-      raw:{uid:row.uid,trainid:headcode,std:row.departure,sdd:row.operatingDate,platform:row.platform,source:'VSTP'}
+      raw:{uid:row.uid,trainid:headcode,std:row.departure,sdd:row.operatingDate,platform:row.platform,train_category:category,is_passenger_service:!ecs,source:'VSTP'}
     });
   }
   return services.concat(additions);
