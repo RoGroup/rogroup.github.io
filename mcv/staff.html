@@ -1121,7 +1121,7 @@ function movementBookedText(s,view=state.viewMode){return fmt(movementScheduledM
 function movementExpectedText(s,view=state.viewMode){return fmt(movementExpectedMs(s,view))}
 function movementPlace(s,view=state.viewMode){
   if(view==='arrivals')return {label:s.origin==='Unknown'?'Origin not supplied':s.origin,prefix:'From'};
-  if(view==='departures')return {label:s.dest,prefix:'To'};
+  if(view==='departures')return {label:s.terminatesEarly&&s.intendedDestination?.name?s.intendedDestination.name:s.dest,prefix:'To'};
   const flow=serviceFlow(s).key;
   if(flow==='terminate')return {label:s.origin==='Unknown'?'Origin not supplied':s.origin,prefix:'Arr from'};
   if(flow==='origin')return {label:s.dest,prefix:'Dep to'};
@@ -1301,6 +1301,20 @@ function earlyTerminationAtVictoria(raw){
 function earlyTerminationNotice(s){
   return s.terminatesEarly?'Terminates early at Victoria — onward journey cancelled'+(s.earlyTerminationAwaitingUpdate?' · awaiting arrival confirmation':''):'';
 }
+function intendedDestinationAfterEarlyTermination(raw){
+  if(!raw)return null;
+  const groups=raw.subsequentCallingPoints;
+  const points=Array.isArray(raw.subsequentLocations)?raw.subsequentLocations:
+    (Array.isArray(groups)?groups:[]).flatMap(group=>Array.isArray(group.callingPoint)?group.callingPoint:[]);
+  const onward=points.filter(point=>point&&String(point.crs||'').toUpperCase()!=='MCV'&&
+    point.isPass!==true&&point.isOperational!==true);
+  if(!onward.length)return null;
+  const last=onward[onward.length-1];
+  const crs=String(last.crs||'').trim().toUpperCase();
+  const name=String(last.locationName||last.name||crs).trim();
+  if(!name)return null;
+  return {name:MCVData.displayStationName(name,crs),crs};
+}
 
 function mergeTodaysVstpServices(services,operations,trustMeta){
   const now=Date.now();
@@ -1444,7 +1458,9 @@ function parseServices(json){
     const usableLateReason=rawLateReason&&rawLateReason!=='[object Object]'&&!/^\d+$/.test(rawLateReason)?rawLateReason:callingPointReason;
     const rawCancelReason=String(raw.cancel_reason||'').trim();
     const usableCancelReason=rawCancelReason&&rawCancelReason!=='[object Object]'&&!/^\d+$/.test(rawCancelReason)?rawCancelReason:callingPointReason;
+    const intendedDestination=terminatesEarly?intendedDestinationAfterEarlyTermination(darwinServices[index]):null;
     const service={key,trainId:headcode||serviceId,headcode,uid,rid,serviceId,serviceDate,bookedMs,expectedMs,bookedArrivalMs,expectedArrivalMs,actualArrivalMs,actualDepartureMs,
+      intendedDestination,
       booked:fmt(bookedMs),expected:fmt(expectedMs),bookedArrival:fmt(bookedArrivalMs),expectedArrival:fmt(expectedArrivalMs),actualArrival:fmt(actualArrivalMs),actualDeparture:fmt(actualDepartureMs),
       dest,destCrs,operator:String(raw.operator||'Unknown'),operatorCode:String(raw.operator_code||''),platform,rawPlatform,platformWithheld:raw.platform_withheld===true,platformHidden:raw.platform_hidden===true,
       status,statusCode,delayed,cancelled,departed,arrived,terminatesEarly,stopsRemoved,lateReason:usableLateReason,coaches,
