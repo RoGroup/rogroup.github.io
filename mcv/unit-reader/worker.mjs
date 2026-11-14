@@ -1375,7 +1375,7 @@ function mergeTrustServices(board, snapshot) {
   const now = Date.now();
   const fresh = (stamp, max) => Number.isFinite(Date.parse(stamp)) && now-Date.parse(stamp) >= -30000 && now-Date.parse(stamp) <= max;
   const available = Boolean(trust?.available && fresh(trust.updatedAt,360000) && fresh(trust.feedAt,300000) && fresh(trust.scheduleAt,36*3600000));
-  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustFeedAt:trust?.feedAt || null, trustScheduleAt:trust?.scheduleAt || null, trustMovements:available ? (trust.movements || []).map(row=>({uid:row.uid,trainid:row.trainid,sdd:row.sdd,atd:row.atd || null})) : [], trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
+  board._mcv = {...(board._mcv || {}), trustAvailable:available, trustSnapshotAt:trust?.updatedAt || null, trustFeedAt:trust?.feedAt || null, trustScheduleAt:trust?.scheduleAt || null, trustMovements:available ? (trust.movements || []).map(row=>({uid:row.uid,trainid:row.trainid,sdd:row.sdd,std:row.std || null,atd:row.atd || null,lastReportAt:row.lastReportAt || null})) : [], trustServicesAdded:0, trustMovementsMatched:0, trustCallingPatternsMatched:0, trustHistoriesMatched:0};
   for (const service of board.trainServices || []) {delete service.trustMovement;delete service.trustCallingPoints;delete service.trustHistory;delete service.bookedPatternStatus;delete service.bookedOperationalRoute;}
   if (!available) return;
   const original = Array.isArray(board.trainServices) ? board.trainServices : [];
