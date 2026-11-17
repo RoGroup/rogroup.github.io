@@ -1209,6 +1209,15 @@ function validateOperations(input) {
   const v=input.vstp;
   if(!v||['configured','available','blocked'].some(key=>typeof v[key]!=='boolean'))throw Error('Invalid VSTP health');
   const calls=rows=>{if(!Array.isArray(rows)||rows.length>20)throw Error('Invalid operations visits');return rows.map(row=>Object.fromEntries(['arrival','departure','pass','platform'].map(key=>[key,text(row[key],10)])));};
+  const confirmed=input.confirmedDepartures??[];
+  if(!Array.isArray(confirmed)||confirmed.length>200)throw Error('Invalid confirmed departures');
+  const confirmedDepartures=confirmed.map(row=>{
+    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\\d{5}|\\d{5})$/.test(row.uid)||
+       typeof row.headcode!=='string'||!/^[0-9][A-Z]\\d{2}$/.test(row.headcode)||
+       !/^\\d{4}-\\d\\d-\\d\\d$/.test(row.operatingDate))throw Error('Invalid confirmed departure identity');
+    for(const field of ['bookedDeparture','actualDeparture'])if(typeof row[field]!=='string'||!Number.isFinite(Date.parse(row[field])))throw Error('Invalid confirmed departure time');
+    return {uid:row.uid,headcode:row.headcode,operatingDate:row.operatingDate,bookedDeparture:row.bookedDeparture,actualDeparture:row.actualDeparture};
+  });
   const scheduled=input.scheduledServices??[];
   if(!Array.isArray(scheduled)||scheduled.length>120)throw Error('Invalid VSTP booked services');
   const scheduledServices=scheduled.map(row=>{
@@ -1231,7 +1240,7 @@ function validateOperations(input) {
   });
   return {version:1,updatedAt:stamp(input.updatedAt),scheduleAt:stamp(input.scheduleAt,true),
     vstp:{configured:v.configured,available:v.available,blocked:v.blocked,feedAt:stamp(v.feedAt,true)},
-    scheduledServices,
+    scheduledServices,confirmedDepartures,
     changes:input.changes.map(row=>{
       if(!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)||!['Create','Update','Delete','Captured'].includes(row.action)||
         !['withdrawn','cancelled','removed-from-victoria','amended','new','captured'].includes(row.status)||
