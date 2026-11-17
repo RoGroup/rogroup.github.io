@@ -175,6 +175,15 @@ def run_once(db, token):
     try:
         from operations import build_operations
         payload["operations"] = build_operations(FOLDER)
+        # Shared departure evidence for VSTP cleanup. Reuse the TRUST projection
+        # already built in this cycle; do not add another reader or DB scan.
+        trust_movements = payload.get("trust", {}).get("movements", [])
+        payload["operations"]["confirmedDepartures"] = [
+            {"uid": row["uid"], "headcode": row["trainid"], "operatingDate": row["sdd"],
+             "bookedDeparture": row["std"], "actualDeparture": row["atd"]}
+            for row in trust_movements
+            if row.get("atd") and row.get("std") and row.get("trainid") and row.get("sdd")
+        ][:200]
     except Exception as error:
         print(f"Staff operations summary unavailable: {type(error).__name__}: {error}", flush=True)
     measured("VSTP summary")
