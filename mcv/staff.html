@@ -1344,7 +1344,15 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
     const darwinCancelled=services.some(service=>service.headcode===headcode&&
       service.serviceDate===row.operatingDate&&
       (service.cancelled||service.terminatesEarly||service.cancelledAtVictoria));
-    if(duplicate||darwinCancelled)continue;
+    // Darwin can confirm the same working's departure even when a
+    // short-notice VSTP replan gave it a different UID. Match the actual
+    // Darwin departure by headcode, operating date and booked departure time
+    // so the VSTP-only copy is removed instead of lingering as overdue.
+    const darwinDeparted=services.some(service=>service.source!=='VSTP'&&
+      service.headcode===headcode&&service.serviceDate===row.operatingDate&&
+      (service.departed||Number.isFinite(service.actualDepartureMs))&&
+      Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<=2*60000);
+    if(duplicate||darwinCancelled||darwinDeparted)continue;
     // Prefer the full CIF identity. TRUST may carry a different UID after a
     // short-notice VSTP replan, so also accept the same headcode/date only when
     // TRUST's booked departure matches this VSTP departure to within 2 minutes.
