@@ -1367,6 +1367,10 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
     // Prefer the full CIF identity. TRUST may carry a different UID after a
     // short-notice VSTP replan, so also accept the same headcode/date only when
     // TRUST's booked departure matches this VSTP departure to within 2 minutes.
+    const sharedDeparture=(operations.confirmedDepartures||[]).find(item=>
+      item.headcode===headcode&&item.operatingDate===row.operatingDate&&
+      Number.isFinite(Date.parse(item.bookedDeparture))&&
+      Math.abs(Date.parse(item.bookedDeparture)-bookedMs)<=2*60000);
     const movement=trustMovements.find(item=>{
       if(!item.atd||String(item.trainid||'').trim().toUpperCase()!==headcode||
          String(item.sdd||'')!==row.operatingDate)return false;
@@ -1374,7 +1378,7 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
       const trustBookedMs=Date.parse(item.std||'');
       return Number.isFinite(trustBookedMs)&&Math.abs(trustBookedMs-bookedMs)<=2*60000;
     });
-    const actualDepartureMs=movement?Date.parse(movement.atd):NaN;
+    const actualDepartureMs=sharedDeparture?Date.parse(sharedDeparture.actualDeparture):movement?Date.parse(movement.atd):NaN;
     const trustDeparted=Number.isFinite(actualDepartureMs)&&actualDepartureMs<=now+60000;
     // Keep a confirmed departure briefly as JUST DEPARTED. Uncorroborated
     // bookings expire 15 minutes after booked time instead of lingering all day.
