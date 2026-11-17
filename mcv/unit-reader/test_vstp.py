@@ -88,6 +88,10 @@ class VSTPTests(unittest.TestCase):
         self.add()
         with self.assertRaises(ValueError):self.add(event(mcv=False),2)
         with self.assertRaises(ValueError):self.view()
+    def test_same_timestamp_create_after_delete_replaces_tombstone(self):
+        self.add(event(action='Delete'))
+        self.add(event(action='Create'),2)
+        self.assertEqual(lookup(self.view(),'43876','2026-10-26')['status'],'scheduled')
     def test_multisegment_is_quarantined_instead_of_concatenated(self):
         e=event();e['VSTPCIFMsgV1']['schedule']['schedule_segment']*=2
         with self.assertRaises(ValueError):self.add(e)
