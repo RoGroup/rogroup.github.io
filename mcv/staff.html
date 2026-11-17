@@ -939,7 +939,7 @@ function setSignalControls(enabled){
   if(!enabled)centreSignalMap();
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
-  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set(),diagnosticsOpen:false,diagnosticsSnapshot:null,diagnosticsInspectedAt:0,diagnosticsAttemptAt:0,diagnosticsRenderedAt:0,diagnosticsBusy:false,diagnosticsError:false};
+  lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],darwinDepartureConfirmations:new Map(),platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set(),diagnosticsOpen:false,diagnosticsSnapshot:null,diagnosticsInspectedAt:0,diagnosticsAttemptAt:0,diagnosticsRenderedAt:0,diagnosticsBusy:false,diagnosticsError:false};
 const $ = id=>document.getElementById(id);
 const THEME_KEY='mcv-staff-theme';
 function applyTheme(theme){
@@ -1352,7 +1352,12 @@ function mergeTodaysVstpServices(services,operations,trustMeta){
       service.headcode===headcode&&service.serviceDate===row.operatingDate&&
       (service.departed||Number.isFinite(service.actualDepartureMs))&&
       Number.isFinite(service.bookedMs)&&Math.abs(service.bookedMs-bookedMs)<=2*60000);
-    if(duplicate||darwinCancelled||darwinDeparted)continue;
+    // Also honour the browser-local Darwin departure event. The event can
+    // outlive the Darwin row that triggered it, while the VSTP row remains.
+    const locallyConfirmedDeparture=[...state.darwinDepartureConfirmations.values()].some(item=>
+      item.headcode===headcode&&item.serviceDate===row.operatingDate&&
+      Number.isFinite(item.bookedMs)&&Math.abs(item.bookedMs-bookedMs)<=2*60000);
+    if(duplicate||darwinCancelled||darwinDeparted||locallyConfirmedDeparture)continue;
     // Prefer the full CIF identity. TRUST may carry a different UID after a
     // short-notice VSTP replan, so also accept the same headcode/date only when
     // TRUST's booked departure matches this VSTP departure to within 2 minutes.
@@ -1573,7 +1578,16 @@ function compareFeeds(next){
           changed(`${s.booked} ${s.dest}: ${view==='arrivals'?'arrival':'departure'} units supplied · ${newUnits.join(' + ')}`,'allocation',s.key);
       }
     }
-    if(!before.departed&&s.departed)changed(`${s.booked} ${s.dest}: departure confirmed`,'departed',s.key);
+    if(!before.departed&&s.departed){
+      changed(`${s.booked} ${s.dest}: departure confirmed`,'departed',s.key);
+      // This confirmation is detected locally by comparing Darwin polls. Keep
+      // it for this browser session so a later Darwin response dropping the
+      // service cannot leave its separate VSTP booked row behind.
+      state.darwinDepartureConfirmations.set(s.key,{
+        headcode:s.headcode,serviceDate:s.serviceDate,bookedMs:s.bookedMs,
+        actualDepartureMs:Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:Date.now()
+      });
+    }
     if(!before.cancelled&&s.cancelled)changed(`${s.booked} ${s.dest}: cancellation reported`,'cancelled',s.key);
     else if(!before.delayed&&s.delayed)changed(`${s.booked} ${s.dest}: delay reported`,'delay',s.key);
     if(before.delayed&&s.delayed&&before.expected!==s.expected&&s.expected!=='—')changed(`${s.booked} ${s.dest}: estimate updated ${before.expected} → ${s.expected}`,'estimate',s.key);
