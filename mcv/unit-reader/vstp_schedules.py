@@ -115,11 +115,15 @@ def apply_event(db,envelope,received):
     # Retain all identities, including updates diverted away from MCV and deletions.
     encoded=json.dumps(schedule,sort_keys=True,separators=(',',':')).encode()
     digest=hashlib.sha256(encoded).hexdigest()
-    old=db.execute('SELECT stamp,digest,payload_zlib FROM vstp_schedules WHERE uid=? AND start_date=? AND stp=?',identity).fetchone()
+    old=db.execute('SELECT stamp,digest,payload_zlib,deleted FROM vstp_schedules WHERE uid=? AND start_date=? AND stp=?',identity).fetchone()
     if old and stamp<old[0]:return False
     if old and stamp==old[0]:
-        if digest!=old[1]:raise ValueError('Conflicting simultaneous VSTP updates')
-        return False
+        if digest==old[1]:return False
+        # A same-millisecond Create can follow a Delete for the same CIF
+        # identity. Kafka preserves message order; allow that later Create to
+        # replace the tombstone, but keep blocking conflicting live schedules.
+        if not (old[3] and schedule is not None and envelope['VSTPCIFMsgV1']['schedule']['transaction_type']=='Create'):
+            raise ValueError('Conflicting simultaneous VSTP updates')
     end=schedule['schedule_end_date'] if schedule else identity[1]
     days=schedule['schedule_days_runs'] if schedule else '1111111'
     payload=zlib.compress(encoded) if schedule and any(p['tiploc_code']=='MNCRVIC' for p in schedule['schedule_segment']['schedule_location']) else None
