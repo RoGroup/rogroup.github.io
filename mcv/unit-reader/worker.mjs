@@ -1212,9 +1212,9 @@ function validateOperations(input) {
   const confirmed=input.confirmedDepartures??[];
   if(!Array.isArray(confirmed)||confirmed.length>200)throw Error('Invalid confirmed departures');
   const confirmedDepartures=confirmed.map(row=>{
-    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\\d{5}|\\d{5})$/.test(row.uid)||
-       typeof row.headcode!=='string'||!/^[0-9][A-Z]\\d{2}$/.test(row.headcode)||
-       !/^\\d{4}-\\d\\d-\\d\\d$/.test(row.operatingDate))throw Error('Invalid confirmed departure identity');
+    if(!row||typeof row.uid!=='string'||!/^(?:[A-Z]\d{5}|\d{5})$/.test(row.uid)||
+       typeof row.headcode!=='string'||!/^[0-9][A-Z]\d{2}$/.test(row.headcode)||
+       !/^\d{4}-\d\d-\d\d$/.test(row.operatingDate))throw Error('Invalid confirmed departure identity');
     for(const field of ['bookedDeparture','actualDeparture'])if(typeof row[field]!=='string'||!Number.isFinite(Date.parse(row[field])))throw Error('Invalid confirmed departure time');
     return {uid:row.uid,headcode:row.headcode,operatingDate:row.operatingDate,bookedDeparture:row.bookedDeparture,actualDeparture:row.actualDeparture};
   });
