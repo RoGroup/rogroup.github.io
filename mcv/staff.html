@@ -940,6 +940,12 @@ function setSignalControls(enabled){
 }
 const state = {services:[],selectedKey:'',chosenPlatform:'all',statusFilter:'all',serviceTypeFilter:'all',sortMode:'time',viewMode:'departures',callingPointView:'after',search:'',overdueFirst:false,
   lastGood:0,feedGeneratedAt:0,feedMode:'',lastError:'',feedBusy:false,hasFirst:false,previous:new Map(),changes:[],darwinDepartureConfirmations:new Map(),platformHist:new Map(),recentDeparted:new Map(),previousStopsCache:new Map(),detailsBusy:new Set(),trustHistoryOpen:new Set(),diagnosticsOpen:false,diagnosticsSnapshot:null,diagnosticsInspectedAt:0,diagnosticsAttemptAt:0,diagnosticsRenderedAt:0,diagnosticsBusy:false,diagnosticsError:false};
+// Preserve browser-detected Darwin departures across a page reload in this tab.
+try{
+  const saved=JSON.parse(sessionStorage.getItem('mcv-darwin-departure-confirmations')||'[]');
+  if(Array.isArray(saved))for(const item of saved)if(item&&item.headcode&&item.serviceDate&&Number.isFinite(item.bookedMs))
+    state.darwinDepartureConfirmations.set(item.key||item.headcode+'|'+item.serviceDate+'|'+item.bookedMs,item);
+}catch(e){}
 const $ = id=>document.getElementById(id);
 const THEME_KEY='mcv-staff-theme';
 function applyTheme(theme){
@@ -1584,9 +1590,10 @@ function compareFeeds(next){
       // it for this browser session so a later Darwin response dropping the
       // service cannot leave its separate VSTP booked row behind.
       state.darwinDepartureConfirmations.set(s.key,{
-        headcode:s.headcode,serviceDate:s.serviceDate,bookedMs:s.bookedMs,
+        key:s.key,headcode:s.headcode,serviceDate:s.serviceDate,bookedMs:s.bookedMs,
         actualDepartureMs:Number.isFinite(s.actualDepartureMs)?s.actualDepartureMs:Date.now()
       });
+      try{sessionStorage.setItem('mcv-darwin-departure-confirmations',JSON.stringify([...state.darwinDepartureConfirmations.values()]));}catch(e){}
     }
     if(!before.cancelled&&s.cancelled)changed(`${s.booked} ${s.dest}: cancellation reported`,'cancelled',s.key);
     else if(!before.delayed&&s.delayed)changed(`${s.booked} ${s.dest}: delay reported`,'delay',s.key);
